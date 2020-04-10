@@ -1,5 +1,5 @@
 BVAR_\v4.1\ is available as free software, under the GNU General Public License 
-version 3, and can be downloaded from https://github.com/naffe15/,
+version 3, and can be downloaded from https://github.com/naffe15/BVAR_/,
 
 Files:      matlab
 Copyright:  none
@@ -7,7 +7,7 @@ License:    public-domain-aim
 
 This code is in the public domain and may be used freely. However the authors 
 would appreciate acknowledgement of the source by citation of the paper:
-Filippo Ferroni and Fabio Canova (2020) A Bayesian VAR MATLAB toolbox. 
+Filippo Ferroni and Fabio Canova (2020) A Bayesian VAR toolbox for MATLAB. 
 Inference, Prediction and Causality, MIMEO
 
 
