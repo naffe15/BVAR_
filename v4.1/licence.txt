@@ -13,9 +13,7 @@ Inference, Prediction and Causality, MIMEO
 
 Summary of Functions
 
-IC                          
-OrderingIndexes
-YXB_
+                       
 bvar
 bvar_max_hyper
 bvar_ml
@@ -30,6 +28,7 @@ forecasts
 ferr_var_dec
 generateDraw                Copyright Andrew Binning 2013
 histdecomposition
+IC   
 iresponse
 iresponse_longrun
 iresponse_proxy
@@ -39,19 +38,27 @@ jacob_bvar
 kf_dk                       Copyright Chris Sims
 kfilternan
 lag_crit_var
+lagX 				
 lyapunov_symm               Copyright (C) 2006-2017 Dynare Team
 matrictint                  Copyright Chris Sims
+ols_reg
+OrderingIndexes
+pc_T
 plot_all_irfs_
 plot_frcst_
 plot_irfs_
-plot_shcks_dcmp_
+plot_sdcmp_
 quer
 rand_inverse_wishart        Copyright (C) 2006-2017 Dynare Team
 reorderVAR
+rescaleFAVAR
 rfvar3                      Copyright Chris Sims
 savefigure_pdf
 shade
+sign2matrix
+standard
 var2ss
 varprior                    Copyright Chris Sims
+YXB_
 
 
