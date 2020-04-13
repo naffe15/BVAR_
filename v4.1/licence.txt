@@ -12,7 +12,6 @@ Inference, Prediction and Causality, MIMEO
 
 
 Summary of Functions
-
                        
 bvar
 bvar_max_hyper
@@ -21,12 +20,14 @@ bvar_opt_hyperpara
 cforecasts
 cforecasts2
 colorspace                  Copyright Pascal Getreuer 2005-2010
+directmethods
 distinguishable_colors      Copyright 2010-2011 by Timothy E. Holy
 findP                       Copyright Andrew Binning 2013
 findQs                      Copyright Andrew Binning 2013
 forecasts
 ferr_var_dec
 generateDraw                Copyright Andrew Binning 2013
+histdecomp
 histdecomposition
 IC   
 iresponse
