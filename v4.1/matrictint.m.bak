@@ -41,7 +41,7 @@ w = w1 + w2;
 
 function lgg = ggammaln(m, df)
 if df <= (m-1)
-    error('too few df in ggammaln; increase the number of observations or reduce the number of lags')
+    error('too few df in ggammaln')
 else
     garg = 0.5*(df+(0:-1:1-m));
     lgg = sum(gammaln(garg));

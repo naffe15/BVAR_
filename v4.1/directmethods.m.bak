@@ -295,36 +295,30 @@ for hh = 0 : hor
             % computing the companion matrix
             F       = [prior.Phi.mean(1 : ny * lags, :)'; eye(ny*(lags-1), ny*lags)];
             % constant
-            Fo        = [prior.Phi.mean(end, :)'; zeros(ny * (lags-1), 1)];
+            G        = [prior.Phi.mean(end, :)'; zeros(ny * (lags-1), 1)];
             iIminusF = inv(eye(nylags) - F); % iIminusF = (I-F)\eye(nylags);
-            % Shocks Companion
-            G       = eye(ny * lags, ny);
             
         else % hh > 0
             %********************************************************
             % Conjugate Prior: N-IW
             %********************************************************
             % constructing the prior mean
-            Fhh        = F^hh;
-            Fohh       = (iIminusF * (eye(nylags)-Fhh)) * Fo;
-            Ghh        = G' * (iIminusF * (eye(nylags)-Fhh)) * G;
-            priorBetaMean   = [Fhh(1:ny,:)'; Fohh(1 : ny,1)'];
-            priorBetaVar    = prior.Phi.cov * 1/prior.tau(hh);
-            priorSigmaScale = Ghh * prior.Sigma.scale * Ghh';
-            %priorSigmaScale = prior.Sigma.scale ;
-           
+            Fhh       = F^hh;
+            Ghh       = (iIminusF * (eye(nylags)-Fhh)) * G;
+            priorMean = [Fhh(1:ny,:)'; Ghh(1 : ny,1)'];
+            
             prior.df  = prior.Sigma.df; % usually number of regressors minus the 2
             % prior.XXi = inv(prior.Phi.cov(hh * ny + 1 : hh * ny + 1 : ));
-            prior.XXi = inv( priorBetaVar );% \ one(nylags-1); % nendolags * nendo
-            prior_int = matrictint(priorSigmaScale, prior.df, prior.XXi); % ny * ny
+            prior.XXi = inv( prior.Phi.cov * 1/prior.tau(hh) );% \ one(nylags-1); % nendolags * nendo
+            prior_int = matrictint(prior.Sigma.scale, prior.df, prior.XXi); % ny * ny
             
             posterior.df    = olsreg_(hh).N - ny*lags - nx + prior.Sigma.df;
-            posterior.S     = olsreg_(hh).error * olsreg_(hh).error' + priorSigmaScale + ...
-                (olsreg_(hh).beta([positions_nylags position_constant], :) - priorBetaMean)'*prior.XXi*(olsreg_(hh).beta([positions_nylags position_constant], :) - priorBetaMean);
+            posterior.S     = olsreg_(hh).error * olsreg_(hh).error' + prior.Sigma.scale ;
+            %         posterior.S     = olsreg_.Serror + prior.Sigma.scale ;
             posterior.XXi   = inv(( olsreg_(hh).X(:,[positions_nylags position_constant])' * olsreg_(hh).X(:,[positions_nylags position_constant]) + prior.XXi ));% \ 1; % nk * nk
             posterior.PhiHat = ( posterior.XXi ) * ...
                 ( (olsreg_(hh).X(:,[positions_nylags position_constant])' * olsreg_(hh).X(:,[positions_nylags position_constant])) *olsreg_(hh).beta([positions_nylags position_constant], :) ...
-                + prior.XXi * priorBetaMean);
+                + prior.XXi * priorMean);
             
             posterior_int = matrictint(posterior.S, posterior.df, posterior.XXi);
             lik_nobs      = posterior.df - prior.df;

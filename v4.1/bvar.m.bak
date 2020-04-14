@@ -239,11 +239,6 @@ if nargin > 2
     %======================================================================
     if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Conjugate')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'conjugate')==1) || ...
        (isfield(options,'prior')==1 && strcmp(options.prior.name,'Conjugate')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'conjugate')==1)
-        
-        if isfield(options,'prior')==1
-            options.priors = options.prior;
-        end
-        
         dummy = 2;
         %  warning('The Conjugate prior is still under construction ... ');
         flat  = 0;
@@ -912,12 +907,12 @@ end
             %********************************************************
             % Conjugate Prior
             %********************************************************
-            Ai              = inv(prior.Phi.cov);
             posterior.df    = Tu - ny*lags - nx - flat*(ny+1) + prior.Sigma.df;
-%             posterior.S     = var.u' * var.u + prior.Sigma.scale ;
-            posterior.S     = var.u' * var.u + prior.Sigma.scale  + (var.B - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
+            posterior.S     = var.u' * var.u + prior.Sigma.scale ;
+            Ai              = inv(prior.Phi.cov);
             posterior.XXi   = inv(var.X'*var.X + Ai);
             posterior.PhiHat = posterior.XXi * (var.X' * var.y + Ai * prior.Phi.mean);
+            
             
         else
             %********************************************************
