@@ -22,7 +22,7 @@ rng(999);
 hor          = 24;
 conf_sig     = 0.9;
 controls_    = 0;
-robust_se_   = 0;
+robust_se_   = 1; % by default robust SE
 [T,ny]       = size(y);
 proxy_       = 0;
 noconstant   = 0;
@@ -71,7 +71,8 @@ if nargin>2
     %======================================================================
     if isfield(options,'robust_se_') == 1
         robust_se_ = options.robust_se_;
-        % robust_se_ = 2    NW Robust SE:  Hamilton (1994), Ch 10 pag 282, eq (10.5.20)
+        % robust_se_ = 0    unadjusted SE
+        % robust_se_ = 1    NW Robust SE:  Hamilton (1994), Ch 10 pag 282, eq (10.5.20)
         % robust_se_ = 5    Matlab HAC function: need Matlab Econ Toolbox
     end
     %======================================================================
@@ -376,6 +377,7 @@ end
 close(wb);
 
 % store
+% dm.olsreg_     = olsreg_;
 dm.forecasts   = forecasts;
 dm.ir_lp       = ir_lp;
 dm.irproxy_lp  = irproxy_lp;

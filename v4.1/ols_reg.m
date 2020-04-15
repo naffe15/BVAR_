@@ -32,7 +32,7 @@ err     = Y - X*Bols;
 se      = nan(K,ny);
 Sols    = zeros(K*ny);
 
-if robust_se_==1 % NW Robust SE
+if robust_se_==2 % NW Robust SE
     %-----------------------------------------------------------------------%
     Serror     = (err'*err);
     nwWeights  = (L+1-(1:L))./(L+1);
@@ -44,7 +44,7 @@ if robust_se_==1 % NW Robust SE
     Sols   = kron(diag(diag(Serror)),iXX);
     se     = reshape(sqrt(diag(Sols)), K, ny);
         
-elseif robust_se_ == 2 % Hamilton (1994), Ch 10 pag 282, eq (10.5.20)
+elseif robust_se_ == 1 % Hamilton (1994), Ch 10 pag 282, eq (10.5.20)
     %-----------------------------------------------------------------------%
     for vv = 1: ny % equation by equation
         u= err(:,vv); 
