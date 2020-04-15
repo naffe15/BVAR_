@@ -311,20 +311,26 @@ for hh = 0 : hor
             priorBetaMean   = [Fhh(1:ny,:)'; Fohh(1 : ny,1)'];
             priorBetaVar    = prior.Phi.cov * 1/prior.tau(hh);
             priorSigmaScale = Ghh * prior.Sigma.scale * Ghh';
-            %priorSigmaScale = prior.Sigma.scale ;
            
             prior.df  = prior.Sigma.df; % usually number of regressors minus the 2
             % prior.XXi = inv(prior.Phi.cov(hh * ny + 1 : hh * ny + 1 : ));
             prior.XXi = inv( priorBetaVar );% \ one(nylags-1); % nendolags * nendo
             prior_int = matrictint(priorSigmaScale, prior.df, prior.XXi); % ny * ny
+   
+            % retrieve the OLS
+            B_   = olsreg_(hh).beta([positions_nylags position_constant], :);
+            XX_  = olsreg_(hh).X(:,[positions_nylags position_constant])' * olsreg_(hh).X(:,[positions_nylags position_constant]);
+            E_   = olsreg_(hh).error';
+            XXp_ = XX_ + prior.XXi;
             
-            posterior.df    = olsreg_(hh).N - ny*lags - nx + prior.Sigma.df;
-            posterior.S     = olsreg_(hh).error * olsreg_(hh).error' + priorSigmaScale + ...
-                (olsreg_(hh).beta([positions_nylags position_constant], :) - priorBetaMean)'*prior.XXi*(olsreg_(hh).beta([positions_nylags position_constant], :) - priorBetaMean);
-            posterior.XXi   = inv(( olsreg_(hh).X(:,[positions_nylags position_constant])' * olsreg_(hh).X(:,[positions_nylags position_constant]) + prior.XXi ));% \ 1; % nk * nk
-            posterior.PhiHat = ( posterior.XXi ) * ...
-                ( (olsreg_(hh).X(:,[positions_nylags position_constant])' * olsreg_(hh).X(:,[positions_nylags position_constant])) *olsreg_(hh).beta([positions_nylags position_constant], :) ...
-                + prior.XXi * priorBetaMean);
+            % construct the posterior
+            posterior.df     = olsreg_(hh).N - ny*lags - nx + prior.Sigma.df;
+            posterior.XXi    = inv( XXp_ );
+            posterior.PhiHat = posterior.XXi * (XX_ * B_ + prior.XXi * priorBetaMean); 
+            posterior.S     =  ...
+                E_'* E_ + priorSigmaScale + priorBetaMean' * prior.XXi * priorBetaMean + ...
+                B_' * XX_ * B_ - posterior.PhiHat' * XXp_ * posterior.PhiHat;        
+            
             
             posterior_int = matrictint(posterior.S, posterior.df, posterior.XXi);
             lik_nobs      = posterior.df - prior.df;

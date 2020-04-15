@@ -914,10 +914,17 @@ end
             %********************************************************
             Ai              = inv(prior.Phi.cov);
             posterior.df    = Tu - ny*lags - nx - flat*(ny+1) + prior.Sigma.df;
-%             posterior.S     = var.u' * var.u + prior.Sigma.scale ;
-            posterior.S     = var.u' * var.u + prior.Sigma.scale  + (var.B - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
             posterior.XXi   = inv(var.X'*var.X + Ai);
             posterior.PhiHat = posterior.XXi * (var.X' * var.y + Ai * prior.Phi.mean);
+            %posterior.S     = var.u' * var.u + prior.Sigma.scale ;
+            %posterior.S     = var.u' * var.u + prior.Sigma.scale  + (var.B - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
+            %posterior.S     = var.u' * var.u + prior.Sigma.scale  + ...
+            %    (posterior.PhiHat - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
+            % check 
+            posterior.S = var.u' * var.u + prior.Sigma.scale + ...
+                prior.Phi.mean' * Ai * prior.Phi.mean + ...
+                var.B' * (var.X'*var.X) * var.B ...
+                - posterior.PhiHat' * (var.X'*var.X + Ai) * posterior.PhiHat;
             
         else
             %********************************************************
