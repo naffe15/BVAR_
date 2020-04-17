@@ -155,17 +155,17 @@ if nargin>2
             prior.Sigma.scale = eye(ny);
             prior.Sigma.df    = ny + 1;
         end
-        if isfield(options.priors,'tau') == 1
+        if isfield(options.priors,'tau') == 1 && isnumeric(options.priors.tau) == 1
             prior.tau = options.priors.tau;
             if length(options.priors.tau) ~= hor
                 error('tau must be a vector of size hor')
             end
-        elseif isfield(options.priors,'tau') == 'max'
+        elseif isfield(options.priors,'tau') == 1 && strmatch(options.priors.tau,'max')==1 
             max_prior_tau_ = 1;
             prior.tau = ones(hor,1);
         else
             warning(['You did not provide overall shrinkage. Assume to be one at each horizon'])
-            prior.tau = ones(hor,1);
+            prior.tau = 2*ones(hor,1);
         end
     end
     
