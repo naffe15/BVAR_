@@ -647,11 +647,7 @@ for  d =  1 : K
     Phi3 = reshape(Phi2, nk, ny);
     Phi  = Phi3 + posterior.PhiHat;
         
-    % Checking the eigenvalues of the companion matrix (on or inside the
-    % unit circle)
-    Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
-    test = (abs(eig(Companion_matrix)));
-
+    
     % store the draws
     Phi_draws(:,:,d)   = Phi;
     Sigma_draws(:,:,d) = Sigma;
@@ -730,6 +726,10 @@ for  d =  1 : K
     %======================================================================
     % Mixed Frequency
     if mixed_freq_on
+        % Checking the eigenvalues of the companion matrix (on or inside the
+        % unit circle). Needed for the initial of KF
+        Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
+        test = (abs(eig(Companion_matrix)));
         if any(test>1.0000000000001)
             KFoptions.initialCond = 1;
         end

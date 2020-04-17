@@ -30,6 +30,7 @@ ns           = 0;
 Q            = eye(ny);
 dummy        = 0;
 K            = 5000;
+max_prior_tau_ = 0;
 
 % options
 if nargin>2
@@ -44,6 +45,9 @@ if nargin>2
     end
     if isfield(options,'Q') == 1 % orthonormal matrix
         Q = options.Q;
+    end
+    if isfield(options,'K') == 1 % # of draws for the BLP
+        K = options.K;
     end
     %======================================================================
     % options: adding controls
@@ -156,6 +160,9 @@ if nargin>2
             if length(options.priors.tau) ~= hor
                 error('tau must be a vector of size hor')
             end
+        elseif isfield(options.priors,'tau') == 'max'
+            max_prior_tau_ = 1;
+            prior.tau = ones(hor,1);
         else
             warning(['You did not provide overall shrinkage. Assume to be one at each horizon'])
             prior.tau = ones(hor,1);
@@ -231,20 +238,20 @@ ir_lp       = nan(ny,hor+1,ny,3);  % variable, horizon, shock and mean upper low
 irproxy_lp  = nan(ny,hor+1,1,3);
 forecasts   = nan(hor,ny,3);
 if dummy == 2
-    ir_blp        = nan(ny,hor+1,ny,K);
-    irproxy_blp   = nan(ny,hor+1,1,K);
+    ir_blp                  = nan(ny,hor+1,ny,K);
+    irproxy_blp             = nan(ny,hor+1,1,K);
     bforecasts_no_shocks    = nan(hor,ny,K);
-    bforecasts_with_shocks    = nan(hor,ny,K); 
+    bforecasts_with_shocks  = nan(hor,ny,K); 
+    log_dnsty               = nan(hor,1);
 end
 
 wb = waitbar(0, 'Direct Methods');
-
 for hh = 0 : hor
     ytmp = lagX(y, -hh);
     if robust_se_ ~= 0 % Robust SE
         %  options.robust_se_ = robust_se_;
-        options.L          = lags + hh + 1;
-        olsreg_(hh+1)        = ols_reg(ytmp, X_, options);
+        options.L     = lags + hh + 1;
+        olsreg_(hh+1) = ols_reg(ytmp, X_, options);
     else
         olsreg_(hh+1) = ols_reg(ytmp, X_);
     end
@@ -297,7 +304,6 @@ for hh = 0 : hor
             F       = [prior.Phi.mean(1 : ny * lags, :)'; eye(ny*(lags-1), ny*lags)];
             % constant
             Fo        = [prior.Phi.mean(end, :)'; zeros(ny * (lags-1), 1)];
-            iIminusF = inv(eye(nylags) - F); % iIminusF = (I-F)\eye(nylags);
             % Shocks Companion
             G       = eye(ny * lags, ny);
             
@@ -306,37 +312,13 @@ for hh = 0 : hor
             % Conjugate Prior: N-IW
             %********************************************************
             % constructing the prior mean
-            Fhh        = F^hh;
-            Fohh       = (iIminusF * (eye(nylags)-Fhh)) * Fo;
-            Ghh        = G' * (iIminusF * (eye(nylags)-Fhh)) * G;
-            priorBetaMean   = [Fhh(1:ny,:)'; Fohh(1 : ny,1)'];
-            priorBetaVar    = prior.Phi.cov * 1/prior.tau(hh);
-            priorSigmaScale = Ghh * prior.Sigma.scale * Ghh';
-           
-            prior.df  = prior.Sigma.df; % usually number of regressors minus the 2
-            % prior.XXi = inv(prior.Phi.cov(hh * ny + 1 : hh * ny + 1 : ));
-            prior.XXi = inv( priorBetaVar );% \ one(nylags-1); % nendolags * nendo
-            prior_int = matrictint(priorSigmaScale, prior.df, prior.XXi); % ny * ny
-   
-            % retrieve the OLS
-            B_   = olsreg_(hh).beta([positions_nylags position_constant], :);
-            XX_  = olsreg_(hh).X(:,[positions_nylags position_constant])' * olsreg_(hh).X(:,[positions_nylags position_constant]);
-            E_   = olsreg_(hh).error';
-            XXp_ = XX_ + prior.XXi;
-            
-            % construct the posterior
-            posterior.df     = olsreg_(hh).N - ny*lags - nx + prior.Sigma.df;
-            posterior.XXi    = inv( XXp_ );
-            posterior.PhiHat = posterior.XXi * (XX_ * B_ + prior.XXi * priorBetaMean); 
-            posterior.S     =  ...
-                E_'* E_ + priorSigmaScale + priorBetaMean' * prior.XXi * priorBetaMean + ...
-                B_' * XX_ * B_ - posterior.PhiHat' * XXp_ * posterior.PhiHat;        
-            
-            
-            posterior_int = matrictint(posterior.S, posterior.df, posterior.XXi);
-            lik_nobs      = posterior.df - prior.df;
-            log_dnsty     = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
-            
+            if max_prior_tau_ == 1
+                keyboard;
+            else
+                [posterior,prior] = p2p(hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+                hyperpara         = prior.tau(hh);
+                log_dnsty(hh)     = blp_ml(hyperpara,hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+            end
             S_inv_upper_chol    = chol(inv(posterior.S));
             XXi_lower_chol      = chol(posterior.XXi)';
             
@@ -386,6 +368,7 @@ if dummy == 2
     dm.irproxy_blp   = irproxy_blp;
     dm.bforecasts.no_shocks   = bforecasts_no_shocks;         % trajectories of forecasts without shocks
     dm.bforecasts.with_shocks = bforecasts_with_shocks;       % trajectories of forecasts with shocks
+    dm.log_dnsty     = log_dnsty;
 else
     dm.irproxy_blp   = [];
     dm.ir_blp        = [];

@@ -6,7 +6,7 @@ function in = iresponse_proxy(in)
 % Codes are written based on the Mertens Ravn (2013, AER) source codes,
 % modified to  
 %1) handle different length of VAR and factors
-%2) Multiple instruments to explain the same variable
+%2) Multiple instruments to explain the same shock
 
 % Filippo Ferroni, 6/1/2015
 % Revised, 2/15/2017
@@ -64,4 +64,5 @@ for jj=2:in.irhor%+max(max(VAR.term_spreads_matur),max(VAR.real_rates_init+VAR.r
 end
 
 in.irs   = irs(in.p+1:in.p+in.irhor,:);
+in.uhat1 = uhat1;
 
