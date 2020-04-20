@@ -33,6 +33,11 @@ FF    = prior.Sigma.scale + (posterior1.PhiHat - prior1.BetaMean)'* prior1.XXi *
 logpy = logpy - (ny*(olsreg_.N-lags + prior1.df)/2) * log(det( FF ));
 logpy = logpy + ggammaln(ny,(olsreg_.N-lags + prior1.df)/2) + ggammaln(ny,prior1.df/2);
 
+% prior_int     = matrictint(prior1.S, prior1.df, prior1.XXi);
+% posterior_int = matrictint(posterior1.S, posterior1.df, posterior1.XXi);
+% lik_nobs      = posterior1.df - prior1.df;
+% log_dnsty     = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
+
 function lgg = ggammaln(m, df)
 if df <= (m-1)
     error('too few df in ggammaln; increase the number of observations or reduce the number of lags')
