@@ -1,4 +1,4 @@
-function [posterior,prior] = p2p(hh, shrinkage,prior0,olsreg,F,G,Fo,positions_nylags,position_constant)
+function [posterior,prior] = p2p(hh,prior,olsreg,F,G,Fo,positions_nylags,position_constant)
 
 % 
 %********************************************************
