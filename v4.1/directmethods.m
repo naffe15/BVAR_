@@ -31,6 +31,9 @@ Q            = eye(ny);
 dummy        = 0;
 K            = 5000;
 max_prior_tau_ = 0;
+lb             = -1e10;
+ub             = 1e10;
+
 
 % options
 if nargin>2
@@ -160,15 +163,25 @@ if nargin>2
             if length(options.priors.tau) ~= hor
                 error('tau must be a vector of size hor')
             end
-        elseif isfield(options.priors,'tau') == 1 && strmatch(options.priors.tau,'max')==1 
+        elseif isfield(options.priors,'max_tau') == 1 && options.priors.max_tau ==1
             max_prior_tau_ = 1;
+            max_compute    = 3;
             prior.tau = ones(hor,1);
         else
             warning(['You did not provide overall shrinkage. Assume to be one at each horizon'])
             prior.tau = 2*ones(hor,1);
         end
     end
-    
+    % options for the maximization 
+    if isfield(options,'max_compute') == 1    
+        max_compute    = options.max_compute;
+    end
+    if isfield(options,'ub') == 1    
+        ub    = options.ub;
+    end
+    if isfield(options,'lb') == 1    
+        lb    = options.lb;
+    end
 end
 
 % Confidence Interval
@@ -241,7 +254,7 @@ if dummy == 2
     ir_blp                  = nan(ny,hor+1,ny,K);
     irproxy_blp             = nan(ny,hor+1,1,K);
     bforecasts_no_shocks    = nan(hor,ny,K);
-    bforecasts_with_shocks  = nan(hor,ny,K); 
+    bforecasts_with_shocks  = nan(hor,ny,K);
     log_dnsty               = nan(hor,1);
 end
 
@@ -294,11 +307,11 @@ for hh = 0 : hor
             % proxy IRF on impact
             if proxy_
                 irproxy_blp(:, hh+1, :, :) = repmat(Omegaproxy(:,1),1,1,K);
-            end            
+            end
             % one-step ahead forecast
             bforecasts_no_shocks(hh+1, :, :)   = repmat(forecasts(hh+1, :, 2),1,1,K);
             fnoise = Omega * randn(ny,K);
-            bforecasts_with_shocks(hh+1, :, :) = bforecasts_no_shocks(hh+1, :, :) + reshape(fnoise,1,ny,K); 
+            bforecasts_with_shocks(hh+1, :, :) = bforecasts_no_shocks(hh+1, :, :) + reshape(fnoise,1,ny,K);
             
             % computing the companion matrix
             F       = [prior.Phi.mean(1 : ny * lags, :)'; eye(ny*(lags-1), ny*lags)];
@@ -313,14 +326,46 @@ for hh = 0 : hor
             %********************************************************
             % constructing the prior mean
             if max_prior_tau_ == 1
-                keyboard;
-            else
-                [posterior,prior] = p2p(hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
-                hyperpara         = prior.tau(hh);
-                log_dnsty(hh)     = blp_ml(hyperpara,hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+                try
+                    disp(['***********************************************'])
+                    disp(['***********************************************'])
+                    disp(['Optimization at horizon ' num2str(hh)])
+                    x0   = prior.tau(hh);
+                    switch max_compute
+                        case 1
+                            optim_options = optimset('display','iter','MaxFunEvals',100000,'TolFun',1e-8,'TolX',1e-6);
+                            [xh,fh,~,~,~,~] = ...
+                                fminunc('blp_opt_hyperpara',x0,optim_options,...
+                                hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+                            %=====================================================================
+                        case 2 % constraint
+                            % Set default optimization options for fmincon.
+                            optim_options = optimset('display','iter', 'LargeScale','off', 'MaxFunEvals',100000, 'TolFun',1e-8, 'TolX',1e-6);
+                            [xh,~,~,~,~,~,~] = ...
+                                fmincon('blp_opt_hyperpara',x0,[],[],[],[],lb,ub,[],optim_options,y,lags,options);
+                            %=====================================================================
+                        case 3 % Sims
+                            crit = 10e-5;
+                            nit  = 10e-4;
+                            [fh, xh, ~, ~, ~, ~, ~] = ...
+                                csminwel('blp_opt_hyperpara',x0,.1*eye(length(x0)),[],crit,nit,hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+                            %=====================================================================
+                        case 7 % Matlab's simplex (Optimization toolbox needed).
+                            optim_options = optimset('display','iter','MaxFunEvals',30000,'MaxIter',10000,'TolFun',1e-3,'TolX',1e-3);
+                            [xh,~,~,~] = fminsearch('blp_opt_hyperpara',x0,optim_options,y,lags,options);                                 
+                    end
+                catch
+                    warning('Maximization NOT Successful')
+                    disp('Using hyper parameter default values')
+                    xh = x0;
+                end
+                prior.tau(hh) = exp(xh);
+                disp(['***********************************************'])
             end
-            S_inv_upper_chol    = chol(inv(posterior.S));
-            XXi_lower_chol      = chol(posterior.XXi)';
+            [posterior_, ~]   = p2p(hh,prior.tau(hh),prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+            log_dnsty(hh)     = blp_ml(prior.tau(hh),hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+            S_inv_upper_chol  = chol(inv(posterior_.S));
+            XXi_lower_chol    = chol(posterior_.XXi)';
             
             nk = nylags + nx;
             %  Gibbs Sampler
@@ -329,14 +374,14 @@ for hh = 0 : hor
                 %======================================================================
                 % Inferece: Drawing from the posterior distribution
                 % Step 1: draw from the Covariance
-                Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
+                Sigma = rand_inverse_wishart(ny, posterior_.df, S_inv_upper_chol);
                 
                 % Step 2: given the Covariance Matrix, draw from the AR parameters
                 Sigma_lower_chol = chol(Sigma)';
                 Phi1 = randn(nk * ny, 1);
                 Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
                 Phi3 = reshape(Phi2, nk, ny);
-                Phi  = Phi3 + posterior.PhiHat;
+                Phi  = Phi3 + posterior_.PhiHat;
                 
                 % computing IFR
                 blp  =  iresponse(Phi, eye(ny) , 2, Omega);
@@ -344,11 +389,11 @@ for hh = 0 : hor
                 if proxy_
                     blpproxy  =  iresponse(Phi, eye(ny) , 2, Omegaproxy);
                     irproxy_blp(:, hh+1, :, d) = blpproxy(:,2,1);
-                end                
+                end
                 % computing Forecasts
                 bforecasts_no_shocks(hh+1, :, d) = (fdata_initval(1, [positions_nylags position_constant]) * Phi);
                 bforecasts_with_shocks(hh+1, :, d) = (fdata_initval(1, [positions_nylags position_constant]) * Phi) + (Sigma_lower_chol * randn(ny,1))';
-               
+                
             end
         end
     end
@@ -369,6 +414,7 @@ if dummy == 2
     dm.bforecasts.no_shocks   = bforecasts_no_shocks;         % trajectories of forecasts without shocks
     dm.bforecasts.with_shocks = bforecasts_with_shocks;       % trajectories of forecasts with shocks
     dm.log_dnsty     = log_dnsty;
+    dm.prior         = prior;
 else
     dm.irproxy_blp   = [];
     dm.ir_blp        = [];

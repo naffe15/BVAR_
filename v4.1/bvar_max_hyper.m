@@ -66,18 +66,12 @@ switch max_compute
     case 1 % unconstraint
         % Set default optimization options for fminunc.
         optim_options = optimset('display','iter','MaxFunEvals',100000,'TolFun',1e-8,'TolX',1e-6);
-        if isfield(options,'optim_opt')
-            eval(['optim_options = optimset(optim_options,' options_.optim_opt ');']);
-        end
         [xh,fh,exitflag,output,grad,H] = ...
             fminunc(objective_function,x0,optim_options,y,lags,options);
      %=====================================================================     
      case 2 % constraint 
         % Set default optimization options for fmincon.
         optim_options = optimset('display','iter', 'LargeScale','off', 'MaxFunEvals',100000, 'TolFun',1e-8, 'TolX',1e-6);
-        if isfield(options,'optim_opt') && options_yes
-            eval(['optim_options = optimset(optim_options,' options.optim_opt ');']);
-        end
         [xh,fh,exitflag,output,lamdba,grad,H] = ...  
             fmincon(objective_function,x0,[],[],[],[],lb,ub,[],optim_options,y,lags,options);               
      %=====================================================================
@@ -85,13 +79,10 @@ switch max_compute
         crit = 10e-5;
         nit  = 10e-4;
         [fh, xh, gh, H, itct, fcount, retcodeh] = csminwel(objective_function,x0,.1*eye(length(x0)),[],crit,nit,y,lags,options);
-        
+     %=====================================================================   
     case 7 % Matlab's simplex (Optimization toolbox needed).
 %         optim_options = optimset('display','iter','MaxFunEvals',30000,'MaxIter',10000,'TolFun',1e-3,'TolX',1e-3,'OutputFcn',@outsavefun);
         optim_options = optimset('display','iter','MaxFunEvals',30000,'MaxIter',10000,'TolFun',1e-3,'TolX',1e-3);
-        if isfield(options,'optim_opt') && options_yes
-            eval(['optim_options = optimset(optim_options,' options_.optim_opt ');']);
-        end       
         [xh,fh,exitflag,others] = fminsearch(objective_function,x0,optim_options,y,lags,options);       
         H = zeros(length(x0));
 end
