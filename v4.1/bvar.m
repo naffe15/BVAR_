@@ -587,6 +587,7 @@ e_draws       = zeros(size(yy,1), ny,K);                  % residuals
 yhatfut_no_shocks         = NaN(fhor, ny, K);   % forecasts with shocks
 yhatfut_with_shocks       = NaN(fhor, ny, K);   % forecast without the shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K);   % forecast conditional on endogenous path
+logL                      = NaN(K,1);
 
 if signs_irf == 1
     irsign_draws = ir_draws;
@@ -745,6 +746,7 @@ for  d =  1 : K
         XXi_lower_chol   = chol(posterior1.XXi)';
         posterior.PhiHat = posterior1.PhiHat;
         forecast_data.initval = yfill(end-lags+1:end, :, d);
+        logL(d) = KFout.logL;
     end
     if waitbar_yes, waitbar(d/K, wb); end
 end
@@ -764,8 +766,8 @@ BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
 % OLS irf
 BVAR.ir_ols      = iresponse(BVAR.Phi_ols,BVAR.Sigma_ols,hor,eye(ny));
 if long_run_irf == 1
-    [irlr,Qlr]       = iresponse_longrun(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags);
-    BVAR.irlr_ols    = irlr;
+    [irlr,Qlr]              = iresponse_longrun(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags);
+    BVAR.irlr_ols           = irlr;
     BVAR.Qlr_ols(:,:)       = Qlr;
 end
 
@@ -850,6 +852,7 @@ if mixed_freq_on
     BVAR.yfill = yfill;
     BVAR.yfilt = yfilt;
     BVAR.yinterpol = yinterpol;
+    BVAR.logL  = logL;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
