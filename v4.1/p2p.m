@@ -14,7 +14,7 @@ end
 
 ny       = size(G,2);
 nylags   = size(F,1);
-iIminusF = inv(eye(nylags) - F); % iIminusF = (I-F)\eye(nylags);
+iIminusF = inv(eye(nylags) - F); 
 
 % constructing the prior mean
 Fhh        = F^hh;
@@ -56,7 +56,8 @@ posterior.PhiHat = posterior.XXi * (XX_ * B_ + prior.XXi * prior.BetaMean);
 posterior.S     =  ...
     E_'* E_ + priorSigmaScale + prior.BetaMean' * prior.XXi * prior.BetaMean + ...
     B_' * XX_ * B_ - posterior.PhiHat' * XXp_ * posterior.PhiHat;
-
+% FF    = prior.Sigma.scale + (posterior1.PhiHat - prior1.BetaMean)'* prior1.XXi * (posterior1.PhiHat - prior1.BetaMean) ...
+%     + posterior1.E_'* posterior1.E_; 
 
 posterior.B_   = B_ ;
 posterior.XX_  = XX_;%olsreg.X(:,[positions_nylags position_constant])' * olsreg.X(:,[positions_nylags position_constant]);

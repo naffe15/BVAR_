@@ -330,7 +330,7 @@ for hh = 0 : hor
                     disp(['***********************************************'])
                     disp(['***********************************************'])
                     disp(['Optimization at horizon ' num2str(hh)])
-                    x0   = prior.tau(hh);
+                    x0   = log(prior.tau(hh));
                     switch max_compute
                         case 1
                             optim_options = optimset('display','iter','MaxFunEvals',100000,'TolFun',1e-8,'TolX',1e-6);

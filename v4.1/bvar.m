@@ -55,7 +55,6 @@ hor                 = 24;           % horizon for the IRF
 fhor                = 12;           % horizon for the forecasts
 firstobs            = lags+1;       % first observation
 presample           = 0;            % using a presample for setting the hyper-parameter of the Minnesosta prior
-trainsample         = 0;            % size of Minnesota Dummy training sample
 noconstant          = 0;            % when 0, includes a constatn in the VAR
 timetrend           = 0;            % when 1, includes a time trend in the VAR
 minn_prior_tau      = 3;            % Minnesota prior Hyper-Param: Overall Tightness
@@ -130,9 +129,6 @@ if nargin > 2
     end
     if isfield(options,'presample')==1
         presample = options.presample;
-    end
-    if isfield(options,'trainsample')==1
-        trainsample = options.trainsample;
     end
     if isfield(options,'noconstant')==1
         noconstant = options.nocostant;
@@ -469,8 +465,8 @@ if firstobs + presample + lags >= nobs
     error('presample too large')
 end
 
-if firstobs + presample - trainsample <= lags
-    error('firstobs+presample-trainsample should be > # lags (for initializating the VAR)')
+if firstobs + presample  <= lags
+    error('firstobs+presample should be > # lags (for initializating the VAR)')
 end
 
 
@@ -478,7 +474,7 @@ end
 %* Priors and Posterior Distributions
 %********************************************************
 
-idx = firstobs+presample-trainsample-lags:firstobs+nobs-1;
+idx = firstobs+presample-lags:firstobs+nobs-1;
 nx  = 1;
 if noconstant
     nx = 0;
@@ -498,7 +494,7 @@ T       = size(ydata, 1);
 xdata   = ones(T,nx);
 if timetrend == 1
     % xdata = [xdata [1:T]'];
-    xdata = [xdata [1-lags:T-lags]'];
+    xdata = [xdata [1-lags : T-lags]'];
 end
 % OLS estimate [NO DUMMY]:
 varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0);                                     
@@ -517,7 +513,6 @@ if dummy == 1
     mu                    = minn_prior_mu;
     [ydum, xdum, pbreaks] = varprior(ny, nx, lags, mnprior, vprior);
     % Prior density
-    % Tp = trainsample + lags;  
     Tp = presample + lags;
     if nx
         xdata = xdata(1:Tp, :);
@@ -525,12 +520,12 @@ if dummy == 1
         xdata = [];
     end
 %     varp            = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-    varp            = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-    Tup             = size(varp.u, 1);
-    prior.df        = Tup - ny*lags - nx - flat*(ny+1);
-    prior.S         = varp.u' * varp.u;
-    prior.XXi       = varp.xxi;
-    prior.PhiHat    = varp.B;
+    varp           = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
+    Tup            = size(varp.u, 1);
+    prior.df       = Tup - ny*lags - nx - flat*(ny+1);
+    prior.S        = varp.u' * varp.u;
+    prior.XXi      = varp.xxi;
+    prior.PhiHat   = varp.B;
     prior.YYdum    = varp.y;
     prior.XXdum    = varp.X;
     if prior.df < ny
@@ -697,7 +692,7 @@ for  d =  1 : K
         in.Phi                  = Phi_draws(:,:,d)  ;
         in.Sigma                = Sigma;
         tmp_                    = iresponse_proxy(in);
-        irproxy_draws(:,:,1,d) = tmp_.irs';
+        irproxy_draws(:,:,1,d)  = tmp_.irs';
         clear tmp_
     end
     
@@ -758,7 +753,7 @@ if waitbar_yes, close(wb); end
 %*******************************************************
 
 % classical inference: OLS estimator
-BVAR.Phi_ols  = varols.B;
+BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
 BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
 [BVAR.InfoCrit.AIC, BVAR.InfoCrit.SIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(log_dnsty, nobs, nk);
@@ -887,7 +882,6 @@ end
             % Minnesota Prior
             %********************************************************
             % Prior density
-            % Tp = trainsample + lags;
             Tp = presample + lags;
             if nx
                 xdata = xdata(1:Tp, :);

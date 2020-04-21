@@ -28,7 +28,6 @@ function log_dnsty = bvar_ml(hyperpara,y,lags,options)
 ny                  = size(y, 2);
 first_obs           = lags+1; 
 presample           = 0;
-train               = 0;
 noconstant          = 0;
 
 bvar_prior_tau      = hyperpara(1);%3;
@@ -56,17 +55,11 @@ if nargin > 3
 %            noconstant = options.nocostant;  
 %        end    
 %     end
-    if isfield(options,'bvar_prior_train')==1
-        bvar_prior_train = options.bvar_prior_train;
-    end
     if isfield(options,'first_obs')==1
         first_obs = options.first_obs;
     end
     if isfield(options,'presample')==1
         presample = options.presample;
-    end
-    if isfield(options,'train')==1
-        train = options.train;
     end
     if isfield(options,'noconstant')==1
         noconstant = options.nocostant;
@@ -91,11 +84,11 @@ if first_obs + presample <= lags
     error('first_obs+presample should be > lags (for initializing the VAR)')
 end
 
-if first_obs + presample - train <= lags
-    error('first_obs+presample-train should be > nlags (for initializating the VAR)')
+if first_obs + presample  <= lags
+    error('first_obs+presample should be > nlags (for initializating the VAR)')
 end
 
-idx = first_obs+presample-train-lags:first_obs+nobs-1;
+idx = first_obs+presample-lags:first_obs+nobs-1;
 
 
 if noconstant
@@ -123,7 +116,7 @@ var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
 Tu = size(var.u, 1);
 
 % Prior density
-Tp = train + lags;
+Tp = presample + lags;
 if nx
     xdata = xdata(1:Tp, :);
 else

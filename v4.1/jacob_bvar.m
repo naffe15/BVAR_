@@ -1,11 +1,11 @@
-function J=jacob_bvar(param,options);
+function J=jacob_bvar(param)
 
 % Filippo Ferroni, 6/1/2015
 % Revised, 2/15/2017
 % Revised, 3/21/2018
 
-J=zeros(length(options.index_est),1);
-for jj = 1 : length(options.index_est)
+J=zeros(length(param),1);
+for jj = 1 : length(param)
     J(jj)= bound0prime(param(jj));
 end
 J=diag(J);

@@ -11,7 +11,7 @@ function [postmode,log_dnsty,HH] = bvar_max_hyper(hyperpara,y,lags,options)
 % - lags, lag order of the VAR
 % - options, see below for details
 
-% Output: mode, Hessina and marginal likelihood at the mode
+% Output: mode, Hessian and marginal likelihood at the mode
 
 % Filippo Ferroni, 6/1/2017
 % Revised, 3/21/2018
@@ -22,7 +22,7 @@ options_yes = 0;
 lb          = -1e10*ones(length(hyperpara),1);
 ub          = 1e10*ones(length(hyperpara),1);
 objective_function = 'bvar_opt_hyperpara';
-
+dummy_      = 1;
 x0          = log(hyperpara);
 index_fixed = [];
 index_est   = 1:5;
@@ -54,9 +54,11 @@ if nargin > 3
     end
     if isfield(options,'objective_function') ==1
         objective_function = options.objective_function;
+        dummy_ =0;
     end
 end
-
+    
+    
 options.index_est       = index_est;
 options.index_fixed     = index_fixed;
 options.hyperpara_fidex =  hyperpara_fidex;
@@ -89,59 +91,43 @@ end
 
 
 
-postmode    = zeros(1,5);
-postmode(options.index_est)   = exp(xh);
-postmode(options.index_fixed) = exp(options.hyperpara_fidex);
 
+if dummy_
+    postmode    = zeros(1,5);
+    postmode(options.index_est)   = exp(xh);
+    postmode(options.index_fixed) = exp(options.hyperpara_fidex);
+   
+    % processing the output of the maximization
+    log_dnsty   = -fh;
+    JJ          = jacob_bvar(xh);
+    HH          =  JJ * H * JJ';
 
-
-% processing the output of the maximization
-log_dnsty   = -fh;
-JJ          = jacob_bvar(xh,options);
-HH          =  JJ * H * JJ';
-
-
-disp('=================================================================');
-disp('  ');
-disp('** Initial Hyperpara Values and Log Density **');
-disp('  ');
-rownam = {'tau','decay','lambda','mu','omega','log density'};
-minus_log_dnsty_0     = bvar_opt_hyperpara(x0,y,lags,options);
-x               = [hyperpara'; -minus_log_dnsty_0];
-for jj =1: length(x)
-    X = sprintf('%s = %0.5g',rownam{jj},x(jj));
-    disp(X)
+    disp('=================================================================');
+    disp('  ');
+    disp('** Initial Hyperpara Values and Log Density **');
+    disp('  ');
+    rownam = {'tau','decay','lambda','mu','omega','log density'};
+    minus_log_dnsty_0     = bvar_opt_hyperpara(x0,y,lags,options);
+    x               = [hyperpara'; -minus_log_dnsty_0];
+    for jj =1: length(x)
+        X = sprintf('%s = %0.5g',rownam{jj},x(jj));
+        disp(X)
+    end
+    disp('  ');
+    disp('** Posterior Mode: (Minimization of -Log Density)  **');
+    disp('  ');
+    x      = [postmode'; log_dnsty];
+    for jj =1: length(x)
+        X = sprintf('%s = %0.5g',rownam{jj},x(jj));
+        disp(X)
+    end
+else
+    postmode    = exp(xh);
+    % processing the output of the maximization
+    log_dnsty   = -fh;
+    JJ          = jacob_bvar(xh);
+    HH          =  JJ * H * JJ';
 end
-disp('  ');
-disp('** Posterior Mode: (Minimization of -Log Density)  **');
-disp('  ');
-x      = [postmode'; log_dnsty];
-for jj =1: length(x)
-    X = sprintf('%s = %0.5g',rownam{jj},x(jj));
-    disp(X)
-end
+
 
 end
-
-% if nargin< 4
-%     x0 = log(hyperpara);
-%
-%     [fh, xh, gh, H, itct, fcount, retcodeh] = csminwel('bvar_opt_hyperpara',x0,.1*eye(length(x0)),[],10e-5,1000,y,lags);
-%     postmode    = exp(xh);
-% 	options.index_est = [1:length(xh)];
-% else
-%     options.index_fixed = setdiff(1:5,options.index_est);
-%     x0 = log(hyperpara(options.index_est));
-%     options.hyperpara_fidex = log(hyperpara(options.index_fixed));
-%
-%     [fh, xh, gh, H, itct, fcount, retcodeh] = csminwel('bvar_opt_hyperpara',x0,.1*eye(length(x0)),[],10e-5,1000,y,lags,options);
-%     postmode    = zeros(1,5);
-%     postmode(options.index_est)   = exp(xh);
-%     postmode(options.index_fixed) = exp(options.hyperpara_fidex);
-% end
-% % processing the output of the maximization
-% log_dnsty   = -fh;
-% JJ          = jacob_bvar(xh,options);
-% HH          =  JJ * H * JJ';
-%
-%
