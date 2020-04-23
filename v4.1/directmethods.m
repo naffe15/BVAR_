@@ -8,13 +8,24 @@ function [dm] = directmethods(y,lags,options)
 % - y, data columns variables
 % - lags, lag order of the VAR
 
-% Additonal Inputs collected options:
+% Additonal Inputs collected options: see below
 
 % Filippo Ferroni, 27/02/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if nargin < 2
+    error('the BVAR toolbox needs at least two inputs: data and number of lags');
+end
+if lags < 1
+    error('lags cannot be zero or negative');
+end
+% number of observable variables
+[T,ny]       = size(y);
 
+%********************************************************
+%* DEFAULT SETTINGS
+%********************************************************
 % Control random number generator
 rng('default');
 rng(999);
@@ -23,7 +34,6 @@ hor          = 24;
 conf_sig     = 0.9;
 controls_    = 0;
 robust_se_   = 1; % by default robust SE
-[T,ny]       = size(y);
 proxy_       = 0;
 noconstant   = 0;
 ns           = 0;
@@ -35,15 +45,17 @@ lb             = -1e10;
 ub             = 1e10;
 
 
-% options
+%********************************************************
+%* CUSTOMIZED SETTINGS
+%********************************************************
 if nargin>2
     %======================================================================
     % Various options
     %======================================================================
-    if isfield(options,'hor') ==1
+    if isfield(options,'hor') ==1 % horizon of IRF and Forecasts
         hor = options.hor;
     end
-    if isfield(options,'conf_sig') ==1
+    if isfield(options,'conf_sig') ==1 % CI of OLS estimation of LP and DF
         conf_sig = options.conf_sig;
     end
     if isfield(options,'Q') == 1 % orthonormal matrix
@@ -87,12 +99,8 @@ if nargin>2
     %======================================================================
     if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Conjugate')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'conjugate')==1) || ...
             (isfield(options,'prior')==1 && strcmp(options.prior.name,'Conjugate')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'conjugate')==1)
-        %     if   (isfield(options,'prior')==1 && strcmp(options.prior,'Phi')==1) || ...
-        %             (isfield(options,'prior')==1 && strcmp(options.prior,'Sigma')==1) || ...
-        %             (isfield(options,'prior')==1 && strcmp(options.prior,'lambda')==1)
         
         dummy = 2;
-        %  warning('The Conjugate prior is still under construction ... ');
         prior.name= 'Conjugate';
         % Priors for the AR parameters
         if isfield(options.priors,'Phi') == 1
@@ -110,8 +118,8 @@ if nargin>2
             % variance
             if isfield(options.priors.Phi,'cov') == 1
                 prior.Phi.cov   = options.priors.Phi.cov;
-                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) ) && size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
-                    error('Size mismatch')
+                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
+                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)x')
                 end
             else
                 warning(['You did not provide a Covariance for the AR coeff. ' ...
@@ -168,26 +176,25 @@ if nargin>2
             max_compute    = 3;
             prior.tau = ones(hor,1);
         else
-            warning(['You did not provide overall shrinkage. Assume to be one at each horizon'])
-            prior.tau = 2*ones(hor,1);
+            prior.tau = ones(hor,1);
         end
     end
-    % options for the maximization 
-    if isfield(options,'max_compute') == 1    
+    % options for the maximization
+    if isfield(options,'max_compute') == 1
         max_compute    = options.max_compute;
     end
-    if isfield(options,'ub') == 1    
+    if isfield(options,'ub') == 1
         ub    = options.ub;
     end
-    if isfield(options,'lb') == 1    
+    if isfield(options,'lb') == 1
         lb    = options.lb;
     end
 end
 
-% Confidence Interval
-% t(alpha/2,T-Nnar-1)
+% Confidence Interval Points and Index for confidence serts
 alpha  = 1 - conf_sig;
 talpha = abs(tinv(alpha/2,T-ny-1));
+sort_idx   = round((0.5 + [-conf_sig, conf_sig, 0]/2) * K);
 
 %**************************************************
 % Construct the RHS matrix
@@ -240,8 +247,6 @@ if (lags + hor) >= size(X_,1)
 end
 
 
-
-
 %**************************************************
 % pre allocation
 %**************************************************
@@ -258,9 +263,13 @@ if dummy == 2
     log_dnsty               = nan(hor,1);
 end
 
+%**************************************************
+%* Computing the LP and DF 
+%**************************************************
 wb = waitbar(0, 'Direct Methods');
-for hh = 0 : hor
+for hh = 0 : hor % iteration over horizon
     ytmp = lagX(y, -hh);
+    % Reduced Form estimations
     if robust_se_ ~= 0 % Robust SE
         %  options.robust_se_ = robust_se_;
         options.L     = lags + hh + 1;
@@ -268,22 +277,29 @@ for hh = 0 : hor
     else
         olsreg_(hh+1) = ols_reg(ytmp, X_);
     end
-    % Proxy IV identification
+    % Proxy IV identifications
     if proxy_
         irproxy_lp(:, hh+1, :, 2) = olsreg_(hh+1).beta(position_proxy, :)'; % mean
         irproxy_lp(:, hh+1, :, 3) = irproxy_lp(:, hh+1, :, 2) + talpha * olsreg_(hh+1).se(position_proxy, :)'; % upper
         irproxy_lp(:, hh+1, :, 1) = irproxy_lp(:, hh+1, :, 2) - talpha * olsreg_(hh+1).se(position_proxy, :)'; % lower
         if hh == 0
             Omegaproxy(:,1) = olsreg_(hh+1).beta(position_proxy, :)';
+            Omegasproxy(:,1,:) =  repmat(Omegaproxy(:,1), 1, 1, K) + ...
+                olsreg_(hh+1).se(position_proxy, :)'.* randn(ny,1,K);
         end
     end
-    % choleski identification
+    % Choleski/Rotated identification
     if hh == 0
-        %         tmp1_ = ols_reg(ytmp,XX);
         Omega = chol(olsreg_(hh+1).Serror,'Lower') * Q;
+        % generate uncertainty on S (flat prior)
+        Sbar = olsreg_(hh+1).error'*olsreg_(hh+1).error;
+        df   = olsreg_(hh+1).N - olsreg_(hh+1).K;
+        [~, Omegas] = generateOmegas(Sbar,df,K,Q);
+        Omegasort = sort(Omegas,3);
+        
         ir_lp(:, hh+1, :, 2) = Omega; % mean
-        ir_lp(:, hh+1, :, 3) = Omega; %ir_lp(:,hh+1,:,2) + talpha * 1;%tempoutput.se(position_shock : end,:); % upper
-        ir_lp(:, hh+1, :, 1) = Omega; %ir_lp(:,hh+1,:,2) - talpha * 1;%tempoutput.se(position_shock : end,:); % lower
+        ir_lp(:, hh+1, :, 3) = Omegasort(:,:,sort_idx(2)); % UPPER
+        ir_lp(:, hh+1, :, 1) = Omegasort(:,:,sort_idx(1)); % LOWER
     else
         [ir] =  iresponse(olsreg_(hh).beta(positions_nylags, :), eye(ny) , 2, Omega);
         ir_lp(:, hh+1, :, 2) = ir(:, 2, :);  % mean
@@ -298,15 +314,15 @@ for hh = 0 : hor
     forecasts(hh+1, :, 3) = forecasts(hh+1, :, 2) + talpha * diag(olsreg_(hh+1).Serror)' ;
     forecasts(hh+1, :, 1) = forecasts(hh+1, :, 2) - talpha * diag(olsreg_(hh+1).Serror)' ;
     
-    
-    if dummy == 2 % activating Bayesian Direct methods.
-        
+    %======================================================================
+    % Baysian DM
+    if dummy == 2 % activating Bayesian Direct methods.        
         if hh == 0
             % cholesky IRF on impact
-            ir_blp(:, hh+1, :, :)  = repmat(Omega,1,1,K);
+            ir_blp(:, hh+1, :, :)  = Omegas;
             % proxy IRF on impact
             if proxy_
-                irproxy_blp(:, hh+1, :, :) = repmat(Omegaproxy(:,1),1,1,K);
+                irproxy_blp(:, hh+1, :, :) = Omegasproxy;
             end
             % one-step ahead forecast
             bforecasts_no_shocks(hh+1, :, :)   = repmat(forecasts(hh+1, :, 2),1,1,K);
@@ -322,10 +338,9 @@ for hh = 0 : hor
             
         else % hh > 0
             %********************************************************
-            % Conjugate Prior: N-IW
+            % Conjugate Prior: MN-IW
             %********************************************************
-            % constructing the prior mean
-            if max_prior_tau_ == 1
+            if max_prior_tau_ == 1 % Maximize the shrinkage on the VAR coefficients 
                 try
                     disp(['***********************************************'])
                     disp(['***********************************************'])
@@ -341,7 +356,7 @@ for hh = 0 : hor
                         case 2 % constraint
                             % Set default optimization options for fmincon.
                             optim_options = optimset('display','iter', 'LargeScale','off', 'MaxFunEvals',100000, 'TolFun',1e-8, 'TolX',1e-6);
-                            [xh,~,~,~,~,~,~] = ...
+                            [xh,fh,~,~,~,~,~] = ...
                                 fmincon('blp_opt_hyperpara',x0,[],[],[],[],lb,ub,[],optim_options,y,lags,options);
                             %=====================================================================
                         case 3 % Sims
@@ -352,8 +367,10 @@ for hh = 0 : hor
                             %=====================================================================
                         case 7 % Matlab's simplex (Optimization toolbox needed).
                             optim_options = optimset('display','iter','MaxFunEvals',30000,'MaxIter',10000,'TolFun',1e-3,'TolX',1e-3);
-                            [xh,~,~,~] = fminsearch('blp_opt_hyperpara',x0,optim_options,y,lags,options);                                 
+                            [xh,fh,~,~] = fminsearch('blp_opt_hyperpara',x0,optim_options,y,lags,options);
                     end
+                    fprintf('%s = %0.5g\n','Hyper-parameter Mode ',exp(xh))
+                    fprintf('%s = %0.5g\n','Marginal Likelihood ',-fh)
                 catch
                     warning('Maximization NOT Successful')
                     disp('Using hyper parameter default values')
@@ -362,15 +379,19 @@ for hh = 0 : hor
                 prior.tau(hh) = exp(xh);
                 disp(['***********************************************'])
             end
+            % constructing the posterior moments given the (optimal) shrinkage 
             [posterior_, ~]   = p2p(hh,prior.tau(hh),prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+            % computing the marginal likelihood
             log_dnsty(hh)     = blp_ml(prior.tau(hh),hh,prior,olsreg_(hh),F,G,Fo,positions_nylags,position_constant);
+            % Second moments
             S_inv_upper_chol  = chol(inv(posterior_.S));
             XXi_lower_chol    = chol(posterior_.XXi)';
-            
+            % number of regressors
             nk = nylags + nx;
-            %  Gibbs Sampler
-            for  d =  1 : K
-                
+            %**************************************************
+            %* Generating draws form the Posterior Distribution
+            %**************************************************
+            for  d =  1 : K %  Gibbs Sampler                
                 %======================================================================
                 % Inferece: Drawing from the posterior distribution
                 % Step 1: draw from the Covariance
@@ -383,40 +404,61 @@ for hh = 0 : hor
                 Phi3 = reshape(Phi2, nk, ny);
                 Phi  = Phi3 + posterior_.PhiHat;
                 
-                % computing IFR
-                blp  =  iresponse(Phi, eye(ny) , 2, Omega);
+                % Step 3: compute IRF
+                blp  =  iresponse(Phi, eye(ny) , 2, Omega); 
                 ir_blp(:, hh+1, :, d) = blp(:, 2, :);  % mean
                 if proxy_
                     blpproxy  =  iresponse(Phi, eye(ny) , 2, Omegaproxy);
                     irproxy_blp(:, hh+1, :, d) = blpproxy(:,2,1);
                 end
-                % computing Forecasts
+                % Step 4: compute Forecasts
                 bforecasts_no_shocks(hh+1, :, d) = (fdata_initval(1, [positions_nylags position_constant]) * Phi);
                 bforecasts_with_shocks(hh+1, :, d) = (fdata_initval(1, [positions_nylags position_constant]) * Phi) + (Sigma_lower_chol * randn(ny,1))';
-                
             end
         end
-    end
-    
+    end    
     waitbar(hh/hor, wb);
-    % clear ytmp olsreg_
 end
 close(wb);
 
-% store
+%********************************************************
+%* Storing the resutls
+%*******************************************************
 % dm.olsreg_     = olsreg_;
 dm.forecasts   = forecasts;
 dm.ir_lp       = ir_lp;
 dm.irproxy_lp  = irproxy_lp;
 if dummy == 2
-    dm.ir_blp        = ir_blp;
-    dm.irproxy_blp   = irproxy_blp;
+    dm.ir_blp                 = ir_blp;
+    dm.irproxy_blp            = irproxy_blp;
     dm.bforecasts.no_shocks   = bforecasts_no_shocks;         % trajectories of forecasts without shocks
     dm.bforecasts.with_shocks = bforecasts_with_shocks;       % trajectories of forecasts with shocks
-    dm.log_dnsty     = log_dnsty;
-    dm.prior         = prior;
+    dm.logmlike               = log_dnsty;
+    dm.prior                  = prior;
 else
-    dm.irproxy_blp   = [];
-    dm.ir_blp        = [];
-    dm.bforecasts    = [];
+    dm.ir_blp                 = [];
+    dm.irproxy_blp            = [];
+    dm.bforecasts.no_shocks   = [];
+    dm.bforecasts.with_shocks = [];
+    dm.logmlike               = [];
+    dm.prior                  = [];
+end
+
+
+
+%**************************************************************************
+%**************************************************************************
+%**************************************************************************
+%**************************************************************************
+function [S,Omegas] = generateOmegas(Sbar,df,K,Q)
+% generate uncertainty on S
+ny      = size(Sbar,1);
+S       = nan(ny,ny,K);
+Omegas  = nan(ny,ny,K);
+
+S_inv_upper_chol = chol(inv(Sbar));
+
+for  d = 1:K
+    S(:,:,d)      = rand_inverse_wishart(ny, df, S_inv_upper_chol);
+    Omegas(:,:,d) = chol(S(:,:,d),'Lower') * Q;
 end

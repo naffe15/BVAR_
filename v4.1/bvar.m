@@ -38,7 +38,6 @@ end
 if lags < 1
     error('lags cannot be zero or negative');
 end
-
 % number of observable variables
 ny                  = size(y, 2);
 
@@ -261,8 +260,8 @@ if nargin > 2
             if isfield(options.priors.Phi,'cov') == 1
                 prior.Phi.cov   = options.priors.Phi.cov;
 %                 if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) * ny
-                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) && size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
-                    error('Size mismatch')
+                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
+                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)x')
                 end
             else
                 warning(['You did not provide a Covariance for the AR coeff. ' ...
@@ -452,19 +451,14 @@ end
 %********************************************************
 %* Consistency Checks
 %********************************************************
-
 nobs = size(y,1)-firstobs+1;
-
 if (firstobs+ nobs-1)> size(y,1)
     fprintf('Incorrect or missing specification of the number of observations. nobs can be at most %4u\n',size(y,1)-firstobs+1);
     error('Inconsistent number of observations.')
 end
-
-% Parameters for prior
 if firstobs + presample + lags >= nobs  
     error('presample too large')
 end
-
 if firstobs + presample  <= lags
     error('firstobs+presample should be > # lags (for initializating the VAR)')
 end
@@ -554,16 +548,17 @@ end
 posterior_int = matrictint(posterior.S, posterior.df, posterior.XXi);
 if dummy == 1 % only for minnesota dummy
     prior_int = matrictint(prior.S, prior.df, prior.XXi);
+    lik_nobs  = posterior.df - prior.df;
+    log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
+
 elseif dummy == 0 % jeffrey prior
-    prior_int = 0;
-    prior.df  = 0;
-elseif dummy == 2 % conjugate prior
-    prior.df  = prior.Sigma.df;    
-    prior.XXi = inv(prior.Phi.cov);
-    prior_int = matrictint(prior.Sigma.scale, prior.df, prior.XXi);
+    lik_nobs  = posterior.df;
+    log_dnsty = posterior_int - 0.5*ny*lik_nobs*log(2*pi);
+
+elseif dummy == 2 % conjugate MN-IW prior
+    log_dnsty = mniw_log_dnsty(prior,posterior,varols);
+    
 end
-lik_nobs  = posterior.df - prior.df;
-log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
 
 
 %**************************************************
@@ -873,10 +868,7 @@ end
         % posterior density
         var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
         Tu = size(var.u, 1);
-        
-        % OLS estimator
-        varols = rfvar3(ydata, lags, xdata, [T; T], 0, 0);
-        
+                
         if dummy ==  1
             %********************************************************
             % Minnesota Prior

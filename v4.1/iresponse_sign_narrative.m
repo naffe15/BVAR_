@@ -39,6 +39,7 @@ function [ir,Omeg] = iresponse_sign_narrative(errors,Phi,Sigma,hor,signrestricti
 ir      = nan(n,hor,n);
 Omeg    = nan(n);
 d       = 0;
+d0      = 0;
 tol     = 0;
 favar   = 1;
 if nargin < 7
@@ -51,55 +52,33 @@ A       = chol(Sigma,'lower');
 v       = zeros(size(errors));
 
 while d==0 && tol < 30000
-    %     e = randn(n,1);
-    %     Omega = (e./norm(e));
-    %
-    G     = randn(m);
-    [Q,R] = qr(G);
-    % normalize to positive entry in the diagonal
-    In    = diag(sign(diag(R)));
-    Omega = Q  * In;
-    %    u   = Ao * Q * In;
+    % generate a random orthonormal matrix
+    Omega = generateQ(m);
+    % compute IRF
     y = iresponse(Phi,Sigma,hor,Omega);
-    if favar == 1 
-        for jj  = 1 : size(y,3) 
+    % uncompress the factors (if favar)
+    if favar == 1
+        for jj  = 1 : size(y,3)
             yy(:,:,jj) = cont * y(:,:,jj);
         end
         clear y; y = yy;
     end
-    %     signrestriction(find(isempty(eval(signrestriction{:}))))=[];
-    %     tmp = eval(signrestriction{:}) ;
-    count   = 0;
-    for ii = 1 : length(signrestriction)
-        tmp = eval(signrestriction{ii});
-        count = count + tmp;
-    end
-    if count == length(signrestriction) % if sign are verified check narrative
-        %  v = errors * inv( Omega' * A');  % structural innovations
+    % check sign restrictions
+    d0 = checkrestrictions(signrestriction,y);
+    if d0 ==1
         v = errors / ( Omega' * A');  % structural innovations
-        count2   = 0;
-        for ii = 1 : length(narrative)
-            tmp = eval(narrative{ii});
-            count2 = count2 + min(tmp);
-        end
-        if isempty(count2)==1  
-            error('There is a nan in the narrative restrictions.'); 
-        end
-        if count2 == length(narrative)
-            d=1;
-            Omeg  = Omega;
-            ir    = y;
-        else
-            d=0; tol = tol + 1;            
-        end
+        % check narrative restrictions
+        d = checkrestrictions(narrative,y,v);
+    end
+    if d==1 % stop 
+        Omeg  = Omega;
+        ir    = y;
     else
-        d=0; tol = tol + 1;
+        tol = tol + 1;
     end
 end
 
 if d==0
-%     ir = iresponse(Phi,Sigma,hor,Omega);
-% else
     warning('I could not find a rotation satisfying the restrictions.')
 end
 end

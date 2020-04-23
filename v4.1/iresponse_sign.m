@@ -28,6 +28,7 @@ function [ir,Omeg] = iresponse_sign(Phi,Sigma,hor,signrestriction,cont)
 % Revised, 2/15/2017
 % Revised, 3/21/2018
 % Revised, 9/11/2019
+% Revised, 4/11/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 [m,n]   = size(Sigma);
@@ -44,43 +45,29 @@ end
 
 
 while d==0 && tol < 30000
-    %     e = randn(n,1);
-    %     Omega = (e./norm(e));
-    %
-    G     = randn(m);
-    [Q,R] = qr(G);
-    % normalize to positive entry in the diagonal
-    In    = diag(sign(diag(R)));
-    Omega = Q  * In;
-    %    u   = Ao * Q * In;
+    % generate a random orthonormal matrix
+    Omega = generateQ(m);
+    % compute IRF
     y = iresponse(Phi,Sigma,hor,Omega);
+    % uncompress the factors (if favar)
     if favar == 1 
         for jj  = 1 : size(y,3) 
             yy(:,:,jj) = cont * y(:,:,jj);
         end
         clear y; y = yy;
     end
-    count   = 0;
-    for ii = 1 : size(signrestriction,2),
-        tmp = eval(signrestriction{ii});
-        count = count + tmp;
-    end
-    if count == size(signrestriction,2), % if all signs are verified stop
-        d=1;
+    % check restrictions
+    d = checkrestrictions(signrestriction,y);
+    if d==1
         Omeg  = Omega;
         ir    = y;
-        %      if tmp==1, % if all signs are verified stop
-        %         d=1;
-        %         Omeg  = Omega;
-        %         ir    = y;
     else
-        d=0; tol = tol + 1;
+        tol = tol + 1;
     end
 end
 
 if d==0
-%     ir = iresponse(Phi,Sigma,hor,Omega);
-% else
     warning('I could not find a rotation satisfying the restrictions.')
 end
+
 end

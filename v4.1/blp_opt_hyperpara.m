@@ -13,6 +13,6 @@ function minus_log_dnsty = blp_opt_hyperpara(hyperpara,hh,prior,olsreg_,F,G,Fo,p
 % Filippo Ferroni, 3/21/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-hyperpara = exp(hyperpara);
-log_dnsty = blp_ml(hyperpara,hh,prior,olsreg_,F,G,Fo,positions_nylags,position_constant);
+hyperpara       = exp(hyperpara);
+log_dnsty       = blp_ml(hyperpara,hh,prior,olsreg_,F,G,Fo,positions_nylags,position_constant);
 minus_log_dnsty = -log_dnsty;

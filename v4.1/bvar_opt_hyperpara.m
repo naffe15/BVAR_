@@ -3,6 +3,8 @@ function minus_log_dnsty = bvar_opt_hyperpara(hyperpara,y,lags,options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 'bvar_opt_hyperpara' computes the marginal likelihood over the
 % hyperparameters of for the Minnesota prior  
+% Bridge function between 'bvar_ml' and the minimization routine
+% 'bvar_max_hyper' 
 
 % Inputs:
 % - hyperpara, Minnesota hyperpara over which maximize the marginal

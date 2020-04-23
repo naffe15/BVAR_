@@ -102,7 +102,7 @@ for v = 1 : ny
 end
 
 output.beta   = Bols;                   % OLS estimator
-output.error  = err';                   % (NxK) matrix of Residuals
+output.error  = err;                   % (TxN) matrix of Residuals
 output.Serror = Serror;                 % Covariance matrix of Residuals
 output.Sols   = Sols;                   % Covariance matrix of Bols
 output.Ttest  = Ttest;                  % t-statistics

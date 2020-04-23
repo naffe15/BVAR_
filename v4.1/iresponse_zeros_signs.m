@@ -38,8 +38,6 @@ if nargin< 9
     toler = 10000; % Number of rotation attempt
 end
 
-
-
 p  = lag;
 k  = size(Sigma,1);
 C1 = chol(Sigma,'lower');

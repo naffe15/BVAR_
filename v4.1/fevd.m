@@ -1,5 +1,6 @@
 function FEVD = fevd(hor,Phi,Sigma,Omega)
 
+% computes the forecast error variance decomposition
 
 N           = size(Sigma,1);
 [m , k]     = size(Phi);

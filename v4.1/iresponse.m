@@ -43,12 +43,10 @@ Q = Q*unit;
 F       = [alpha(1 : N * lags, :)'; eye(N*(lags-1), N*lags)];
 G       = eye(N * lags, N);
 Fk      = eye(N * lags);
+% compute IRFs
 for k=1:hor
-    PHI = Fk * G * Q * Omega;
-%     PHI = F^(k-1)*G*Q * Omega;
-    for i=1:N
-        ir(1:N,k,i) = PHI(1:N,i);
-    end
-    Fk = F*Fk;
+    PHI         = Fk * G * Q * Omega;
+    ir(1:N,k,:) = G' * PHI;
+    Fk          = F * Fk;
 end
     

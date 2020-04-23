@@ -1,5 +1,4 @@
 function [posterior,prior] = p2p(hh, shrinkage,prior0,olsreg,F,G,Fo,positions_nylags,position_constant)
-
 % 
 %********************************************************
 % Conjugate Prior: MN-IW for Direct Methods
@@ -34,19 +33,15 @@ end
 
 prior.BetaMean   = [Fhh(1:ny,:)'; Fohh(1 : ny,1)'];
 prior.BetaVar    = prior0.Phi.cov * 1/ shrinkage;
-% Ghh        = G' * (iIminusF * (eye(nylags)-Fhh)) * G;
-% priorSigmaScale = Ghh * prior.Sigma.scale * Ghh';
 
-prior.df  = prior0.Sigma.df; % usually number of regressors minus the 2
-% prior.XXi = inv(prior.Phi.cov(hh * ny + 1 : hh * ny + 1 : ));
-prior.XXi = inv( prior.BetaVar );% \ one(nylags-1); % nendolags * nendo
-prior.S   = priorSigmaScale;
-% prior_int = matrictint(priorSigmaScale, prior.df, prior.XXi); % ny * ny
+prior.df  = prior0.Sigma.df;            % usually number of regressors minus the 2
+prior.XXi = inv( prior.BetaVar );       % V^{-1}
+prior.S   = priorSigmaScale;            % Sigma0
 
 % retrieve the OLS
 B_   = olsreg.beta([positions_nylags position_constant], :);
 XX_  = olsreg.X(:,[positions_nylags position_constant])' * olsreg.X(:,[positions_nylags position_constant]);
-E_   = olsreg.error';
+E_   = olsreg.error;
 XXp_ = XX_ + prior.XXi;
 
 % construct the posterior
@@ -60,6 +55,7 @@ posterior.S     =  ...
 %     + posterior1.E_'* posterior1.E_; 
 
 posterior.B_   = B_ ;
-posterior.XX_  = XX_;%olsreg.X(:,[positions_nylags position_constant])' * olsreg.X(:,[positions_nylags position_constant]);
-posterior.E_   = E_;%olsreg.error';
-posterior.XXp_ = XXp_; %XX_ + prior.XXi;
+posterior.XX_  = XX_;       %olsreg.X(:,[positions_nylags position_constant])' * olsreg.X(:,[positions_nylags position_constant]);
+posterior.E_   = E_;        %olsreg.error';
+posterior.XXp_ = XXp_;      %XX_ + prior.XXi;
+posterior.U_   = olsreg.Y - olsreg.X(:,[positions_nylags position_constant]) * posterior.PhiHat;% posterior errors;

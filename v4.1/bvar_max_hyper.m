@@ -18,7 +18,6 @@ function [postmode,log_dnsty,HH] = bvar_max_hyper(hyperpara,y,lags,options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 max_compute = 3;
-options_yes = 0;
 lb          = -1e10*ones(length(hyperpara),1);
 ub          = 1e10*ones(length(hyperpara),1);
 objective_function = 'bvar_opt_hyperpara';
@@ -29,7 +28,6 @@ index_est   = 1:5;
 hyperpara_fidex =  [];
 
 if nargin > 3
-    options_yes = 1;    
     if isfield(options,'index_est') ==1
         clear x0 index_fixed index_est hyperpara_fidex;
         index_est       = options.index_est;
@@ -68,31 +66,28 @@ switch max_compute
     case 1 % unconstraint
         % Set default optimization options for fminunc.
         optim_options = optimset('display','iter','MaxFunEvals',100000,'TolFun',1e-8,'TolX',1e-6);
-        [xh,fh,exitflag,output,grad,H] = ...
+        [xh,fh,~,~,~,H] = ...
             fminunc(objective_function,x0,optim_options,y,lags,options);
      %=====================================================================     
      case 2 % constraint 
         % Set default optimization options for fmincon.
         optim_options = optimset('display','iter', 'LargeScale','off', 'MaxFunEvals',100000, 'TolFun',1e-8, 'TolX',1e-6);
-        [xh,fh,exitflag,output,lamdba,grad,H] = ...  
+        [xh,fh,~,~,~,~,H] = ...  
             fmincon(objective_function,x0,[],[],[],[],lb,ub,[],optim_options,y,lags,options);               
      %=====================================================================
     case 3 % sims 
         crit = 10e-5;
         nit  = 10e-4;
-        [fh, xh, gh, H, itct, fcount, retcodeh] = csminwel(objective_function,x0,.1*eye(length(x0)),[],crit,nit,y,lags,options);
+        [fh, xh, ~, H, ~, ~, ~] = csminwel(objective_function,x0,.1*eye(length(x0)),[],crit,nit,y,lags,options);
      %=====================================================================   
     case 7 % Matlab's simplex (Optimization toolbox needed).
 %         optim_options = optimset('display','iter','MaxFunEvals',30000,'MaxIter',10000,'TolFun',1e-3,'TolX',1e-3,'OutputFcn',@outsavefun);
         optim_options = optimset('display','iter','MaxFunEvals',30000,'MaxIter',10000,'TolFun',1e-3,'TolX',1e-3);
-        [xh,fh,exitflag,others] = fminsearch(objective_function,x0,optim_options,y,lags,options);       
+        [xh,fh,~,~] = fminsearch(objective_function,x0,optim_options,y,lags,options);       
         H = zeros(length(x0));
 end
 
-
-
-
-if dummy_
+if dummy_ % Print the output for Minnesoty prior with dummy
     postmode    = zeros(1,5);
     postmode(options.index_est)   = exp(xh);
     postmode(options.index_fixed) = exp(options.hyperpara_fidex);
@@ -121,7 +116,7 @@ if dummy_
         X = sprintf('%s = %0.5g',rownam{jj},x(jj));
         disp(X)
     end
-else
+else % other maximization e.g. conjugate MNIW
     postmode    = exp(xh);
     % processing the output of the maximization
     log_dnsty   = -fh;

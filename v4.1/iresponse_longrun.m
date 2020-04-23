@@ -38,12 +38,12 @@ PSI1           = chol(C1 * Sigma * C1')';
 Q              = (C1 \ eye(size(C1))) * PSI1;
 % normalize to positive entry in the element Q(1,1)
 Q(1,1)     = Q(1,1) * sign(Q(1,1));
-       
+Fk         = eye(N * lags);
+
 for k=1:hor
-    PHI = F^(k-1)*G*Q;
-    for i=1:N
-%        ir((i-1) * N + 1 : i*N ,k)= PHI(1:N,i);
-        ir(1:N,k,i) = PHI(1:N,i);
-    end
+    PHI         = Fk * G * Q;
+    ir(1:N,k,:) = G'* PHI;
+    Fk          = F * Fk;
 end
+
     
