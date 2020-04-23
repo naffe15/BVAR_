@@ -185,9 +185,15 @@ if nargin>2
     end
     if isfield(options,'ub') == 1
         ub    = options.ub;
+        if length(ub) ~=  length(prior.tau)
+            error('Mismatch between the size of upper bounds and the param vector');
+        end
     end
     if isfield(options,'lb') == 1
         lb    = options.lb;
+        if length(lb) ~=  length(prior.tau)
+            error('Mismatch between the size of lower bounds and the param vector');
+        end
     end
 end
 
@@ -264,7 +270,7 @@ if dummy == 2
 end
 
 %**************************************************
-%* Computing the LP and DF 
+%* Computing the LP and DF
 %**************************************************
 wb = waitbar(0, 'Direct Methods');
 for hh = 0 : hor % iteration over horizon
@@ -357,7 +363,7 @@ for hh = 0 : hor % iteration over horizon
                             % Set default optimization options for fmincon.
                             optim_options = optimset('display','iter', 'LargeScale','off', 'MaxFunEvals',100000, 'TolFun',1e-8, 'TolX',1e-6);
                             [xh,fh,~,~,~,~,~] = ...
-                                fmincon('blp_opt_hyperpara',x0,[],[],[],[],lb,ub,[],optim_options,y,lags,options);
+                                fmincon('blp_opt_hyperpara',x0,[],[],[],[],lb(hh),ub(hh),[],optim_options,y,lags,options);
                             %=====================================================================
                         case 3 % Sims
                             crit = 10e-5;

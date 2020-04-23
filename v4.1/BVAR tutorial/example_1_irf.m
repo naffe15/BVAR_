@@ -1,4 +1,4 @@
-%% BVAR tutorial
+%% BVAR tutorial: IRF
 % Author:   Filippo Ferroni
 % Date:     27/02/2020
 
@@ -207,6 +207,27 @@ options.saveas_strng    = 'IV';
 options.shocksnames     = {'MP'}; 
 plot_irfs_(irfs_to_plot,options)
 
+
+% %%
+% 
+% % consider the meand of the posterior distribution 
+% Phi   = mean(bvar1.Phi_draws,3);
+% Sigma = mean(bvar1.Sigma_draws,3);
+% i =1; j=1;
+% 
+% crit = nan(100,1);
+% Q    = nan(bvar1.N,bvar1.N,100);
+% for k = 1 : 100
+%     Q(:,:,k)  = generateQ(bvar1.N);               % generate an orthonormal matrix
+%     FEVD     = fevd(h,Phi,Sigma,Q(:,:,k));  % compute the FEVD
+%     % Contribution of shock j to variable i forecast error volatility at horizon h
+%     crit(k,1) = FEVD(i, h, j);
+% end
+% % Pick the argmax
+% [~,index] = max(crit);
+% Qbar      = Q(:,:,index);
+
+
 %% Extra part 1/: Forecast Error variance decomposition with Cholesky (bvar1)
 % compute the contribution of MP to the H-step ahead forecast error  of
 % observables
@@ -269,30 +290,6 @@ optnsplt.saveas_dir    = '.\sdcmp_plt';
 optnsplt.Tlim          = [2006 2012];
 plot_sdcmp_(yDecomp,bvar4,optnsplt)
 
-
-% %==========================================================================
-% % without initial condition
-% 
-% AAA0 = AAA;
-% AAA0(:,:,end) = []; % without initial condition / deterministic component
-% 
-% pplotvar                = {'logip','logcpi','gs1'};
-% optnsplt.plotvarnames   = {'IP','CPI','Interest Rate'};
-% 
-% 
-% ex_names_ = { {'Shck 1'};...    Supply
-%     {'Shck 2'};...              Demand
-%     {'Shck 3'};...              MP    
-%     };
-% tag       = {'Supply';
-%             'Demand';
-%             'MP';
-%             'Other Shocks'};
-% 
-% 
-% optnsplt.tags = 'noy0';
-% 
-% plot_shcks_dcmp_(pplotvar,ex_names_,tag,AAA0,bvar3,optnsplt)
 
 %% %% Extra part 3/: Minnesota Priors IRF 
 
@@ -364,288 +361,4 @@ tt = T(timespan(:,end)');
 surf(tt,[1:options.hor],squeeze(rollIRF(2,:,:)))
 axis tight
 % savefigure_pdf('.\irfs_plt\IRFUN3D');
-
-%% %%=========================================================================
-%%% FAVAR %%%
-%%=========================================================================
-keyboard
-clear all
-
-% load favar data (Quarterly)
-load DataFAVAR
-% y2 slow moving variables (YoY growth rates)
-transf = 2;         % standardize y2
-% extrac the first 3 Principal Components (PC)
-nfac   = 3;         % number of PC
-[~,fhat,Lambda,~,STD] = pc_T(y2,nfac,transf);
-
-% y1 interest rate (TBILL3M)
-
-% compressed slow moving variables first (PC) and append TBILL3M,
-y = [fhat y1];
-
-% 1. restrictions on the compressed variables, recursive identification 
-lags   = 2; 
-fabvar = bvar(y,lags);
-
-% Rescale the IRF from (PC+y1) back to (y2+y1)
-% PC are ordered frist
-order_pc = 1;
-C_       = rescaleFAVAR(STD,Lambda,size(y1,2),order_pc);
-
-% construct an IRF for each draw and shock of interest.
-% shocks of interest: MP (3 factor + interest rate)
-indx_sho     = nfac + 1;       
-for k = 1: fabvar.ndraws % iterate on draws
-    fabvar.irX_draws(:,:,1,k) =  C_ * fabvar.ir_draws(:,:,indx_sho,k);
-end
-
-% Indentify the variables of interest for plots (real GDP and CORE PCE)
-[~,indx_var] = ismember ({'GDPC96','JCXFE'},varnames_y2);
-% Real GDP and CORE PCE and TBILL3M
-irfs_to_plot = fabvar.irX_draws( indx_var, :, 1, :);
-
-% % Customize the IRF plot
-% % variables names for the plots
-options.shocksnames   = {'MP'};  
-options.varnames      = {'GDP','CORE PCE'};  
-plot_irfs_(irfs_to_plot,options)
-
-%# sign restrictions on the uncompressed variables. 
-% agregate supply: GDP (+) GDP deflator (-). 
-% Assume that AD is the frist shock
-[~,indx_var] = ismember ({'GDPC96','GDPCTPI'},varnames_y2);
-
-signrestriction{1} = ['y(' num2str(indx_var(1)) ',2:3,1)>0;'];
-signrestriction{2} = ['y(' num2str(indx_var(2)) ',2:3,1)<0;'];
-
-for k = 1 : fabvar.ndraws % iterate on draws
-      Phi       = fabvar.Phi_draws(:,:,k);
-      Sigma     = fabvar.Sigma_draws(:,:,k);
-      [ir,Omeg] = iresponse_sign(Phi,Sigma,fabvar.hor,signrestriction,C_);
-      fabvar.irXsign_draws(:,:,:,k) = ir;
-end
-
-[~,indx_var] = ismember ({'GDPC96','GDPCTPI','JCXFE'},varnames_y2);
-indx_sho     = 1;       % shocks of interest
-irfs_to_plot = fabvar.irXsign_draws(indx_var ,:,indx_sho,:);
-
-options.saveas_dir    = './irfs_plt';   % folder
-options.saveas_strng  = 'FaVAR';        % names of the figure to save
-options.shocksnames   = {'AS'};         % name of the shock
-options.varnames      = {'GDP','GDP Defl','CORE PCE'};  
-% finally, the plotting command
-plot_irfs_(irfs_to_plot,options)
-
-
-%% %%=========================================================================
-%%% PREDICTION %%%
-%%=========================================================================
-keyboard
-% Housekeeping
-clear all
-close all
-clc
-% load the data
-load Data
-% select the variables of interest for the forecast exercise
-yactual = [IPI HICP CORE Euribor1Y M3 EXRATE];
-% stop at August 2014 for estimation
-in_sample_end = find(T==2014 + 7/12);
-y             = yactual(1:in_sample_end,:);
-TT            = T(1:in_sample_end);
-
-%% 1\ 
-% Unconditional forecasts using flat priors
-lags         = 6;
-% one year forecasts
-options.fhor = 12;
-b.var(1) 	 = bvar(y,lags,options);
-
-%% 2\ 
-% Unconditional forecasts using Minnesota priors with default values
-
-options.priors.name = 'Minnesota';
-b.var(2)		    = bvar(y,lags,options);
-
-%% 3\ 
-% Unconditional forecasts using Minnesota priors with hyperparameter values
-% maximizing the log data density 
-
-options.max_minn_hyper  = 1;
-options.index_est       = 1:4;
-options.max_compute     = 3; % sims
-options.lb              = [0 0 0 0]; % setting the lower bound
-b.var(3)                = bvar(y,lags,options);
-
-%% 4\ 
-% Forecasts conditional on the path of the short run interest rate
-% (decreasing path). Again we use Minnesota priors with hyperparameter
-% values that maximize the log data density    
- 
-options.max_minn_hyper      = 0;
-options.minn_prior_tau      = b.var(3).prior.minn_prior_tau;
-options.minn_prior_decay    = b.var(3).prior.minn_prior_decay;
-options.minn_prior_lambda   = b.var(3).prior.minn_prior_lambda;
-options.minn_prior_mu       = b.var(3).prior.minn_prior_mu;
-% select the variables that is conditioned (Interest rate #4)
-options.endo_index          = 4;
-% impose a lower bound trajectory for the short term interest rate
-options.endo_path   = Euribor1Y(in_sample_end+1:end);
-c.var(1)            = bvar(y,lags,options);
-
-%% 5\ 
-% Forecasts conditional on the path of the short run interest rate
-% (decreasing path) using only monetary policy shocks identified via
-% Cholesky decomposition constructed using Minnesota priors with
-% hyperparameter values  maximizing the log data density    
-
-options.exo_index   = options.endo_index;
-c.var(2)            = bvar(y,lags,options);
-
-%% Forecast Plot: plot forecasts against actual values o
-
-
-%Storing the mean forecasts for the plot
-for i = 1 :3
-    tmp                  = mean(b.var(i).forecasts.no_shocks,3);
-    b.var(i).frcsts_plot = [y; tmp];
-end
-tmp0 = mean(c.var(1).forecasts.conditional,3);
-cfrcsts_plot = [y; tmp0];
-tmp                 = mean(c.var(2).forecasts.conditional,3);
-cfrcsts2_plot       = [y; tmp];
-
-
-KAPPA = 12;
-ordering_transf = [1, 1, 1, 0, 1, 0, 0];
-col= strvcat('b','r','g');
-tmp_str = 'frcsts_plt';
-mkdir(tmp_str);
-tzero = find(T == 2014);
-varnames = {'IPI' 'HICP' 'CORE' 'Euribor1Y' 'M3' 'EXRATE'};
-
-if tzero < KAPPA + 1
-    tzero = KAPPA + 1;
-end
-for jj= 1:length(varnames)
-    figure('Name',varnames{jj})
-    if ordering_transf(jj)
-        yplot       = 100*(yactual(KAPPA+1:end,jj)-yactual(1:end-KAPPA,jj));
-        ycfplot     =  100*(cfrcsts_plot(KAPPA+1:end,jj) - cfrcsts_plot(1:end-KAPPA,jj));
-        ycf2plot    =  100*(cfrcsts2_plot(KAPPA+1:end,jj) - cfrcsts2_plot(1:end-KAPPA,jj));
-    else
-        yplot = yactual(KAPPA+1:end,jj);
-        %         yfplot = outputkf.Ynansfill(KAPPA+1:end,jj);
-        ycfplot = cfrcsts_plot(KAPPA+1:end,jj);
-        ycf2plot = cfrcsts2_plot(KAPPA+1:end,jj);
-    end
-    for ji = 1 : 3
-        hold on
-        if ordering_transf(jj)
-            yfor(:,ji) = 100*(b.var(ji).frcsts_plot(KAPPA+1:end,jj)-b.var(ji).frcsts_plot(1:end-KAPPA,jj));
-        else
-            yfor(:,ji) = b.var(ji).frcsts_plot(KAPPA+1:end,jj);
-        end
-    end
-    up = max ([max(yfor(tzero - KAPPA :end,:)), max(ycf2plot(tzero - KAPPA :end,:)), max(yplot(tzero - KAPPA :end,:))]);
-    down = min ([min(yfor(tzero - KAPPA :end,:)), min(ycf2plot(tzero - KAPPA :end,:)), min(yplot(tzero - KAPPA :end,:))]);
-    shade([T(end-KAPPA)],[T(end)],[.85 .85 .85],up,down)
-    for ji = 1 :3
-        plot(T(tzero:end),yfor(tzero - KAPPA :end,ji),'LineWidth',2,'Color',col(ji))
-    end
-    %     plot(T(tzero:end),yfplot(tzero - KAPPA :end),'k-.','LineWidth',2)
-    axis tight
-    plot(T(tzero:end),ycfplot(tzero - KAPPA :end),'y*-','LineWidth',2)
-    axis tight
-    plot(T(tzero:end),ycf2plot(tzero - KAPPA :end),'cd-','LineWidth',2)
-    axis tight
-    plot(T(tzero:end),yplot(tzero - KAPPA :end),'ko-.','LineWidth',2)
-    axis tight
-    
-    if jj == 1
-        legend({'Forecast Period','1) Flat Prior','2) Minnesota','3) Minnesota Opt','4) Cond Forecasts','5) Cond Forecasts only MP','Actual'},...
-            'Location','Best','FontSize',16)
-    end
-    set(    gcf,'position' ,[50 50 900 650])
-    STR_RECAP = [tmp_str '\multiple_frscst_' varnames{jj}];
-    savefigure_pdf(STR_RECAP);
-    saveas(gcf,STR_RECAP,'fig');
-    saveas(gcf,STR_RECAP,'eps');
-end
-close all
-
-%% Plot Opt Minnesota Forecast with bands.
-
-% select the forecast to plot (Opt Minnesota)
-frcsts                    = b.var(3).forecasts.with_shocks;               
-% declare the directory where the plots are saved (in .\frcsts_plt) - default no save
-options.saveas_dir        = 'frcsts_plt';                    
-% appearence of subplots 
-options.nplots            = [3 2];                           
-% start of the forecast plot - default first date in-sample data
-options.time_start        = 2013;
-% Transformations
-% 12 = Year over Year percentage change with monthly data for IPI and HICP 
-options.order_transform  = [12 12 12 0 12 0]; 
-% Titles for subplot
-options.varnames         = ...
-              {'Industrial Production','HICP','CORE','Euribor 1Y','M3','EXRATE'};
-% multiple credible set - default .68
-options.conf_sig_2       = 0.9;
-% add actual data if possible
-options.add_frcst        = yactual;
-
-plot_frcst_(frcsts,y,TT,options)
-
-
-%% %=========================================================================
-%%% MIXED FREQUENCY VAR %%%
-%%=========================================================================
-keyboard
-% Housekeeping
-clear all
-close all
-clc
-% load the mixed frequency data
-load DataMF
-% select the variables of interest for the mixed freq exercise exercise
-y = [GDP IPI HICP CORE Euribor1Y UNRATE];
-% specify the # of lags
-lags = 6;              
-
-% T aggregation: the quarterly variable  
-% xq(t) = 1/3( xm(t) + xm(t-1) + xm(t-2)) at least two lags are needed
-options.mf_varindex     = 1; 
-options.K               = 1000;    % # draws
-options.priors.name     = 'Minnesota';
-% estimate the var model
-bvarmf                  = bvar(y,lags,options);
-
-% sort 
-sorty = sort(bvarmf.yfill,3);
-
-tmp_str = 'mfvar_plt';
-mkdir(tmp_str);
-
-% plot: levels
-figure('Name','Monthly EA GDP')
-plot(T,y(:,1),'Linewidth',2,'marker','o','color','r'); hold on; plot(T,sorty(:,1,0.5*bvarmf.ndraws),'b','Linewidth',2)
-legend('Quarterly data','MXFREQ VAR flow (x^q_t = 1/3( x^m_t +  x^m_{t-1} +  x^m_{t-2}))','Interpolation','location','SouthOutside')
-set(    gcf,'position' ,[50 50 900 650])
-savefigure_pdf([tmp_str '\MonthlyGDP']);
-
-% plot: growth rates
-figure('Name','Monthly EA GDP growth')
-Dy = 100*(y(4:end,1)-y(1:end-3,1));
-Y = sorty(:,1,0.5*bvarmf.ndraws);
-DY = 100*(Y(4:end,1)-Y(1:end-3,1));
-% DiY = 100*(bvarmf.yinterpol(4:end,1)-bvarmf.yinterpol(1:end-3,1));
-plot(T(4:end),Dy,'ro');
-hold on; plot(T(4:end),DY,'b','Linewidth',2)
-% hold on; plot(T(4:end),DiY,'k-.','Linewidth',1.5)
-legend('Quarterly data','MXFREQ VAR flow (x^q_t = 1/3( x^m_t +  x^m_{t-1} +  x^m_{t-2}))','Interpolation','location','SouthOutside')
-set(    gcf,'position' ,[50 50 900 650])
-savefigure_pdf([tmp_str '\MonthlyGDPgrowth']);
-
 

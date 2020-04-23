@@ -41,13 +41,13 @@ if nargin > 3
     if isfield(options,'lb') ==1
         lb    = options.lb;
         if length(lb) ~=  length(x0)
-            error('Mismatch between the lower bounds and the param vector');
+            error('Mismatch between the size of lower bounds and the param vector');
         end
     end
     if isfield(options,'ub') ==1
         ub    = options.ub;
         if length(ub) ~=  length(x0)
-            error('Mismatch between the upper bounds and the param vector');
+            error('Mismatch between the size of upper bounds and the param vector');
         end
     end
     if isfield(options,'objective_function') ==1
