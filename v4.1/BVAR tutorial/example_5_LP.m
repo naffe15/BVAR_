@@ -42,11 +42,18 @@ options.saveas_dir    = './dm_plt';
 options.saveas_strng  = 'Cholesky';
 % name of the shock
 options.shocksnames   = {'MP'};  
-% finally, the plotting command
+% Compare with BVAR estimates
+bvar_ = bvar(y,lags,options);
+var_irf_sort = sort(bvar_.ir_draws,4);
+% add IRF plot
+options.add_irfs(:,:,:,1) = var_irf_sort(indx_var,:,indx_sho,round(bvar_.ndraws*0.95));
+options.add_irfs(:,:,:,2) = var_irf_sort(indx_var,:,indx_sho,round(bvar_.ndraws*0.05));
+% plot LP
 plot_irfs_(dm1.ir_lp(indx_var,:,indx_sho,:),options)
 
-%% 2/ IV
+options =rmfield(options,'add_irfs');
 
+%% 2/ IV
 % load the instruments
 [numi,txti,rawi] = xlsread('factor_data.csv','factor_data');
 % instrument must have the same lenght as the observed data
@@ -57,10 +64,23 @@ options.proxy(length(T)- length(numi)+1:end) = numi(:,4);
 
 dm2 = directmethods(y,lags,options);
 
-options.saveas_strng  = 'IV';
+options0= options;
+options0.fontsize =18;
+options0.saveas_strng  = 'IV';
+options0.nplots = [1 1];
+options0.varnames = {'IP','CPI','1 year rate','EBP'};
 % finally, the plotting command
-plot_irfs_(dm2.irproxy_lp(indx_var,:,1,:)*0.25,options)
+norm = dm2.irproxy_lp(3,1,1,2)*4;
+plot_irfs_(dm2.irproxy_lp(:,:,1,:)/norm,options0)
 
+options1 = options0;
+for vv = 1 :size(y,2)
+    dm3 = directmethods (y(:,vv),lags,options);    
+    options1.saveas_strng  = ['IV_var' num2str(vv)];
+    options1.varnames = options0.varnames(vv);
+    % finally, the plotting command
+    plot_irfs_(dm3.irproxy_lp(:,:,1,:)/norm,options1)
+end
 
 %% 3/ Bayesian LP 
 
@@ -78,6 +98,7 @@ options.priors.Phi.cov     = diag(mean(var(bvar_.Phi_draws,0,3),2));
 % posterior mean of the Covariance of the VAR residuals 
 options.priors.Sigma.scale = mean(bvar_.Sigma_draws,3);
 options.priors.Sigma.df    = size(bvar_.Phi_draws,1)-2;
+options.priors.tau         = 0.5*ones(options.hor); % 
 
 options.proxy(1:presample,:) =[];
 
@@ -85,13 +106,15 @@ bdm = directmethods(y(presample+1:end,:),lags,options);
 
 options.saveas_strng  = 'BLPCholesky';
 % the plotting command
-options.conf_sig   = 0.68;
-options.conf_sig_2 = 0.9;
+options.conf_sig   = 0.9;
+options.fontsize   = 12;
 plot_irfs_(bdm.ir_blp(indx_var,:,indx_sho,:),options)
 
 options.saveas_strng  = 'BLPIV';
+
+norm = median(bdm.irproxy_blp(3,1,1,:),4)*4;
 % the plotting command
-plot_irfs_(bdm.irproxy_blp(indx_var,:,1,:)*0.25,options)
+plot_irfs_(bdm.irproxy_blp(indx_var,:,1,:)/norm,options)
 
 %% 4/ Optimize Shrinkage
 
