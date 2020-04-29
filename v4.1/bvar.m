@@ -485,6 +485,9 @@ mu      = 0;
 
 ydata   = y(idx, :);
 T       = size(ydata, 1);
+if T-lags < lags*ny + nx %+ flat*(ny+1)
+    error('Less observations than regressors: increase the # of obs or decrease the # of lags.')
+end
 xdata   = ones(T,nx);
 if timetrend == 1
     % xdata = [xdata [1:T]'];
@@ -611,8 +614,24 @@ else
     forecast_data.realized_val = [];
 end
 
-S_inv_upper_chol    = chol(inv(posterior.S));
+try
+    S_inv_upper_chol    = chol(inv(posterior.S));
+catch
+    warning('POSTERIOR MEAN of SIGMA IS ILL-BEHAVED (NON-POSITIVE DEFINITE)')
+    try
+        warning('I will try with the LDL decomposition')
+        iS               = inv(posterior.S);
+        [L, D, P]        = ldl(iS);
+        S_inv_upper_chol = sqrt(D) * L' * P';%chol()
+    catch
+        warning('I will add +1e-05 to the diagonal')
+        S_inv_upper_chol    = chol(inv(posterior.S + 1e-05*eye(ny)));
+    end
+end
+
+
 XXi_lower_chol      = chol(posterior.XXi)';
+
 nk                  = ny*lags+nx+timetrend;
 
 % Declaration of the companion matrix
@@ -761,10 +780,14 @@ if long_run_irf == 1
     BVAR.Qlr_ols(:,:)       = Qlr;
 end
 
-% test the normality of the ols VAR residuals
-for gg = 1 : ny
-    [H,P] = kstest(BVAR.e_ols(:,gg)/BVAR.Sigma_ols(gg,gg));
-    BVAR.HP(gg,:) = [H,P];
+% test the normality of the ols VAR residuals (matlab stat toolbox needed)
+if  exist('kstest') ==2
+    for gg = 1 : ny
+        [H,Pv] = kstest(BVAR.e_ols(:,gg)/BVAR.Sigma_ols(gg,gg));
+        BVAR.HP(gg,:) = [H,Pv];
+    end
+else
+    BVAR.HP = [];
 end
 
 % bayesian inference:
