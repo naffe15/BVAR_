@@ -26,6 +26,7 @@ normz_yes   = 0;
 add_multiple_bands_yes = 0;
 fnam_dir    = '.';
 fnam_suffix = 'irfs_';
+fontsize    = 12;
 
 if nargin <2
     disp('You did not provided names for shocks nor variables.')
@@ -39,6 +40,9 @@ if nargin <2
 else
     if isfield(options,'varnames') ==1
         varnames = options.varnames;
+        if length(varnames) ~= nvar
+            error('There is a mismatch between the number of var and the names')
+        end
     else
         disp('You did not provided names for the endogenous variables.')
         disp('I call them Var 1, Var 2, ...')
@@ -80,7 +84,7 @@ else
             mkdir(fnam_dir)
         end
     end
-    if isfield(options,'add_irfs') ==1;
+    if isfield(options,'add_irfs') ==1
         % setting the folder where to save the figure
         add_irfs = options.add_irfs;
         add_irfs_yes = 1;
@@ -89,6 +93,11 @@ else
         add_multiple_bands_yes = 1;
         sort_idx_2   = round((0.5 + [-options.conf_sig_2, options.conf_sig_2, 0]/2) * ndraws);
     end
+    if isfield(options,'fontsize') ==1
+        % title font size
+        fontsize = options.fontsize;
+    end
+
 end
 
 
@@ -144,7 +153,7 @@ jplot = 0;
 jfig  = 0;
 for sho = 1 : nshocks
     %     figm = figure('Name',['IRFs of ' deblank(varnames{sho})] );
-    for var= 1: size(varnames,2)
+    for var= 1: nvar %size(varnames,2)
         
         if jplot==0,
             figure('name',['IRFs of ' shocksnames{sho}] );
@@ -182,14 +191,16 @@ for sho = 1 : nshocks
         plot(irf_Median(var,:,sho),'k');
         hold on;
         if add_irfs_yes == 1
-            plot(add_irfs(var,:,sho),'b','LineWidth',2);
+            for hh = 1: size(add_irfs,4)
+                plot(add_irfs(var,:,sho,hh),'b','LineWidth',2);
+            end
         end
         hold on;
         plot(zeros(1,hor),'k')
         hold on;
         hold on
         axis tight
-        title(varnames{var})
+        title(varnames{var},'FontSize',fontsize)
         set(gcf,'position' ,[50 50 800 650])
         if jplot==nbofplots(jfig) || var==length(varnames)
             %legend(legenda);
