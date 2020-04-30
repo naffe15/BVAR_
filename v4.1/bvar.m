@@ -942,7 +942,7 @@ end
             %********************************************************
             % Flat Jeffrey Prior
             %********************************************************
-            posterior.df    = Tu - ny*lags - nx - flat*(ny+1);
+            posterior.df    = Tu - ny*lags - nx + flat*(ny+1);
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
