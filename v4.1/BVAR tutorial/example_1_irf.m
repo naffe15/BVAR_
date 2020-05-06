@@ -5,9 +5,8 @@
 clear all
 close all
 clc
-
-addpath ..\..\cmintools\
-addpath ..\..\v4.1\
+addpath ../../cmintools/
+addpath ../../v4.1/
 
 %% %=========================================================================
 %%% CAUSALITY %%%
@@ -285,7 +284,7 @@ optnsplt.save_strng    = 'y0';
 % define the time for the plot
 optnsplt.time          = T(1+lags:end);
 % define the directory where the plot is saved 
-optnsplt.saveas_dir    = '.\sdcmp_plt';
+optnsplt.saveas_dir    = './sdcmp_plt';
 % limit the plot to a specific time window 
 optnsplt.Tlim          = [2006 2012];
 plot_sdcmp_(yDecomp,bvar4,optnsplt)
@@ -360,5 +359,4 @@ figure('name','UNR')
 tt = T(timespan(:,end)');
 surf(tt,[1:options.hor],squeeze(rollIRF(2,:,:)))
 axis tight
-% savefigure_pdf('.\irfs_plt\IRFUN3D');
 

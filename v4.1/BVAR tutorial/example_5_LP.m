@@ -6,8 +6,8 @@ clear all
 close all
 clc
 
-addpath ..\..\cmintools\
-addpath ..\..\v4.1\
+addpath ../../cmintools/
+addpath ../../v4.1/
 
 %% %=========================================================================
 %%% DIRECT METHODS %%%

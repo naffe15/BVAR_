@@ -6,8 +6,8 @@ clear all
 close all
 clc
 
-addpath ..\..\cmintools\
-addpath ..\..\v4.1\
+addpath ../../cmintools/
+addpath ../../v4.1/
 
 %% %%=========================================================================
 %%% PREDICTION %%%
@@ -134,7 +134,7 @@ for jj= 1:length(varnames)
             'Location','Best','FontSize',16)
     end
     set(    gcf,'position' ,[50 50 900 650])
-    STR_RECAP = [tmp_str '\multiple_frscst_' varnames{jj}];
+    STR_RECAP = [tmp_str '/multiple_frscst_' varnames{jj}];
     savefigure_pdf(STR_RECAP);
     saveas(gcf,STR_RECAP,'fig');
     saveas(gcf,STR_RECAP,'eps');
@@ -146,7 +146,7 @@ close all
 % select the forecast to plot (Opt Minnesota)
 frcsts                    = b.var(3).forecasts.with_shocks;               
 % declare the directory where the plots are saved (in .\frcsts_plt) - default no save
-options.saveas_dir        = 'frcsts_plt';                    
+options.saveas_dir        = '/frcsts_plt';                    
 % appearence of subplots 
 options.nplots            = [3 2];                           
 % start of the forecast plot - default first date in-sample data
