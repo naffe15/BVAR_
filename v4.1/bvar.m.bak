@@ -71,7 +71,6 @@ zeros_signs_irf     = 0;
 proxy_irf           = 0;
 noprint             = 0;
 nexogenous          = 0;
-exogenous           = [];
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -138,14 +137,14 @@ if nargin > 2
         timetrend  = options.timetrend;
         noconstant = 0; 
     end    
-    %======================================================================
+        %======================================================================
     % Exogenous Variables options
     %======================================================================
     if isfield(options,'exogenous')==1
         exogenous = options.exogenous;
         nexogenous = size(exogenous,2);
-        if size(exogenous,1) ~= size(y,1)+ fhor && size(exogenous,1) ~= size(y,1)
-            error('Size Mismatch between endogenous and exogenos variables; exo must be either T or T+fhor');
+        if size(exogenous,1) ~= size(y,1)+ fhor  
+            error('Size Mismatch: endogenous and exogenos variables must have the same T length');
         end
     end
     %======================================================================
@@ -489,11 +488,7 @@ if cfrcst_yes ~= 0 && nexogenous > 0
     warning('I will not use exogenous variables with conditional forecasts');
     nexogenous = 0;
 end
-if size(exogenous,1) == size(y,1) && nexogenous > 0
-    warning('For forecast purposes, I will assume that exo are zero out-of sample.')
-    fprintf('To change this, include the exogenous forecasts in options.exogenous.\n')
-    exogenous = [exogenous; zeros(fhor,nexogenous)];
-end
+
 
 %********************************************************
 %* Priors and Posterior Distributions
