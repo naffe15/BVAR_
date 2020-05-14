@@ -37,7 +37,7 @@ frcst_with_shocks  = nan(fhor,ny);
 
 lags_data = forecast_data.initval;
 for t = 1 : fhor
-     X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];
+    X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];
     y = X * Phi;
     lags_data(1:end-1,:) = lags_data(2:end, :);
     lags_data(end,:) = y;

@@ -45,8 +45,17 @@ ny                  = size(y, 2);
 %* DEFAULT SETTINGS
 %********************************************************
 % Control random number generator
-rng('default');
-rng(999);
+if isOctave == 0
+    isMatlab = 1;
+    rng('default');
+    rng(999);
+else
+    isMatlab = 0;
+    % pkg load optim
+    randn('state',999);
+    rand('state',999);
+end
+
 
 % Default Settings (they can all be changed in 'options' see below)
 K                   = 5000;         % number of draws from the posterior
@@ -70,6 +79,8 @@ narrative_signs_irf = 0;
 zeros_signs_irf     = 0;
 proxy_irf           = 0;
 noprint             = 0;
+nexogenous          = 0;
+exogenous           = [];
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -84,7 +95,11 @@ if any(any(isnan(y)))==1
     for kk  = 1 : length(index_nan_var)
         v                       = y(isfinite(y(:,index_nan_var(kk))),index_nan_var(kk));
         x                       = find(isfinite(y(:,index_nan_var(kk))));
-        y(:,index_nan_var(kk))  = interp1(x,v,T','spline');
+        if isMatlab == 1
+            y(:,index_nan_var(kk))  = interp1(x,v,T','spline');
+        else
+            y(:,index_nan_var(kk))  = spline(x,v,T');
+        end
         yinterpol               = y;
     end
 else
@@ -136,6 +151,16 @@ if nargin > 2
         timetrend  = options.timetrend;
         noconstant = 0; 
     end    
+    %======================================================================
+    % Exogenous Variables options
+    %======================================================================
+    if isfield(options,'exogenous')==1
+        exogenous = options.exogenous;
+        nexogenous = size(exogenous,2);
+        if size(exogenous,1) ~= size(y,1)+ fhor && size(exogenous,1) ~= size(y,1)
+            error('Size Mismatch between endogenous and exogenos variables; exo must be either T or T+fhor');
+        end
+    end
     %======================================================================
     % Minnesota prior options
     %======================================================================
@@ -238,7 +263,10 @@ if nargin > 2
         if isfield(options,'prior')==1
             options.priors = options.prior;
         end
-        
+        if dummy == 1
+            warning('You have set both the Conjugate and Minnesota (perhaps via options.minn_prior_XX)');
+            warning('I will consider the Conjugate prior only');
+        end
         dummy = 2;
         %  warning('The Conjugate prior is still under construction ... ');
         flat  = 0;
@@ -248,33 +276,33 @@ if nargin > 2
             % mean
             if isfield(options.priors.Phi,'mean') == 1
                 prior.Phi.mean  = options.priors.Phi.mean;
-                if size(prior.Phi.mean) ~= [ny*lags+(1-noconstant)+timetrend    ny]
+                if max(size(prior.Phi.mean) ~= [ny*lags+(1-noconstant)+timetrend+nexogenous   ny]) ~= 0
                     error('Size mismatch')
                 end
             else
                 warning(['You did not provide a prior mean for the AR coeff. ' ...
                     'Assume zeros everywhere.'])
-                prior.Phi.mean  = zeros(ny*lags+(1-noconstant)+timetrend , ny);
+                prior.Phi.mean  = zeros(ny*lags+(1-noconstant)+timetrend+nexogenous , ny);
             end
             % variance
             if isfield(options.priors.Phi,'cov') == 1
                 prior.Phi.cov   = options.priors.Phi.cov;
 %                 if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) * ny
-                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
+                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend+nexogenous ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
                     error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)x')
                 end
             else
                 warning(['You did not provide a Covariance for the AR coeff. ' ...
                     'Assume 10 times Identity Matrix.'])
 %                 prior.Phi.cov  = 10 * eye((ny*lags+(1-noconstant) + timetrend) * ny);
-                prior.Phi.cov  = 10 * eye((ny*lags+(1-noconstant) + timetrend));
+                prior.Phi.cov  = 10 * eye((ny*lags+(1-noconstant) + timetrend+nexogenous));
             end
         else
             warning(['You did not provide prior mean and covariance for the AR coeff ' ...
                 'Assume zeros everywhere with covariance 10 times Identity Matrix.'])
 %             prior.Phi.cov   = 10 * eye((ny*lags+(1-noconstant) +timetrend ) * ny);
-            prior.Phi.cov   = 10 * eye((ny*lags+(1-noconstant) +timetrend ));
-            prior.Phi.mean  = zeros(ny*lags+(1-noconstant) +timetrend ,  ny);
+            prior.Phi.cov   = 10 * eye((ny*lags+(1-noconstant) + timetrend+nexogenous ));
+            prior.Phi.mean  = zeros(ny*lags+(1-noconstant) + timetrend+nexogenous ,  ny);
         end
         % Priors for the Residual Covariance
         if isfield(options.priors,'Sigma') == 1
@@ -301,13 +329,13 @@ if nargin > 2
             else
                 warning(['You did not provide the degrees of freedom for the Residual Covariance. ' ...
                     'Assume ny+1.'])
-                prior.Sigma.df = ny + 1;
+                prior.Sigma.df = ny + nexogenous + 1;
             end
         else
             warning(['You did not provide prior mean and variance for the Residual Covariance. ' ...
                 'Assume an identity matrix matrix with N+1 degrees of freedom.'])
             prior.Sigma.scale = eye(ny);
-            prior.Sigma.df    = ny + 1;
+            prior.Sigma.df    = ny + nexogenous + 1;
         end
     end
     %======================================================================
@@ -462,7 +490,23 @@ end
 if firstobs + presample  <= lags
     error('firstobs+presample should be > # lags (for initializating the VAR)')
 end
-
+if dummy == 1 && nexogenous > 0 
+    warning('I will not use exogenous variables with Minnesota');
+    nexogenous = 0;
+end
+if mixed_freq_on == 1 && nexogenous > 0
+    warning('I will not use exogenous variables with missing observations');
+    nexogenous = 0;
+end
+if cfrcst_yes ~= 0 && nexogenous > 0
+    warning('I will not use exogenous variables with conditional forecasts');
+    nexogenous = 0;
+end
+if size(exogenous,1) == size(y,1) && nexogenous > 0
+    warning('For forecast purposes, I will assume that exo are zero out-of sample.')
+    fprintf('To change this, include the exogenous forecasts in options.exogenous.\n')
+    exogenous = [exogenous; zeros(fhor,nexogenous)];
+end
 
 %********************************************************
 %* Priors and Posterior Distributions
@@ -493,6 +537,11 @@ if timetrend == 1
     % xdata = [xdata [1:T]'];
     xdata = [xdata [1-lags : T-lags]'];
 end
+if nexogenous > 0
+    xdata = [xdata exogenous(idx,:)]; 
+    XX    = [XX exogenous(idx(1)+lags : idx(end),:)];
+end
+
 % OLS estimate [NO DUMMY]:
 varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0);                                     
 
@@ -571,7 +620,7 @@ end
 % Preallocation of memory
 % Matrices for collecting draws from Posterior Density
 % Last dimension corresponds to a specific draw
-Phi_draws     = zeros(ny*lags+nx+timetrend,ny,K);   % Autoregressive Parameters
+Phi_draws     = zeros(ny*lags+nx+timetrend + nexogenous, ny, K);   % Autoregressive Parameters
 Sigma_draws   = zeros(ny,ny,K);                     % Shocks Covariance
 ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Cholesky IRF
 irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
@@ -603,16 +652,10 @@ forecast_data.xdata       = ones(fhor, nx);
 if timetrend
     forecast_data.xdata = [forecast_data.xdata (T-lags+1 : T-lags+fhor)'];
 end
+if nexogenous>0
+    forecast_data.xdata = [forecast_data.xdata exogenous(T-lags+1 : T-lags+fhor,:)];
+end    
 forecast_data.initval     = ydata(end-lags+1:end, :);
-if firstobs + nobs <= size(y, 1)
-    forecast_data.realized_val = y(firstobs+nobs:end, :);
-    forecast_data.realized_xdata = ones(size(forecast_data.realized_val, 1), nx);
-    if timetrend
-        forecast_data.realized_xdata = [forecast_data.realized_xdata (firstobs+nobs : firstobs+nobs+size(forecast_data.realized_val, 1) )'];
-    end
-else
-    forecast_data.realized_val = [];
-end
 
 try
     S_inv_upper_chol    = chol(inv(posterior.S));
@@ -632,7 +675,7 @@ end
 
 XXi_lower_chol      = chol(posterior.XXi)';
 
-nk                  = ny*lags+nx+timetrend;
+nk                  = ny*lags+nx+timetrend + nexogenous;
 
 % Declaration of the companion matrix
 Companion_matrix = diag(ones(ny*(lags-1),1),-ny);
@@ -888,6 +931,9 @@ end
             xdata = [xdata [1-lags:T-lags]'];
             % xdata = [xdata [1:T]'];
         end
+        if nexogenous >0
+            xdata = [xdata exogenous(idx,:)];
+        end
         % posterior density
         var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
         Tu = size(var.u, 1);
@@ -925,7 +971,7 @@ end
             % Conjugate Prior
             %********************************************************
             Ai              = inv(prior.Phi.cov);
-            posterior.df    = Tu - ny*lags - nx - flat*(ny+1) + prior.Sigma.df;
+            posterior.df    = Tu - ny*lags - nx - nexogenous - prior.Sigma.df;
             posterior.XXi   = inv(var.X'*var.X + Ai);
             posterior.PhiHat = posterior.XXi * (var.X' * var.y + Ai * prior.Phi.mean);
             %posterior.S     = var.u' * var.u + prior.Sigma.scale ;
@@ -942,7 +988,7 @@ end
             %********************************************************
             % Flat Jeffrey Prior
             %********************************************************
-            posterior.df    = Tu - ny*lags - nx + flat*(ny+1);
+            posterior.df    = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;

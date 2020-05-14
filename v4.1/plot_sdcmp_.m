@@ -262,8 +262,7 @@ for j = 1 : size(pplotvar,2)
     %     STR_RECAP = [ 'model_' fnam_suffix '_' tmp_str{st} '_'  tmp_str{end} '_' int2str(j)];
     
     if savefig_yes == 1
-        STR_RECAP = [ fnam_dir '\svar_' fnam_suffix '_' int2str(j)];
-        
+        STR_RECAP = [ fnam_dir '/svar_' fnam_suffix '_' int2str(j)];
         saveas(gcf,STR_RECAP,'fig');
         saveas(gcf,STR_RECAP,'pdf');
         
