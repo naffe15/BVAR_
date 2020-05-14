@@ -38,7 +38,7 @@ hyperpara(3)    = 5;		  % lambda
 hyperpara(4)    = 2;		  % mu
 hyperpara(5)    = 2;		  % omega
 % setting the options
-options.index_est	   = 1:1;    % hyper-parameter over which maximize
+options.index_est	   = 1:1;      % hyper-parameter over which maximize
 options.max_compute    = 2;      % maximize  using Matlab fmincon function
 options.lb             = [0.05]; % Lower bound
 [postmode,logmlike,HH] = bvar_max_hyper(hyperpara,y,lags,options); 

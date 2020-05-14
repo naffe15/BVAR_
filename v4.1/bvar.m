@@ -45,8 +45,17 @@ ny                  = size(y, 2);
 %* DEFAULT SETTINGS
 %********************************************************
 % Control random number generator
-rng('default');
-rng(999);
+if isOctave == 0
+    isMatlab = 1;
+    rng('default');
+    rng(999);
+else
+    isMatlab = 0;
+    % pkg load optim
+    randn('state',999);
+    rand('state',999);
+end
+
 
 % Default Settings (they can all be changed in 'options' see below)
 K                   = 5000;         % number of draws from the posterior
@@ -86,7 +95,11 @@ if any(any(isnan(y)))==1
     for kk  = 1 : length(index_nan_var)
         v                       = y(isfinite(y(:,index_nan_var(kk))),index_nan_var(kk));
         x                       = find(isfinite(y(:,index_nan_var(kk))));
-        y(:,index_nan_var(kk))  = interp1(x,v,T','spline');
+        if isMatlab == 1
+            y(:,index_nan_var(kk))  = interp1(x,v,T','spline');
+        else
+            y(:,index_nan_var(kk))  = spline(x,v,T');
+        end
         yinterpol               = y;
     end
 else

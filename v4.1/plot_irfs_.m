@@ -208,7 +208,8 @@ for sho = 1 : nshocks
                 STR_RECAP = [ fnam_dir '/' fnam_suffix '_' shocksnames{sho} '_' int2str(jfig)];
                 saveas(gcf,STR_RECAP,'fig');
                 saveas(gcf,STR_RECAP,'eps');
-                savefigure_pdf(STR_RECAP);
+                %savefigure_pdf(STR_RECAP);
+                savefigure_pdf([STR_RECAP '.pdf']);
             end
             jplot=0;
         end

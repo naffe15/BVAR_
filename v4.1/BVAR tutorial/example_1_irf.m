@@ -237,8 +237,8 @@ Sigma = mean(bvar1.Sigma_draws,3);
 % index of the shocks of interest (shock to gs1)
 indx_sho              = [3];   
 
-% 2 year ahead forecsat error
-hh      = 8;
+% 2 year ahead FEVD
+hh      = 24;
 FEVD    = fevd(hh,Phi,Sigma);
 
 disp('%=====================================================%')

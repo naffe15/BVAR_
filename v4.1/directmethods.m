@@ -27,8 +27,17 @@ end
 %* DEFAULT SETTINGS
 %********************************************************
 % Control random number generator
-rng('default');
-rng(999);
+if isOctave == 0
+    isMatlab = 1;
+    rng('default');
+    rng(999);
+else
+    isMatlab = 0;
+    % pkg load optim
+     pkg load statistics
+    randn('state',999);
+    rand('state',999);
+end
 
 hor          = 24;
 conf_sig     = 0.9;

@@ -188,5 +188,5 @@ if savefig_yes == 1,
     STR_RECAP = [ fnam_dir '/' fnam_suffix ];
     saveas(gcf,STR_RECAP,'fig');
     saveas(gcf,STR_RECAP,'eps');
-    savefigure_pdf(STR_RECAP);
+    savefigure_pdf([STR_RECAP '.pdf']);
 end

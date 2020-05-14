@@ -48,6 +48,8 @@ irfs_to_plot = fabvar.irX_draws( indx_var, :, 1, :);
 
 % % Customize the IRF plot
 % % variables names for the plots
+options.saveas_dir    = './irfs_plt';
+options.saveas_strng  = 'FaVAR';
 options.shocksnames   = {'MP'};  
 options.varnames      = {'GDP','CORE PCE'};  
 plot_irfs_(irfs_to_plot,options)

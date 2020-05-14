@@ -23,15 +23,15 @@ function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M)
 
 lh=zeros(1,2);
 omega=G*sig*G'+M*M';
-[uo do vo]=svd(omega);
-[u d v]=svd(H*uo*sqrt(do));
+[uo doo vo]=svd(omega);
+[u d v]=svd(H*uo*sqrt(doo));
 first0=min(find(diag(d)<1e-12));
 if isempty(first0),first0=min(size(H))+1;end
 u=u(:,1:first0-1);
 v=v(:,1:first0-1);
 d=diag(d);d=diag(d(1:first0-1));
 spred = G*shat; 
-fac=vo*sqrt(do);
+fac=vo*sqrt(doo);
 yforc = H*spred; 
 yhat=y-yforc; 
 fhalf=(v/d)*u'; 
