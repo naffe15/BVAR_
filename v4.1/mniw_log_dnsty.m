@@ -24,7 +24,8 @@ FF    = eye(ny) ...
     + Fo'* ((posterior.PhiHat - prior.Phi.mean)'* iV * (posterior.PhiHat - prior.Phi.mean) ...
     + var.e'* var.e) * Fo;
 log_dnsty = log_dnsty - (nobs + prior.Sigma.df)/2 * log(det(  FF ));
-log_dnsty = log_dnsty + ggammaln(ny,(nobs + prior.Sigma.df)/2) - ggammaln(ny,prior.Sigma.df/2);
+log_dnsty = log_dnsty + ggammaln(ny,(nobs + prior.Sigma.df)/2) ;
+log_dnsty = log_dnsty - ggammaln(ny,prior.Sigma.df/2);
 
 
 function lgg = ggammaln(m, df)

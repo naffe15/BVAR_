@@ -323,19 +323,25 @@ if nargin > 2
                 if length(prior.Sigma.df) ~= 1
                     error('Size mismatch')
                 end
-                if prior.Sigma.df < ny
-                    error('Too few degrees of freedom - prior on variance residuals')
+                if prior.Sigma.df/2 <= ny-1
+                    error('Too few degrees of freedom - Increase prior df')
                 end
             else
                 warning(['You did not provide the degrees of freedom for the Residual Covariance. ' ...
                     'Assume ny+1.'])
-                prior.Sigma.df = ny + nexogenous + 1;
+                prior.Sigma.df = ny + nexogenous + timetrend + 1;
+                while prior.Sigma.df/2 <= ny-1 % too few df
+                    prior.Sigma.df =  prior.Sigma.df +1;
+                end
             end
         else
             warning(['You did not provide prior mean and variance for the Residual Covariance. ' ...
                 'Assume an identity matrix matrix with N+1 degrees of freedom.'])
             prior.Sigma.scale = eye(ny);
-            prior.Sigma.df    = ny + nexogenous + 1;
+            prior.Sigma.df    = ny + nexogenous + timetrend + 1;
+            while prior.Sigma.df/2 <= ny-1 % too few df
+                prior.Sigma.df =  prior.Sigma.df +1;
+            end
         end
     end
     %======================================================================
