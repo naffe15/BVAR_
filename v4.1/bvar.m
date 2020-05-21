@@ -819,7 +819,8 @@ if waitbar_yes, close(wb); end
 BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
 BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
-[BVAR.InfoCrit.AIC, BVAR.InfoCrit.SIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(log_dnsty, nobs, nk);
+[BVAR.InfoCrit.AIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(BVAR, nobs, nk);
+% the model with the lowest IC is preferred
 
 % OLS irf
 BVAR.ir_ols      = iresponse(BVAR.Phi_ols,BVAR.Sigma_ols,hor,eye(ny));
