@@ -1,6 +1,6 @@
 # BVAR_
  
-A hitchihiker guide to empirical macro models
+A hitchhiker guide to empirical macro models
 
 by F. Ferroni and F. Canova
 
