@@ -96,14 +96,16 @@ R2     = ones(length(ESS),1) - RSS ./ TSS;
 adjR2  = ones(length(ESS),1) - (ones(length(ESS),1) - R2)*(N-1)/(N-K);
 Ftest  = ESS/(K-1) ./ diag(Serror);
 
-for v = 1 : ny
-    output.logl(v,1)   = -N/2*log(2*pi*Serror(v,v)) - RSS(v,1)/(2*Serror(v,v));
-    [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(output.logl(v,1), N, K);
-end
+% for v = 1 : ny
+% %     output.logl(v,1)   = -N/2*log(2*pi*Serror(v,v)) - RSS(v,1)/(2*Serror(v,v));
+%     [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(output.logl(v,1), N, K);
+% end
 
 output.beta   = Bols;                   % OLS estimator
 output.error  = err;                   % (TxN) matrix of Residuals
+output.e_ols  = err;                   % (TxN) matrix of Residuals
 output.Serror = Serror;                 % Covariance matrix of Residuals
+output.Sigma_ols = Serror;                 % Covariance matrix of Residuals
 output.Sols   = Sols;                   % Covariance matrix of Bols
 output.Ttest  = Ttest;                  % t-statistics
 output.pvalue = tpdf(Ttest,N-K);        % p-value
@@ -120,6 +122,10 @@ output.XX     = XX;
 output.X      = X;
 output.Y      = Y;
 
+for v = 1 : ny
+%     output.logl(v,1)   = -N/2*log(2*pi*Serror(v,v)) - RSS(v,1)/(2*Serror(v,v));
+    [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(output, N, K);
+end
 
 % if nargin > 2
 %     [EstCov,se,coeff] = hac(X(:,1:end-1),Y,'display','off'); % remove the intercept
