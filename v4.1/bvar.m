@@ -596,7 +596,7 @@ elseif dummy == 0
 end
 
 % specify the posterior (the varols agin on actual+dummy)
-[posterior] = posterior_(y);
+[posterior,var] = posterior_(y);
 
 
 %*********************************************************
@@ -924,7 +924,7 @@ end
 
 %********************************************************
 %********************************************************
-    function [posterior] = posterior_(y)
+    function [posterior,var] = posterior_(y)
         
         % This part is needed in the case of missing values. The posterior
         % needs to be revaluated given a new value of the Kalman smoothed
