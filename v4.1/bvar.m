@@ -833,7 +833,7 @@ end
 % test the normality of the ols VAR residuals (matlab stat toolbox needed)
 if  exist('kstest') ==2
     for gg = 1 : ny
-        [H,Pv] = kstest(BVAR.e_ols(:,gg)/BVAR.Sigma_ols(gg,gg));
+        [H,Pv] = kstest(BVAR.e_ols(:,gg)/sqrt(BVAR.Sigma_ols(gg,gg)));
         BVAR.HP(gg,:) = [H,Pv];
     end
 else
