@@ -1,9 +1,11 @@
 function XLag = lagX(X,lags)
-%lagX Create matrix of lagged time series
+%lagX Create matrix of lagged time series, 
+% 1st dimension time, 
+% 2nd dimention variables
 %
-if size(X,2) > size(X,1)
-   X = X'; % Ensure a column vector
-end
+%if size(X,2) > size(X,1)
+%   X = X'; % Ensure a column vector
+%end
 
 missingValue = NaN;  % Assign default missing value
 Lags = length(lags); % Number of lags to apply to each time series
