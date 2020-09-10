@@ -102,7 +102,8 @@ mnprior.tight = bvar_prior_tau;
 mnprior.decay = bvar_prior_decay;
 mnprior.unit_root_ = unit_root_;
 % Use only initializations lags for the variance prior
-vprior.sig = std(y(first_obs+presample-lags : first_obs+presample,:))';
+vprior.sig            = std(y(first_obs-lags : first_obs+presample-1,:))';
+% vprior.sig = std(y(first_obs+presample-lags : first_obs+presample,:))';
 vprior.w = bvar_prior_omega;
 lambda = bvar_prior_lambda;
 mu     = bvar_prior_mu;

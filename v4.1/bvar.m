@@ -145,7 +145,7 @@ if nargin > 2
         presample = options.presample;
     end
     if isfield(options,'noconstant')==1
-        noconstant = options.nocostant;
+        noconstant = options.noconstant;
     end
     if isfield(options,'timetrend')==1
         timetrend  = options.timetrend;
