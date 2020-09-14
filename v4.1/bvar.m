@@ -73,6 +73,8 @@ minn_prior_omega    = 2;            % Minnesota prior Hyper-Param: Shocks Varian
 long_run_irf        = 0;            % when 0, it does not compute long run IRF
 irf_1STD            = 1;            % when 1, IRF are computed as 1SD increase. Else, IRF are compued as unitary increase in the shock
 cfrcst_yes          = 0;            % no conditional forecast unless defined in options
+non_explosive_      = 0;            % 
+heterosked          = 0;
 
 signs_irf           = 0;
 narrative_signs_irf = 0;
@@ -150,6 +152,13 @@ if nargin > 2
     if isfield(options,'timetrend')==1
         timetrend  = options.timetrend;
         noconstant = 0; 
+    end    
+    if isfield(options,'non_explosive_')==1
+        non_explosive_  = options.non_explosive_;
+    end    
+    if isfield(options,'heterosked_weights')==1
+        ww  = options.heterosked_weights;
+        heterosked = 1;
     end    
     %======================================================================
     % Exogenous Variables options
@@ -549,7 +558,11 @@ if nexogenous > 0
 end
 
 % OLS estimate [NO DUMMY]:
-varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0);                                     
+if heterosked == 0
+    varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0);    
+else
+    varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0, ww);
+end
 
 
 % specify the prior
@@ -685,6 +698,8 @@ nk                  = ny*lags+nx+timetrend + nexogenous;
 
 % Declaration of the companion matrix
 Companion_matrix = diag(ones(ny*(lags-1),1),-ny);
+p  = 0;
+dd = 0;
 
 waitbar_yes = 0;
 if K > 99
@@ -694,18 +709,33 @@ end
 
 for  d =  1 : K
     
-    %======================================================================
-    % Inferece: Drawing from the posterior distribution
-    % Step 1: draw from the Covariance
-    Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
-    
-    % Step 2: given the Covariance Matrix, draw from the AR parameters
-    Sigma_lower_chol = chol(Sigma)';
-    Phi1 = randn(nk * ny, 1);
-    Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
-    Phi3 = reshape(Phi2, nk, ny);
-    Phi  = Phi3 + posterior.PhiHat;
+    while dd == 0 
+        %======================================================================
+        % Inferece: Drawing from the posterior distribution
+        % Step 1: draw from the Covariance
+        Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
         
+        % Step 2: given the Covariance Matrix, draw from the AR parameters
+        Sigma_lower_chol = chol(Sigma)';
+        Phi1 = randn(nk * ny, 1);
+        Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
+        Phi3 = reshape(Phi2, nk, ny);
+        Phi  = Phi3 + posterior.PhiHat;
+        
+        Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
+        test = (abs(eig(Companion_matrix)));
+        if non_explosive_ == 1
+            % Checking the eigenvalues of the companion matrix (on or inside the
+            % unit circle)
+            if any(test>1.01) %any(test>1.0000000000001)
+                p = p+1;                
+            else
+                dd = 1;
+            end
+        else
+            dd = 1;
+        end
+    end
     
     % store the draws
     Phi_draws(:,:,d)   = Phi;
@@ -788,7 +818,7 @@ for  d =  1 : K
         % Checking the eigenvalues of the companion matrix (on or inside the
         % unit circle). Needed for the initial of KF
         Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
-        test = (abs(eig(Companion_matrix)));
+        %test = (abs(eig(Companion_matrix)));
         if any(test>1.0000000000001)
             KFoptions.initialCond = 1;
         end
@@ -807,6 +837,7 @@ for  d =  1 : K
         logL(d) = KFout.logL;
     end
     if waitbar_yes, waitbar(d/K, wb); end
+    dd = 0; % reset 
 end
 if waitbar_yes, close(wb); end
 
@@ -942,7 +973,11 @@ end
             xdata = [xdata exogenous(idx,:)];
         end
         % posterior density
-        var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+        if heterosked == 0
+            var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+        else
+            var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+        end
         Tu = size(var.u, 1);
                 
         if dummy ==  1

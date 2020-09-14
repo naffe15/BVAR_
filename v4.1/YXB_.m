@@ -3,6 +3,7 @@ function [YYact,XXact] = YXB_(YY,lags,constant_timetrend)
 % 'YXB_' organizes the data in the form
 % of Y = XB+E
 % NO dummy observations
+% constant and trends are at the end
 
 % Filippo Ferroni, 6/1/2015
 % Revised, 2/15/2017

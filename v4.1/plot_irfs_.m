@@ -50,8 +50,13 @@ else
             eval(['varnames{'   num2str(v) '} =  ''Var  ' num2str(v) ''';'])
         end
     end
-    if isfield(options,'shocksnames') == 1
+    if isfield(options,'shocksnames') == 1 
         shocksnames = options.shocksnames;
+        if length(shocksnames) ~= nshocks
+            error('There is a mismatch between the number of shocks and the names')
+        end
+    elseif isfield(options,'shocknames') == 1 
+        shocksnames = options.shocknames;
         if length(shocksnames) ~= nshocks
             error('There is a mismatch between the number of shocks and the names')
         end

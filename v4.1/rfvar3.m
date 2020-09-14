@@ -1,4 +1,4 @@
-function var=rfvar3(ydata,lags,xdata,breaks,lambda,mu)
+function var=rfvar3(ydata,lags,xdata,breaks,lambda,mu,ww)
 %function var=rfvar3(ydata,lags,xdata,breaks,lambda,mu)
 % This algorithm goes for accuracy without worrying about memory requirements.
 % ydata:   dependent variable data matrix
@@ -30,6 +30,13 @@ function var=rfvar3(ydata,lags,xdata,breaks,lambda,mu)
 % Original file downloaded from:
 % http://sims.princeton.edu/yftp/VARtools/matlab/rfvar3.m
 
+if nargin<7
+   scale_ = 0;
+else
+    % correct for heteroskedasticity
+    scale_=1;
+end
+
 [T,nvar] = size(ydata);
 nox = isempty(xdata);
 if ~nox
@@ -60,6 +67,13 @@ for is = 1:length(smpl)
 end
 X = [X(:,:) xdata(smpl,:)];
 y = ydata(smpl,:);
+
+% rescale if heteroskedasticity corrected
+if scale_ ==1
+    ww = [ww; ones(length(y)-length(ww),1) ];
+    y = y./ repmat(ww,1,size(y,2)) ;
+    X = X ./ repmat(ww,1,size(X,2));    
+end
 % Everything now set up with input data for y=Xb+e 
 
 % Add persistence dummies

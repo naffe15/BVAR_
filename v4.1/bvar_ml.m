@@ -37,7 +37,9 @@ bvar_prior_mu       = hyperpara(4);%2;
 bvar_prior_omega    = hyperpara(5);%1;
 unit_root_          = ones(ny,1);
 flat                = 0; 
+heterosked          = 0;
 
+esse = ones(size(y,1),ny);
 
 if nargin > 3 
 %     fields = fieldnames(options);
@@ -69,6 +71,15 @@ if nargin > 3
         unit_root_ = options.unit_root_;
         %  MINNESOTA PRIOR: unit root assumption only for a subset of var
     end
+    if isfield(options,'esse')==1
+        % covid-19 reweighting (see bvar_opt_covid)
+        esse = options.esse;
+    end
+    if isfield(options,'heterosked_weights')==1
+        ww  = options.heterosked_weights;
+        heterosked = 1;
+    end    
+
 
 end
 
@@ -113,7 +124,11 @@ ydata = y(idx, :);
 T     =  size(ydata, 1);
 xdata = ones(T,nx);
 % posterior density
-var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+if heterosked == 0
+    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+else
+    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+end
 Tu = size(var.u, 1);
 
 % Prior density
