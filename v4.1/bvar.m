@@ -746,7 +746,7 @@ for  d =  1 : K
     
     %======================================================================
     % IRF
-    % Compute the impulse response funcitons
+    % Compute the impulse response functions
     % with cholesky
     if irf_1STD == 1
         % one STD increase
