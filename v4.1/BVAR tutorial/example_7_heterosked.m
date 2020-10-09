@@ -58,17 +58,13 @@ plot_frcst_(bvar0_.forecasts.with_shocks,y,time,options)
 
 lags = 13;
 
-heterosked_tstar            = find(time==2020) + 2; %march 2020
+tstar  = find(time==2020) + 2; %march 2020
 % scale the observed variables by factor >1 in the periods that
 % characterize the COVID-19 induced recession
-heterosked_esse             = [3 3 3]; % s0, s1, s2    
-esse                        = ones(size(y,1),1);
-esse(heterosked_tstar ,:)   = heterosked_esse(1);
-esse(heterosked_tstar+1 ,:) = heterosked_esse(2);
-esse(heterosked_tstar+2 ,:) = heterosked_esse(3);
-esse(1:lags)                = []; 
-
-options.heterosked_weights = esse;
+st                   = ones(size(y,1),1);
+st(tstar:tstar+2 ,:) = [10 10 10]; % March, April, May
+st(1:lags)           = []; 
+options.heterosked_weights = st;
 
 options.priors.name  = 'Minnesota';
 options.fhor         = 24;
@@ -97,9 +93,7 @@ options.tstar              = find(time==2020) + 2; %march 2020
 
 heterosked_esse             = [postmode(2:end)]; % s0, s1, s2   
 esse                        = ones(size(y,1),1);
-esse(heterosked_tstar ,:)   = heterosked_esse(1);
-esse(heterosked_tstar+1 ,:) = heterosked_esse(2);
-esse(heterosked_tstar+2 ,:) = heterosked_esse(3);
+esse(options.tstar:options.tstar+2 ,:)   = heterosked_esse(1);
 esse(1:lags)                = []; 
 
 options.heterosked_weights = esse;
