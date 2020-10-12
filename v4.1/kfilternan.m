@@ -1,4 +1,4 @@
-function [outputkf] = kfilternan(Phi,Sigma,y,options)
+function [logL,outputkf] = kfilternan(Phi,Sigma,y,options)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 'kfilternan' runs the Kalman filter and smoother with missing values
@@ -13,6 +13,10 @@ function [outputkf] = kfilternan(Phi,Sigma,y,options)
 % controls the time of the variation)
 
 % outputkf : (see below)
+
+% State Space Model
+% x(t) = A x(t-1) + B Sigma' u(t) ~ N(0,I)
+% y(t) = C*(cons + x(t-1))
 
 % Filippo Ferroni, 6/1/2015
 % Revised, 2/15/2017
@@ -29,6 +33,9 @@ initialCond     = 0;
 adjustment      = 0;
 index           = zeros(var,1);
 noprint         = 0;
+state_space_model = 1; % default VAR state space model
+only_logL       = 0;
+start           = 1;
 
 if nargin > 3
     if isfield(options,'tauVec') == 1
@@ -51,6 +58,15 @@ if nargin > 3
     if isfield(options,'noprint')==1
         noprint = options.noprint;
     end
+    if isfield(options,'state_space_model')==1
+        state_space_model = options.state_space_model;
+    end
+    if isfield(options,'only_logL')==1 % stop at computing the likelihood
+        only_logL = options.only_logL;
+    end
+    if isfield(options,'start')==1 % likelood computed from start until end, default start =1
+         start = options.start;
+    end
 end
 
 if length(tauVec)~=T
@@ -59,10 +75,25 @@ if length(tauVec)~=T
 end
 
 %==========================================================================
-% 1.0 obtain the steady state representation of the VAR
-for jj  = 1 : size(Phi,3)
-    [A(:,:,jj),B(:,:,jj),C(:,:,jj),const(:,jj),Sigma(:,:,jj),~,index_var]=var2ss(Phi,Sigma,index);
+% 1.0 obtain the steady state representation 
+switch state_space_model
+    case 1
+        %------------------------------------------------------------------
+        % VAR
+        for jj  = 1 : size(Phi,3)
+            [A(:,:,jj),B(:,:,jj),C(:,:,jj),const(:,jj),Sigma(:,:,jj),~,index_var]=var2ss(Phi,Sigma,index);
+        end
+    case 2
+        %------------------------------------------------------------------
+        % Unobserved Component I(2)
+        [A,B,C,const,Sigma,index_var]=uc2ss(Phi,Sigma);
+    case 3
+        %------------------------------------------------------------------
+        % Dynamic Factor Model 
+        % TBA
+        % [A,B,C,const,Sigma]=dfm2ss(Phi,Sigma,nfac);
 end
+
 
 %==========================================================================
 % 1.1. Dimensions and storage
@@ -153,8 +184,11 @@ end
 % 2. Likelihood with Integration Constant
 outputkf.logLncFull     = logLnc;
 %logLnc                  = logLnc(dataStru.trainVec(1):dataStru.trainVec(2));
-logLnc                  = logLnc(1:end);
-logL                    = -0.5*sum(Zdim)*log(2*pi)+sum(logLnc);
+% logLnc                  = logLnc(1:end);
+logL                    = -0.5*sum(Zdim (start:end) )*log(2*pi)+sum(logLnc (start:end));
+if only_logL == 1
+    return;
+end
 
 %==========================================================================
 % 3. Truncate filters and obtain initial observations
@@ -174,7 +208,11 @@ ptt         = ptt(:,:,2:end);
 %==========================================================================
 % 4. Disturbance smoother with TV matrices
 % Obtain the Innovations using a disturbance smoother
-etamat      = zeros(var,T);
+if state_space_model ==2
+    etamat      = zeros(3,T);
+else
+    etamat      = zeros(var,T);
+end
 smooth_st   = zeros(ns,T);
 rmat        = zeros(ns,T);
 
@@ -279,20 +317,31 @@ else
     outputkf.filteredSt_plus_ss = stt + repmat(const(:,end)',size(smooth_st,1),1);
 end
 
+if state_space_model ==2
+    return;
+end
+
 Ydem(find(isnan(Ydem))) = 0;
 tmpf = outputkf.yferr';
 tmpf(find(isnan(tmpf))) = 0;
 outputkf.r2 = 1 - diag(tmpf * tmpf') ./ diag(Ydem*Ydem');
 %==========================================================================
 % % 7. Simulating the state vector
-etatilde     = zeros(var,T);
-
+if state_space_model ==2
+    etatilde     = zeros(3,T);
+else
+    etatilde     = zeros(var,T);
+end
 for tt =1 : T
     Qt = (Sigma(:,:,tauVec(tt))')*Sigma(:,:,tauVec(tt));
     Ct = Qt - Qt*B(:,:,tauVec(tt))'*Nmat(:,:,tt)*B(:,:,tauVec(tt))*Qt;
     [a,b,~] = svd(Ct);
     iS      = a* sqrt(b);
-    dt = iS*randn(var,1);
+    if state_space_model ==2
+        dt = iS*randn(3,1);
+    else
+        dt = iS*randn(var,1);
+    end
     etatilde(:,tt) = dt + Qt*B(:,:,tauVec(tt))'*rmat(:,tt);
 end
 if nbreak == 0

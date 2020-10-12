@@ -825,7 +825,7 @@ for  d =  1 : K
         KFoptions.index   = index;
         KFoptions.noprint = noprint;
         % Forward Kalman Filter and Smoother
-        [KFout]          = kfilternan(Phi,Sigma,yoriginal,KFoptions);
+        [logL,KFout]          = kfilternan(Phi,Sigma,yoriginal,KFoptions);
         yfill(:,:,d)     = KFout.smoothSt_plus_ss(:,KFout.index_var);
         yfilt(:,:,d)     = KFout.filteredSt_plus_ss(:,KFout.index_var);
         % recompute the posterior with smoothed data

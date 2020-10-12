@@ -93,7 +93,7 @@ options.tstar              = find(time==2020) + 2; %march 2020
 
 heterosked_esse             = [postmode(2:end)]; % s0, s1, s2   
 esse                        = ones(size(y,1),1);
-esse(options.tstar:options.tstar+2 ,:)   = heterosked_esse(1);
+esse(options.tstar : options.tstar+2 ,:)   = heterosked_esse;
 esse(1:lags)                = []; 
 
 options.heterosked_weights = esse;
@@ -103,11 +103,4 @@ bvar2_                 = bvar(y,lags,options);
 
 plot_frcst_(bvar2_.forecasts.with_shocks,y,time,options)
 
-
-% for nj = heterosked_tstar+3 : length(esse)
-%      esse(nj ,:)   = 1 + (1-heterosked_esse(3))*heterosked_esse(end)^(nj-2-heterosked_tstar);
-% end
-% Transformations
-% 12 = Year over Year percentage change with monthly data for IPI and HICP 
-% options.order_transform  = [12 0 12 12 12 12]; 
 
