@@ -4,7 +4,7 @@ function [estimator,cov_Hessian,ME1,ME2,ME1_std] = probit(Y,X,method_flag)
 % Estimate Probit model and the marginal effects
 % -----------------------------------
 % Model:
-Yi* = Xi * Beta + ui , where normalized ui ~ N(0,1)
+% Yi* = Xi * Beta + ui , where normalized ui ~ N(0,1)
 % Yi* is unobservable. 
 % If Yi* > 0, we observe Yi = 1; If Yi* <= 0, we observe Yi = 0
 % -----------------------------------
