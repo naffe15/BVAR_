@@ -915,21 +915,21 @@ BVAR.ndraws       = K;
 
 if signs_irf == 1 && narrative_signs_irf == 0
     BVAR.irsign_draws = irsign_draws;
-    BVAR.Omegas       = Omega_draws(:,:,d);
+    BVAR.Omegas       = Omega_draws;
 else
     BVAR.irsign_draws = [];
     BVAR.Omegas       = [];
 end
 if narrative_signs_irf == 1
     BVAR.irnarrsign_draws = irnarrsign_draws;
-    BVAR.Omegan           = Omegan_draws(:,:,d);
+    BVAR.Omegan           = Omegan_draws;
 else
     BVAR.irnarrsign_draws = [];
     BVAR.Omegan           = [];
 end
 if zeros_signs_irf == 1
     BVAR.irzerosign_draws   = irzerosign_draws;
-    BVAR.Omegaz             = Omegaz_draws(:,:,d);
+    BVAR.Omegaz             = Omegaz_draws;
 else
     BVAR.irzerosign_draws = [];
     BVAR.Omegaz           = [];
