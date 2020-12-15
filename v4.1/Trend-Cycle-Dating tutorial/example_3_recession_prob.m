@@ -1,30 +1,18 @@
-clear all
-close all
-clc
+%% Trend-Cycle tutorial: Predicting recessions
+% Authors:   Filippo Ferroni and  Fabio Canova
+% Date:     27/05/2020, revised  15/12/2020
+
+close all; clc; clear all;
 
 addpath ../../cmintools/
 addpath ../../v4.1
 
-% example_3_recession_probability.m, Fabio Canova, 15/03/2020
-% predicting  recession  and  the start of  a recession 
-% in the  euro  area. use recession  indicator  constructed  with
-% example_2_dating.m and  a few  regressors ( labor  productivity, commodity
-% prices, long term  rates  or spread).
+% predicting  recession and the start of  a recession in the  euro  area. 
+% use recession indicator constructed with example_2_dating.m; regressors 
+% labor  productivity, commodity prices, long term  rates  or spread.
 
 
-% just  checking  that  the  program  works
-%y=rand(100,1); x=zeros(100,1);
-%for  i=1:100
-%    if y(i)<0.5
-%        x(i)=0;
-%    else
-%        x(i)=1;
-%    end
-%end
-%z =randn(100,3);
-%[estimator,cov_Hessian,ME1,ME2,ME_std] = probit(x,z);
-
-
+ 
 % Euro area AWM DATABASE: Quarterly
     [a,b,~] = xlsread('awm19up18.csv');
     % names of variables
@@ -102,6 +90,7 @@ plot(timeplot,half,'b:','Linewidth',2); hold  on;
 plot(timeplot,x,'k-','Linewidth',2); hold  off; axis  tight;
 legend('predition','halfline', 'actual')
 pause
+
 close  all;
 
 % do  estimation recursively: predicting  the  beginning  of  a  recession
@@ -124,6 +113,8 @@ plot(timeplot(1:rec2b),half2(1:rec2b),'b:','Linewidth',2); hold  on;
 plot(timeplot(1:rec2b),px2(1:rec2b),'r-.','Linewidth',2); hold  off;axis tight;
 legend('actual', 'halfline', 'predition')
 pause
+
+
 close all;
 
 rec3b = find(time==1992.00);

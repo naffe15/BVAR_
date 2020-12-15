@@ -1,14 +1,16 @@
-clear all
-close all
-clc
+%% Trend-Cycle tutorial: dating turning  points and computing cyclical statistics
+% Authors:   Filippo Ferroni and  Fabio Canova
+% Date:     27/05/2020, revised  15/12/2020
+
+close all; clc; clear all;
 
 addpath ../../cmintools/
 addpath ../../v4.1
 
-
-% dating_exa.m, 16-02-2020, version 1.3, fabio canova
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % this program illustrates the use of BB program to  date  turning  points
 % and  compute business cycle statistics
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%% exercises  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  exercise 1: Vary the censoring  rules.
@@ -72,7 +74,6 @@ if lload==0
     T=length(ddd);
     time_data = time(time_start+1:time_end);
     
-    
 else
     
     % US DATABASE: Quarterly
@@ -85,9 +86,9 @@ else
     varnames = d(1,2:end);
     
     % time convention: Q1 = .00 and Q4 =0.75
-    time = 1970 : .25 : 2019.50;
-    time_start   = find(time==1969.75);
-    time_end     = find(time==2017.75);
+    time = 1969.75 : .25 : 2019.50;
+    time_start   = find(time==1970.25);
+    time_end     = find(time==2019.50);
     time_break   = find(time==2007.75);
     
     tt=length(c);
@@ -110,15 +111,20 @@ else
     
     ddd=yy1;
     T=length(ddd);
+    time_data = time(2:tt);
 end
-
 
 %% Parameters
 
 %frequency
 freq   = 'q';        % 'q' for quarterly, 'm' for monthly %
-tstart = [1970 3];
-tend   = [2017 3];
+if lload==0
+    tstart = [1970 3];
+    tend   = [2017 3];
+elseif lload==1
+    tstart = [1970 3];
+    tend   = [2019 3];
+end
 
 % cycle parameters
 options.turnphase   = 2;
@@ -136,34 +142,43 @@ durcv=zeros(size(ddd,2),2); ampcv=zeros(size(ddd,2),2);
 exccv=zeros(size(ddd,2),2); nott=zeros(size(ddd,2),1);
 turn    = time(time_start+1:time_end)';
 zz      = time(time_start+1:time_end)';
-tid     = linspace(1970.75,2017.75,T)';
+% tid     = linspace(1970.75,2017.75,T)';
 
 for qq = 1 : size(ddd,2)
-    
-    x = ddd(:,qq);
-    
+    if  lload==0
+        % EA
+        x = ddd(:,qq);
+    else
+        % US
+        x = ddd(time_start+1:time_end,qq);
+        time_data = time(time_start+1:time_end);
+    end
     % dating_mbbq
     disp('series')
     disp(qq)
 
+    % Computes turning points and imposes restrictions in one step
     [dt_(qq)] = date_(x, time_data, freq, tstart, tend, options); 
         
-    zz      = [zz dt_.st];
-    turn    = [turn dt_.trinary];
+    zz      = [zz dt_(qq).st];
+    turn    = [turn dt_(qq).trinary];
     
-    dura(qq,:)  = dt_.dura;
-    ampl(qq,:)  = dt_.ampl;
-    cumm(qq,:)  = dt_.cumm;
-    excc(qq,:)  = dt_.excc;
-    durcv(qq,:) = dt_.durcv;
-    ampcv(qq,:) = dt_.amplcv;
-    exccv(qq,:) = dt_.exccv;
-    nott(qq,:)  = dt_.notentp;
+    dura(qq,:)  = dt_(qq).dura;
+    ampl(qq,:)  = dt_(qq).ampl;
+    cumm(qq,:)  = dt_(qq).cumm;
+    excc(qq,:)  = dt_(qq).excc;
+    durcv(qq,:) = dt_(qq).durcv;
+    ampcv(qq,:) = dt_(qq).amplcv;
+    exccv(qq,:) = dt_(qq).exccv;
+    nott(qq,:)  = dt_(qq).notentp;
     %plot(tid,trinary,'linewidth',1)
     %title('Turning  points')
     
 end
 
+pause;
+
+disp(' ')
 disp('statistics on average cycle')
 
 disp('duration contractions/duration expansions')
@@ -188,8 +203,8 @@ disp(ampcv)
 disp('cv of excess movements contractions/expansions')
 disp(exccv)
 
-disp('no of its skipped since no peaks+troughs<=2')
-disp(nott)
+%disp('no of its skipped since no peaks+troughs<=2')
+%disp(nott)
 
 %disp('states indicators:contraction=0, expansion=1')
 %format  short  g
@@ -214,15 +229,21 @@ for kk=1:aa
     tsum(kk)=ssum;
 end
 
+if lload==0
+tid     = linspace(1970.75,2017.75,T)';
+else
+tid     = linspace(1970.75,2019.50,T-3)';
+end 
 plot(tid,tsum,'linewidth',2)
 title('Distribution of Turning  points')
 
 disp('Distribution of  peaks')
 dp=[zz(find(tsum>=1),1) tsum(find(tsum>=1),1)];
-disp(dp)
+disp(fix(dp))
 disp('Distribution of  throughs')
 dt=[zz(find(tsum<=-1),1) tsum(find(tsum<=-1),1)];
-disp(dt)
+
+disp(fix(dt))
 
 % dates
 % peaks    mean 1974.00; 1980.00; 1992.00; 2001.00;  2008:00;  2011.25;
@@ -283,12 +304,4 @@ else
     save Usarec recind
 end
 return
-
-
-
-
-
-
-
-
 

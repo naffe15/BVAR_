@@ -1,15 +1,14 @@
-clear all
-close all
-clc
+%% Trend-Cycle tutorial: detrending and computing cyclical statistics
+% Authors:   Filippo Ferroni and  Fabio Canova
+% Date:     27/05/2020, revised  15/12/2020
+
+
+close all; clc; clear all;
 
 addpath ../../cmintools/
 addpath ../../v4.1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% realfin_exa.m, 21-11-2019, version 3.2, fabio canova
-%
-% Freely available  for  distribution. Use  at  your  own  risk
-%
 % this program illustrates the use of different filters to compute
 % trend/cycle  decompositions using  euro area data  on real (GDP) and
 % financial (credit-to-GDP) variables
@@ -39,7 +38,7 @@ addpath ../../v4.1
 % load the THE AWM DATABASE: Quarterly
 [a,b,~] = xlsread('awm19up18.csv');
 % names of variables
-varnames = b(1,2:end);
+%varnames = b(1,2:end);
 
 % time convention: Q1 = .00 and Q4 =0.75
 time = 1970 : .25 : 2017.75;
@@ -87,15 +86,21 @@ endd=length(ddata);
 % pick log output, log credit/GDP
 ddd=ddata(:,[1 11]);
 
+
 disp('----------------------------------------------------')
-disp(' 1) polynomial filter')
+disp(' 1) Polynomial filter')
 disp('---------------------------------------------------')
 % parameters
 ord=3; % order of the polynomial (up to  4)
 gg=1;  % if 1 plot  data, trend and cycle
 % dy1  has  the  cycles , dt1 the  trends
-% [dy1, dt1]=polydet(ddd,ord,gg);
 [dy1, dt1]=polydet(ddd,ord,gg,timeplot,varnames);
+close all;
+
+figure(1)
+plot(timeplot,dy1(:,1),'r'); hold  on; plot(timeplot, dy1(:,2),'b'); hold  off; axis tight;
+legend('log gdp', 'log credit/gdp')
+pause;
 close all;
 
 
@@ -118,6 +123,20 @@ dt4=Hpfilter(ddd(:,1:size(ddd,2)),llam3);
 %plot(dy3(:,2:2),'b', 'linewidth',2); hold  on;
 %plot(dy4(:,2:2),'k', 'linewidth',2); hold  off;
 %legend('Hp1600','Hp4','Hp51200')
+
+figure(2)
+subplot(2,1,1)
+plot(timeplot,dy2(:,1),'r'); hold  on; plot(timeplot, dy2(:,2),'b'); hold  off; axis  tight;
+title('HP1600')
+legend('log gdp', 'log credit/gdp')
+subplot(2,1,2)
+plot(timeplot,dy4(:,1),'r'); hold  on; plot(timeplot, dy4(:,2),'b'); hold  off; axis tight;
+title('HP51200')
+legend('log gdp', 'log credit/gdp')
+pause;
+
+close all;
+
 
 % one-sided HP filter
 dy5=zeros(endd,size(ddd,2)); dt5=dy5;
@@ -147,6 +166,19 @@ for qq=1:size(ddd,2)
     dt5(:,qq)=dtx;
 end
 close all;
+
+figure(3)
+subplot(2,1,1)
+plot(timeplot,dy2(:,1),'r'); hold  on; plot(timeplot, dy2(:,2),'b'); hold  off; axis  tight;
+title('HP1600 two sided')
+legend('log gdp', 'log credit/gdp')
+subplot(2,1,2)
+plot(timeplot,dy5(:,1),'r'); hold  on; plot(timeplot, dy5(:,2),'b'); hold  off; axis tight;
+title('HP1600 one sided')
+legend('log gdp', 'log credit/gdp')
+pause;
+close all;
+
 
 disp('------------------------------------------------------------')
 disp(' 3) differencing')
@@ -224,27 +256,51 @@ gg=0; % if  1,  plot  business cycle ( business cycle + low frequency)
 %dddd=[ddd(2:length(ddd),1) diff(ddd(:,2)) ddd(2:length(ddd),3:4)];
 [dy11, dt11 ,dy12, dt12]=wavefilter(ddd,gg);
 
+%{
 for qq=1:size(ddd,2)
     subplot(2,1,1)
     % start  plotting  trends only from  t=32
-    plot(timeplot(32:end),ddd(32:endd,qq)/ddd(32,qq),'r-', 'linewidth',2); hold on;
-    plot(timeplot(32:end),dt9(32:endd,qq)/dt9(32,qq),'c--', 'linewidth',2); hold on;
-    plot(timeplot(32:end),dt10(32:endd,qq)/dt10(32,qq),'b:', 'linewidth',2); hold on;
-    plot(timeplot(32:end),dt11(32:endd,qq)/dt11(32,qq), 'k:', 'linewidth',2);hold on;
-    axis tight;
-    plot(timeplot(32:end),dt12(32:endd,qq)/dt12(32,qq),'g-.','linewidth',2); hold  off;
+    plot(timeplot(32:end),ddd(32:endd,qq),'c-', 'linewidth',2); hold on;
+    plot(timeplot(32:end),dt9(32:endd,qq),'r--', 'linewidth',2); hold on;
+    plot(timeplot(32:end),dt10(32:endd,qq),'b:', 'linewidth',2); hold on;
+    plot(timeplot(32:end),dt11(32:endd,qq), 'k:', 'linewidth',2);hold on;
+    plot(timeplot(32:end),dt12(32:endd,qq),'g-.','linewidth',2); hold  off;
     legend('data','BK','CF','WaveBC', 'WavelowBC')
     if  qq==1
         title('log GDP')
     else
         title('log  credit  to  GDP')
     end
+ 
     subplot(2,1,2)
-    plot(timeplot,dy9(1:endd,qq),'c-', 'linewidth',2); hold on; plot(timeplot,dy10(1:endd,qq),'b', 'linewidth',2); hold on; axis tight;
-    plot(timeplot,dy11(1:endd,qq), 'k-', 'linewidth',2);hold on;  plot(timeplot,dy12(1:endd,qq),'g-','linewidth',2); hold  off;
-%     legend('BK','CF','WaveBC', 'WavelowBC')
+    plot(timeplot,dy9(1:endd,qq),'r-', 'linewidth',2); hold on; 
+    plot(timeplot,dy10(1:endd,qq),'b', 'linewidth',2); hold on;
+    plot(timeplot,dy11(1:endd,qq), 'k-', 'linewidth',2);hold on;  
+    plot(timeplot,dy12(1:endd,qq),'g-','linewidth',2); hold  off;
+    legend('BK','CF','WaveBC', 'WavelowBC')
     pause
 end
+%}
+ 
+    subplot(2,1,1)
+    plot(timeplot(32:end),dy9(32:endd,1),'r--', 'linewidth',2); hold on;
+    plot(timeplot(32:end),dy10(32:endd,1),'b:', 'linewidth',2); hold on;
+    plot(timeplot(32:end),dy11(32:endd,1), 'k:', 'linewidth',2);hold on;
+    plot(timeplot(32:end),dy12(32:endd,1),'g-.','linewidth',2); hold  off;
+    legend('BK','CF','WaveBC', 'WavelowBC')
+        title('log GDP')
+  
+    subplot(2,1,2)
+    plot(timeplot(32:end),dy9(32:endd,2),'r-', 'linewidth',2); hold on; 
+    plot(timeplot(32:end),dy10(32:endd,2),'b', 'linewidth',2); hold on;
+    plot(timeplot(32:end),dy11(32:endd,2), 'k-', 'linewidth',2);hold on;  
+    plot(timeplot(32:end),dy12(32:endd,2),'g-','linewidth',2); hold  off;
+    legend('BK','CF','WaveBC', 'WavelowBC')
+    title('log  credit  to  GDP')
+ 
+    pause
+
+
 close all;
 
 disp(' -----------------------------------------------')
@@ -259,11 +315,11 @@ d=4; %  number  of  lags
 gg=1;  %  plot  cyclical
 ff=1;  % include  constant in  the regression
 [dy13, dt13]=hamfilter(ddd,h,d,ff,gg,timeplot,varnames);
+pause;
 close all;
 
-
 disp(' ------------------------------------------------------')
-disp(' 7) univariate UC  filter')
+disp(' 7) univariate UC  RW filter')
 disp(' ------------------------------------------------------')
 % model  y(t)= yT(t)+yc(T)
 %        yT(t)=mu+YT(t-1)+ e(t)
@@ -304,11 +360,15 @@ for qq=1:size(ddd,2)
     dy14(:,qq)      = ycycle;
     dt14(:,qq)      = ytrend;
 end
+pause;
+
+
 close all;
 
 
+
 disp(' ------------------------------------------------------')
-disp(' 7b) univariate UC I(2) filter')
+disp(' 7b) univariate UC Local linear filter')
 disp(' ------------------------------------------------------')
 % model  
 % from the UC of the form 
@@ -324,7 +384,7 @@ opts.ub = [0.6 0.6 3 3 3];
 opts.lb = [0.01 0.01 0.05 0.05 0.05];
 opts.max_compute = 2;
 
-% dy14=zeros(endd,size(ddd,2)); dt14=zeros(endd,size(ddd,2));
+ dy24=zeros(endd,size(ddd,2)); dt24=zeros(endd,size(ddd,2));
 for qq=1:size(ddd,2)
     %     ycycle=[];
     %     ytrend=[];
@@ -335,9 +395,22 @@ for qq=1:size(ddd,2)
         opts.varname = 'log Credit to GDP';
     end
     [ytrend,ycycle,out] = uc2_(y,lags,opts);
-%     dy14(:,qq)      = ycycle;
-%     dt14(:,qq)      = ytrend;
+     dy24(:,qq)      = ycycle;
+     dt24(:,qq)      = ytrend;
 end
+
+figure(4)
+subplot(2,1,1)
+plot(timeplot,dy14(:,1),'r'); hold  on; plot(timeplot, dy14(:,2),'b'); hold  off; axis  tight;
+title('UC-RW')
+legend('log gdp', 'log credit/gdp')
+subplot(2,1,2)
+plot(timeplot,dy24(:,1),'r'); hold  on; plot(timeplot, dy24(:,2),'b'); hold  off; axis  tight;
+title('UC-LL')
+legend('log gdp', 'log credit/gdp')
+pause;
+
+
 close all;
 
 disp('-------------------------------------------------')
@@ -351,6 +424,7 @@ ff=1;     % include  constant in  the  autoregression
 gg=1;     % plot cyclical
 mm=1;     % =1 use estimate  mean;  =0 use  long run mean
 [dy15, dt15] = BNuniv(ddd,lags,ff, gg, mm);
+pause
 close all;
 
 disp('------------------------------------------------')
