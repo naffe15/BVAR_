@@ -11,6 +11,7 @@ function [AIC, HQIC, BIC] = IC(var, T, K)
 % Revised, 2/15/2017
 % Revised, 3/21/2018
 % Revised, 9/11/2019
+% Revised, 9/11/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 S   = var.Sigma_ols; iS  = inv(S);
 E   = var.e_ols;
