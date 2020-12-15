@@ -43,11 +43,11 @@ options.saveas_strng  = 'Cholesky';
 % name of the shock
 options.shocksnames   = {'MP'};  
 % Compare with BVAR estimates
-bvar_ = bvar(y,lags,options);
-var_irf_sort = sort(bvar_.ir_draws,4);
+bvar0 = bvar(y,lags,options);
+var_irf_sort = sort(bvar0.ir_draws,4);
 % add IRF plot
-options.add_irfs(:,:,:,1) = var_irf_sort(indx_var,:,indx_sho,round(bvar_.ndraws*0.95));
-options.add_irfs(:,:,:,2) = var_irf_sort(indx_var,:,indx_sho,round(bvar_.ndraws*0.05));
+options.add_irfs(:,:,:,1) = var_irf_sort(indx_var,:,indx_sho,round(bvar0.ndraws*0.95));
+options.add_irfs(:,:,:,2) = var_irf_sort(indx_var,:,indx_sho,round(bvar0.ndraws*0.05));
 % plot LP
 plot_irfs_(dm1.ir_lp(indx_var,:,indx_sho,:),options)
 
@@ -87,17 +87,17 @@ end
 % run a VAR on presample data
 presample = 96; % 8 years of presample
 lags      = 12;
-bvar_     = bvar(y(1:presample,:),lags);
+bvar0     = bvar(y(1:presample,:),lags);
 
 % use the VAR estimates to set the priors for the LP
 options.priors.name        = 'Conjugate';
 % posterior mean of the VAR AR coeff and constant
-options.priors.Phi.mean    = mean(bvar_.Phi_draws,3);
+options.priors.Phi.mean    = mean(bvar0.Phi_draws,3);
 % average variance of the AR coeff and constant
-options.priors.Phi.cov     = diag(mean(var(bvar_.Phi_draws,0,3),2));
+options.priors.Phi.cov     = diag(mean(var(bvar0.Phi_draws,0,3),2));
 % posterior mean of the Covariance of the VAR residuals 
-options.priors.Sigma.scale = mean(bvar_.Sigma_draws,3);
-options.priors.Sigma.df    = size(bvar_.Phi_draws,1)-2;
+options.priors.Sigma.scale = mean(bvar0.Sigma_draws,3);
+options.priors.Sigma.df    = size(bvar0.Phi_draws,1)-2;
 options.priors.tau         = 0.5*ones(options.hor); % 
 
 options.proxy(1:presample,:) =[];

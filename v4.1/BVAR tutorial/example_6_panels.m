@@ -114,10 +114,10 @@ options.conf_sig_2      = 0.9;
 
 for i  = [1 NBanks]    
     yi  = [LendingRateDM(:,i) DepositRateDM(:,i)];    
-    bvar_ = bvar(yi,lags,options);    
+    bvarp = bvar(yi,lags,options);    
     % names of the figure to save
     options.saveas_strng  = ['Bank#' num2str(i)];
-    plot_all_irfs_(bvar_.ir_draws,options)
+    plot_all_irfs_(bvarp.ir_draws,options)
 
 end
 
