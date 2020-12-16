@@ -665,7 +665,7 @@ if signs_irf == 1
     Omega_draws    = Sigma_draws;
 end
 if nexogenous > 0 
-    irx_draws = ir_draws;
+    irx_draws = zeros(ny,hor,nexogenous,K);  
     % Ox_draws  = Sigma_draws;
 end
 if narrative_signs_irf == 1
@@ -771,7 +771,7 @@ for  d =  1 : K
     end
     if nexogenous > 0
         Phi1         = Phi(1 : ny*lags + nx + timetrend, 1 : ny);
-        Exo1         = zeros(ny);
+        Exo1         = zeros(ny,nexogenous);
         Exo1(:,1:nx) = Phi(ny*lags + nx + timetrend +1 ....
                             : ny*lags + nx + timetrend + nexogenous, 1 : ny)';
         Sig1         = eye(ny);

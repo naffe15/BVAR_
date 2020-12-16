@@ -23,7 +23,8 @@ function [ir]=iresponse(alpha,Sigma,hor,Omega,unit)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 N           = size(Sigma,1);
-ir          = zeros(N,hor,N); % variables, horizon, shock
+% ir          = zeros(N,hor,N); % variables, horizon, shock
+ir          = zeros(N,hor,size(Omega,2)); % variables, horizon, shock/exogenous variable
 [m , n]     = size(alpha);
 lags        = floor((m-1)/n);
 [Q]         = chol(Sigma,'lower');
