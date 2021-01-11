@@ -1,0 +1,65 @@
+BVAR_\v4.1\ is available as free software, under the GNU General Public License 
+version 3, and can be downloaded from https://github.com/naffe15/BVAR_/,
+
+Files:      matlab
+Copyright:  none
+License:    public-domain-aim
+
+This code is in the public domain and may be used freely. However the authors 
+would appreciate acknowledgement of the source by citation of the paper:
+Filippo Ferroni and Fabio Canova (2020) A Bayesian VAR toolbox for MATLAB. 
+Inference, Prediction and Causality, MIMEO
+
+
+Summary of Functions
+                       
+bvar
+bvar_max_hyper
+bvar_ml
+bvar_opt_hyperpara
+cforecasts
+cforecasts2
+colorspace                  Copyright Pascal Getreuer 2005-2010
+directmethods
+distinguishable_colors      Copyright 2010-2011 by Timothy E. Holy
+findP                       Copyright Andrew Binning 2013
+findQs                      Copyright Andrew Binning 2013
+forecasts
+ferr_var_dec
+generateDraw                Copyright Andrew Binning 2013
+histdecomp
+histdecomposition
+IC   
+iresponse
+iresponse_longrun
+iresponse_proxy
+iresponse_sign
+iresponse_zeros_signs
+jacob_bvar
+kf_dk                       Copyright Chris Sims
+kfilternan
+lag_crit_var
+lagX 				
+lyapunov_symm               Copyright (C) 2006-2017 Dynare Team
+matrictint                  Copyright Chris Sims
+ols_reg
+OrderingIndexes
+pc_T
+plot_all_irfs_
+plot_frcst_
+plot_irfs_
+plot_sdcmp_
+quer
+rand_inverse_wishart        Copyright (C) 2006-2017 Dynare Team
+reorderVAR
+rescaleFAVAR
+rfvar3                      Copyright Chris Sims
+savefigure_pdf
+shade
+sign2matrix
+standard
+var2ss
+varprior                    Copyright Chris Sims
+YXB_
+
+
