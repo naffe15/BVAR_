@@ -16,13 +16,15 @@ nvar    = size(irfs,1);
 hor     = size(irfs,2);
 nshocks = size(irfs,3);
 ndraws  = size(irfs,4);
-nplots  = [nvar nshocks];
+nplots  = [nshocks nvar];
 savefig_yes = 0;
 conf_sig    = 0.68;
 normz       = 1;
 add_irfs_yes = 0;
 normz_yes   = 0;
 add_multiple_bands_yes = 0;
+fontsize    = 12;
+ylimits     = 0;
 
 if nargin <2
     disp('You did not provided names for shocks nor variables.')
@@ -63,6 +65,7 @@ else
         fnam_dir    = '.';
     end
     if isfield(options,'saveas_dir') ==1;
+        savefig_yes = 1;
         % setting the folder where to save the figure
         fnam_dir = options.saveas_dir;
         if exist(fnam_dir,'dir') == 0
@@ -77,6 +80,25 @@ else
     if isfield(options,'conf_sig_2') ==1
         add_multiple_bands_yes = 1;
         sort_idx_2   = round((0.5 + [-options.conf_sig_2, options.conf_sig_2, 0]/2) * ndraws);
+    end
+    if isfield(options,'fontsize') ==1
+        % title font size
+        fontsize = options.fontsize;
+    end
+    if isfield(options,'ylimits') ==1
+        % adds limits
+        ylimits = 1;
+        if length(options.ylimits) ~= 2
+            error('you have to specify a 2x1 vector with lower and upper bounds')
+        end
+        if options.ylimits(1) > options.ylimits(2)
+            b = options.ylimits(1);
+            a = options.ylimits(2);
+        else
+            b = options.ylimits(2);
+            a = options.ylimits(1);
+        end
+            
     end
 
 end
@@ -164,22 +186,23 @@ for sho = 1 : nshocks
         
         plot(irf_Median(var,:,sho),'k');
         if add_irfs_yes == 1
-            plot(add_irfs(var,:,sho),'b','LineWidth',2);
+            for hh = 1: size(add_irfs,4)
+                plot(add_irfs(var,:,sho,hh),'b','LineWidth',2);
+            end
         end
-%         if add_multiple_bands_yes == 1
-%             plot(irf_up_up(var,:,sho),'k:','LineWidth',1.2);
-%             plot(irf_low_low(var,:,sho),'k:','LineWidth',1.2);
-%         end
         hold on;
         plot(zeros(1,hor),'k')
         hold on;
         hold on
         axis tight
+        if ylimits == 1
+            ylim([a b]);
+        end
         if jplot <= nvar
-            title(varnames{var})
+            title(varnames{var},'FontSize',fontsize)
         end
         if jplot == nvar*(sho-1) + 1
-            ylabel(shocksnames{sho})
+            ylabel(shocksnames{sho},'FontSize',fontsize)
         end
         set(gcf,'position' ,[50 50 800 650])
     end

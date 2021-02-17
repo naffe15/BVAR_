@@ -27,6 +27,7 @@ add_multiple_bands_yes = 0;
 fnam_dir    = '.';
 fnam_suffix = 'irfs_';
 fontsize    = 12;
+ylimits     = 0;
 
 if nargin <2
     disp('You did not provided names for shocks nor variables.')
@@ -101,6 +102,21 @@ else
     if isfield(options,'fontsize') ==1
         % title font size
         fontsize = options.fontsize;
+    end
+    if isfield(options,'ylimits') ==1
+        % adds limits
+        ylimits = 1;
+        if length(options.ylimits) ~= 2
+            error('you have to specify a 2x1 vector with lower and upper bounds')
+        end
+        if options.ylimits(1) > options.ylimits(2)
+            b = options.ylimits(1);
+            a = options.ylimits(2);
+        else
+            b = options.ylimits(2);
+            a = options.ylimits(1);
+        end
+            
     end
 
 end
@@ -205,6 +221,9 @@ for sho = 1 : nshocks
         hold on;
         hold on
         axis tight
+        if ylimits == 1
+            ylim([a b]);
+        end
         title(varnames{var},'FontSize',fontsize)
         set(gcf,'position' ,[50 50 800 650])
         if jplot==nbofplots(jfig) || var==length(varnames)
