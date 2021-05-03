@@ -61,6 +61,7 @@ end
 K                   = 5000;         % number of draws from the posterior
 hor                 = 24;           % horizon for the IRF
 fhor                = 12;           % horizon for the forecasts
+nethor              = 12;           % network horizon/ splioover and connectedness
 firstobs            = lags+1;       % first observation
 presample           = 0;            % using a presample for setting the hyper-parameter of the Minnesosta prior
 noconstant          = 0;            % when 0, includes a constatn in the VAR
@@ -83,6 +84,11 @@ proxy_irf           = 0;
 noprint             = 0;
 nexogenous          = 0;
 exogenous           = [];
+cnnctdnss_          = 0;
+Ridge_              = 0; 
+Lasso_              = 0;
+ElasticNet_         = 0;
+
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -493,6 +499,64 @@ if nargin > 2
     if isfield(options,'noprint')==1
         noprint = options.noprint;
     end
+    %======================================================================
+    % Network-Spillover-Connectedness options
+    %======================================================================
+    if isfield(options,'nethor')==1
+        nethor = options.nethor;
+    end
+    if isfield(options,'connectedness')==1
+        cnnctdnss_ = 1;        
+    end
+    if isfield(options,'Ridge')==1
+        Ridge_     = options.Ridge;    
+        cnnctdnss_ = 1;
+        if isfield(options.Ridge,'lambda') == 1
+            Ridge_lambda = options.Ridge.lambda;
+        else
+            warning('You did not specify a value for the penalization parameter (options.Ridge.lambda)')
+            warning('I am using lambda = 0.02')
+            Ridge_lambda = 0.02;
+        end        
+    end
+    if isfield(options,'Lasso')==1
+        % (matlab stat toolbox needed)
+        if exist('lasso') ~= 2 
+            error('Cannot estimate VAR with Lasso: matlab stat toolbox needed')
+        end
+        Lasso_     = options.Lasso;        
+        cnnctdnss_ = 1;
+        if isfield(options.Lasso,'lambda') == 1
+            Lasso_lambda = options.Lasso.lambda;
+        else
+            warning('You did not specify a value for the penalization parameter (options.Lasso.lambda)')
+            %warning('Use the largest value of Lambda that gives a nonnull model')
+            warning('I am using lambda = 0.05')
+            Lasso_lambda = 0.05;
+        end
+    end
+    if isfield(options,'ElasticNet')==1
+        % (matlab stat toolbox needed)
+        if  exist('lasso') ~= 2 
+            error('Cannot estimate VAR with ElasticNet: matlab stat toolbox needed')            
+        end
+        ElasticNet_ = options.ElasticNet;   
+        cnnctdnss_  = 1;
+        if isfield(options.ElasticNet,'lambda') == 1
+            ElasticNet_lambda = options.ElasticNet.lambda;
+        else
+            warning('You did not specify a value for the penalization parameter (options.ElasticNet.lambda)')
+            warning('I am using lambda = 0.05')
+            ElasticNet_lambda = 0.05;
+        end
+        if isfield(options.ElasticNet,'alpha') == 1
+            ElasticNet_alpha = options.ElasticNet.alpha;
+        else
+            warning('You did not specify a value for the relative penalization parameter (options.ElasticNet.alpha)')
+            warning('I am using 0.5')
+            ElasticNet_alpha = 0.5;
+        end
+    end
 end
 
 %********************************************************
@@ -568,6 +632,28 @@ else
     varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0, ww);
 end
 
+if Ridge_ == 1
+    varRidge   = varols;
+    varRidge.B = (eye(size(varRidge.B,1)) + Ridge_lambda*varols.xxi)\varRidge.B;
+    % varRidge.B = inv(eye(size(varRidge.B,1)) + Ridge_lambda*varols.xxi)*varRidge.B;
+    varRidge.u = varRidge.y - varRidge.X*varRidge.B;
+end
+if Lasso_ == 1
+    varLasso   = varols;
+    for vv = 1 : ny
+        varLasso.B(:,vv) = lasso(varLasso.X,varLasso.y(:,vv),'Lambda',Lasso_lambda);
+    end
+    varLasso.u = varLasso.y - varLasso.X*varLasso.B;
+end
+if ElasticNet_ == 1
+     varElasticNet   = varols;
+     for vv = 1 : ny
+         varElasticNet.B(:,vv) = ...
+             lasso(varElasticNet.X,varElasticNet.y(:,vv),'Lambda',ElasticNet_lambda,'Alpha',ElasticNet_alpha);
+     end     
+     varElasticNet.u = varElasticNet.y - varElasticNet.X*varElasticNet.B;
+end
+
 
 % specify the prior
 if dummy == 1
@@ -605,11 +691,15 @@ if dummy == 1
     prior.minn_prior_lambda = minn_prior_lambda;
     prior.minn_prior_mu     = minn_prior_mu;
     prior.minn_prior_omega  = minn_prior_omega;
+    
 elseif dummy == 0
     % JEFFREY OR UNIFORMATIVE PRIOR:
     % [priors] = jeffrey(y,lags);
     prior.name  = 'Jeffrey';
     
+elseif dummy == 2
+    % MN-IW
+    prior.name  = 'MultivariateNormal-InverseWishart';    
 end
 
 % specify the posterior (the varols agin on actual+dummy)
@@ -689,6 +779,15 @@ if nexogenous>0
     forecast_data.xdata = [forecast_data.xdata exogenous(T-lags+1 : T-lags+fhor,:)];
 end    
 forecast_data.initval     = ydata(end-lags+1:end, :);
+
+% preallocation for connectedness
+if cnnctdnss_ == 1
+    CnndtnssIndex         = nan(K,1);
+    CnndtnssFromAlltoUnit = nan(ny,K);
+    CnndtnssFromUnitToAll = nan(ny,K);
+end
+
+
 
 try
     S_inv_upper_chol    = chol(inv(posterior.S));
@@ -860,6 +959,21 @@ for  d =  1 : K
         forecast_data.initval = yfill(end-lags+1:end, :, d);
         logL(d) = KFout.logL;
     end
+    
+    %======================================================================
+    % Connectedness
+    if cnnctdnss_ 
+%         if use_omega == 1
+%             [C] = connectedness(Phi,Sigma,nethor,Omega); 
+%         else
+%         end
+        [C] = connectedness(Phi,Sigma,nethor);
+        CnndtnssIndex(d,1)         = C.Index;
+        CnndtnssFromAlltoUnit(:,d) = C.FromAllToUnit;
+        CnndtnssFromUnitToAll(:,d) = C.FromUnitToAll;
+    end
+    
+    
     if waitbar_yes, waitbar(d/K, wb); end
     dd = 0; % reset 
 end
@@ -870,6 +984,7 @@ if waitbar_yes, close(wb); end
 %* Storing the resutls
 %*******************************************************
 
+%==========================================================================
 % classical inference: OLS estimator
 BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
@@ -894,7 +1009,49 @@ if  exist('kstest') ==2
 else
     BVAR.HP = [];
 end
+%==========================================================================
+% Penalized Approaches (Regularization)
 
+if Ridge_ == 1
+    BVAR.Ridge.Phi    = varRidge.B;
+    BVAR.Ridge.e      = varRidge.u;
+    BVAR.Ridge.Sigma  = 1/(nobs-nk)*varRidge.u'*varRidge.u;
+    % info crit
+    [BVAR.Ridge.InfoCrit.AIC, BVAR.Ridge.InfoCrit.HQIC, BVAR.Ridge.InfoCrit.BIC] ...
+        = IC(BVAR.Ridge.Sigma, BVAR.Ridge.e, nobs, nk);
+    % ir with recursive identification
+    BVAR.Ridge.ir      = iresponse(BVAR.Ridge.Phi,BVAR.Ridge.Sigma,hor,eye(ny));   
+    % connectedness
+    BVAR.Ridge.Connectedness = connectedness(BVAR.Ridge.Phi,BVAR.Ridge.Sigma,nethor); 
+    
+end
+if Lasso_ == 1
+    BVAR.Lasso.Phi    = varLasso.B;
+    BVAR.Lasso.e      = varLasso.u;
+    BVAR.Lasso.Sigma  = 1/(nobs-nk) * varLasso.u'*varLasso.u;
+    % info crit
+    [BVAR.Lasso.InfoCrit.AIC, BVAR.Lasso.InfoCrit.HQIC, BVAR.Lasso.InfoCrit.BIC] ...
+        = IC(BVAR.Lasso.Sigma, BVAR.Lasso.e, nobs, nk);
+    % ir with recursive identification
+    BVAR.Lasso.ir      = iresponse(BVAR.Lasso.Phi,BVAR.Lasso.Sigma,hor,eye(ny));   
+    % connectedness
+    BVAR.Lasso.Connectedness = connectedness(BVAR.Lasso.Phi,BVAR.Lasso.Sigma,nethor); 
+    
+end
+if ElasticNet_ == 1
+    BVAR.ElasticNet.Phi    = varElasticNet.B;
+    BVAR.ElasticNet.e      = varElasticNet.u;
+    BVAR.ElasticNet.Sigma  = 1/(nobs-nk) * varElasticNet.u'*varElasticNet.u;
+    % info crit
+    [BVAR.ElasticNet.InfoCrit.AIC, BVAR.ElasticNet.InfoCrit.HQIC, BVAR.ElasticNet.InfoCrit.BIC] ...
+        = IC(BVAR.ElasticNet.Sigma, BVAR.ElasticNet.e, nobs, nk);
+    % ir with recursive identification
+    BVAR.ElasticNet.ir      = iresponse(BVAR.ElasticNet.Phi,BVAR.ElasticNet.Sigma,hor,eye(ny));   
+    % connectedness
+    BVAR.ElasticNet.Connectedness = connectedness(BVAR.ElasticNet.Phi,BVAR.ElasticNet.Sigma,nethor);     
+end
+
+%==========================================================================
 % bayesian inference:
 % the last dimension of these objects corresponds to a draw from the posterior
 
@@ -978,6 +1135,15 @@ if mixed_freq_on
     BVAR.logL  = logL;
 end
 
+% bvar connetedness
+if cnnctdnss_
+    BVAR.Connectedness.Index         = CnndtnssIndex;
+    BVAR.Connectedness.FromAlltoUnit = CnndtnssFromAlltoUnit;
+    BVAR.Connectedness.FromUnitToAll = CnndtnssFromUnitToAll;
+end
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % end of bvar.m
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1055,7 +1221,7 @@ end
                 var.B' * (var.X'*var.X) * var.B ...
                 - posterior.PhiHat' * (var.X'*var.X + Ai) * posterior.PhiHat;
             
-        else
+        elseif dummy == 0
             %********************************************************
             % Flat Jeffrey Prior
             %********************************************************
