@@ -1,10 +1,17 @@
 function FEVD = fevd(hor,Phi,Sigma,Omega)
 
-% computes the forecast error variance decomposition
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% computes the forecast error variance decomposition using the VAR
+% representation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 N           = size(Sigma,1);
 [m , k]     = size(Phi);
-lags        = (m-1)/k;
+if rem(m, n)==0
+    lags = m/k;
+else
+    lags = floor((m-1)/k);
+end
 
 if nargin < 4
     Omega = eye(N);

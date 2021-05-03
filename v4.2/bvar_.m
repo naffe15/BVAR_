@@ -268,7 +268,7 @@ if nargin > 2
         end
     end
     %======================================================================
-    % Conjugate/Hierachical prior options
+    % Conjugate/Hierachical MN-IW prior options
     %======================================================================
     if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Conjugate')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'conjugate')==1) || ...
        (isfield(options,'prior')==1 && strcmp(options.prior.name,'Conjugate')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'conjugate')==1)
@@ -341,7 +341,7 @@ if nargin > 2
                 end
             else
                 warning(['You did not provide the degrees of freedom for the Residual Covariance. ' ...
-                    'Assume ny+1.'])
+                    'Assume N+1 degrees of freedom.'])
                 prior.Sigma.df = ny + nexogenous + timetrend + 1;
                 while prior.Sigma.df/2 <= ny-1 % too few df
                     prior.Sigma.df =  prior.Sigma.df +1;
@@ -623,7 +623,7 @@ end
 try
     posterior_int = matrictint(posterior.S, posterior.df, posterior.XXi);
 catch
-    warning('I could not compute the likelihood');
+    warning('I could not compute the marginal likelihood');
     posterior_int = nan;
 end
         
@@ -874,7 +874,7 @@ if waitbar_yes, close(wb); end
 BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
 BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
-[BVAR.InfoCrit.AIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(BVAR, nobs, nk);
+[BVAR.InfoCrit.AIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(BVAR.Sigma_ols, BVAR.e_ols, nobs, nk);
 % the model with the lowest IC is preferred
 
 % OLS irf

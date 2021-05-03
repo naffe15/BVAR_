@@ -26,7 +26,11 @@ N           = size(Sigma,1);
 % ir          = zeros(N,hor,N); % variables, horizon, shock
 ir          = zeros(N,hor,size(Omega,2)); % variables, horizon, shock/exogenous variable
 [m , n]     = size(alpha);
-lags        = floor((m-1)/n);
+if rem(m, n)==0
+    lags = m/n;
+else
+    lags = floor((m-1)/n);
+end
 [Q]         = chol(Sigma,'lower');
 
 % units 

@@ -27,7 +27,7 @@ if nargin > 6
         error('nameplot size shold be the same as the column of Y')
     end
 else
-    for v = 1 : size(Y,2)
+    for v = 1 : size(X,2)
         eval(['titleplot{'   num2str(v) '} =  ''Var' num2str(v) ''';'])
     end
 end

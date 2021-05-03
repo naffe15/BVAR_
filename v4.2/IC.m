@@ -1,4 +1,4 @@
-function [AIC, HQIC, BIC] = IC(var, T, K)
+function [AIC, HQIC, BIC] = IC(S, E, T, K)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 'IC' computes various information criteria
 
@@ -13,8 +13,9 @@ function [AIC, HQIC, BIC] = IC(var, T, K)
 % Revised, 9/11/2019
 % Revised, 9/11/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-S   = var.Sigma_ols; iS  = inv(S);
-E   = var.e_ols;
+% E   = var.e_ols;
+% S   = var.Sigma_ols; 
+iS  = inv(S);
 N   = size(S,1);
 llf = - (T * N / 2) * (1 + log(2 * pi)) - T / 2 * log(det(S));
 llf = llf - 1 /2 * trace( iS * E' * E);
