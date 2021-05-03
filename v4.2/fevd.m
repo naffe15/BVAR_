@@ -7,7 +7,7 @@ function FEVD = fevd(hor,Phi,Sigma,Omega)
 
 N           = size(Sigma,1);
 [m , k]     = size(Phi);
-if rem(m, n)==0
+if rem(m, k)==0
     lags = m/k;
 else
     lags = floor((m-1)/k);
