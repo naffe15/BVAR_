@@ -509,7 +509,10 @@ if nargin > 2
         cnnctdnss_ = 1;        
     end
     if isfield(options,'Ridge')==1
-        Ridge_     = options.Ridge;    
+        Ridge_     = 1;%options.Ridge;
+        if isfield(options.Ridge,'est') == 1
+            Ridge_ = options.Ridge.est;
+        end            
         cnnctdnss_ = 1;
         if isfield(options.Ridge,'lambda') == 1
             Ridge_lambda = options.Ridge.lambda;
@@ -524,7 +527,10 @@ if nargin > 2
         if exist('lasso') ~= 2 
             error('Cannot estimate VAR with Lasso: matlab stat toolbox needed')
         end
-        Lasso_     = options.Lasso;        
+        Lasso_     = 1;%options.Lasso;     
+        if isfield(options.Lasso,'est') == 1
+            Lasso_ = options.Lasso.est;
+        end            
         cnnctdnss_ = 1;
         if isfield(options.Lasso,'lambda') == 1
             Lasso_lambda = options.Lasso.lambda;
@@ -540,7 +546,10 @@ if nargin > 2
         if  exist('lasso') ~= 2 
             error('Cannot estimate VAR with ElasticNet: matlab stat toolbox needed')            
         end
-        ElasticNet_ = options.ElasticNet;   
+        ElasticNet_ = 1;%options.ElasticNet;   
+        if isfield(options.ElasticNet,'est') == 1            
+            ElasticNet_ = options.ElasticNet.est;
+        end            
         cnnctdnss_  = 1;
         if isfield(options.ElasticNet,'lambda') == 1
             ElasticNet_lambda = options.ElasticNet.lambda;
