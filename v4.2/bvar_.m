@@ -1014,6 +1014,8 @@ if  exist('kstest') ==2
     for gg = 1 : ny
         [H,Pv] = kstest(BVAR.e_ols(:,gg)/sqrt(BVAR.Sigma_ols(gg,gg)));
         BVAR.HP(gg,:) = [H,Pv];
+        %      H = 0 => Do not reject the null hypothesis at the 5% significance
+        %      level. 
     end
 else
     BVAR.HP = [];

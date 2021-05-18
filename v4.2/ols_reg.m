@@ -124,7 +124,9 @@ output.Y      = Y;
 
 for v = 1 : ny
 %     output.logl(v,1)   = -N/2*log(2*pi*Serror(v,v)) - RSS(v,1)/(2*Serror(v,v));
-    [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(output, N, K);
+%     [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(output, N, K);
+    S = Serror(v,v); E = err(:,v);
+    [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(S, E, N, K);
 end
 
 % if nargin > 2

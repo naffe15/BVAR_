@@ -53,7 +53,7 @@ for jj = 1 : length(varnames)
     eval([varnames{jj} '=num(:,' num2str(jj) ');'])
     eval([ 'save DataGK ' varnames{jj} ' -append'])
 end
-%% Mixhed Freq Database
+%% Mixed Freq Database
 clear all
 
 ploton =1;

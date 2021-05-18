@@ -51,6 +51,7 @@ for ss = 1 : ny
     end
 end
 
+% normalize by the sum of the rows
 Theta = theta ./ repmat(sum(theta,2),1,ny);
 
 if max(max(abs(sum(Theta,2) - ones(ny,1))))>1e-8
