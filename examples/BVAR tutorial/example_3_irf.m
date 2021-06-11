@@ -260,6 +260,31 @@ pause;
 
 %% Extra part 2): Historical Decomposition 
 % VAR with zero-sign restrictions
+clear all
+load DataGK
+y = [logip logcpi gs1 ebp];
+lags        = 12;
+
+
+% specify the restrictions
+% 1) ad = aggregate demand disturbance [sign restrictions]
+options.zeros_signs{1}     = 'y(1,1)=1;';
+options.zeros_signs{end+1} = 'y(2,1)=1;'; 
+options.zeros_signs{end+1} = 'y(3,1)=1;';
+% 2) as = aggregate supply shock [sign restrictions]
+options.zeros_signs{end+1} = 'y(1,2)=1;';
+options.zeros_signs{end+1} = 'y(2,2)=-1;';
+% 3) mp = monetary policy shock, no cont response of prices and quantities 
+% [zero restrictions]
+options.zeros_signs{end+1} = 'ys(1,3)= 0;';
+options.zeros_signs{end+1} = 'ys(2,3)=0;';
+% 3) mp = rate and bond premium go up [sign restrictions]
+options.zeros_signs{end+1} = 'y(3,3)=1;';
+options.zeros_signs{end+1} = 'y(4,3)=1;';
+% run the BVAR
+bvar4             = bvar_(y,lags,options);
+
+
 
 % uses the zero-sign restrictions average rotation
 opts_.Omega         =  mean(bvar4.Omegaz,3); 
@@ -300,12 +325,13 @@ pause;
 
 %% Extra part 3): Minnesota Priors IRF 
 
-%clear all
-clear options
-%load DataGK
-%y = [logip logcpi gs1 ebp];
+clear all
+
+load DataGK
+y = [logip logcpi gs1 ebp];
 lags                = 12;
 options.hor         = 48;
+bvar1               = bvar_(y,lags,options);
 options.presample      = 12;
 options.prior.name     = 'Minnesota';
 options.minn_prior_tau = 0.5;

@@ -297,7 +297,7 @@ close(wb)
 %%
 
 
-step_plot = 150;
+step_plot = 200;
 tmp_str = b(tstart:step_plot:end,1);
 
 figure('Name','Rolling Connectedness Index')
@@ -306,7 +306,7 @@ set(gca,'Xtick',time(tstart:step_plot:end))
 set(gca,'Xticklabel',tmp_str)
 title('Rolling Connectedness Index')
 axis tight
-ylim([90 99])
+ylim([88 99])
 legend('Ridge','Lasso','ElasticNet')
 STR_RECAP = [ dirname '/RolllingIndex'];
 saveas(gcf,STR_RECAP,'fig');
