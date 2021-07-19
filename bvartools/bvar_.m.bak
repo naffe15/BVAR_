@@ -881,7 +881,7 @@ for  d =  1 : K
     if nexogenous > 0
         Phi1         = Phi(1 : ny*lags + nx + timetrend, 1 : ny);
         Exo1         = zeros(ny,nexogenous);
-        Exo1(:,1:nexogenous) = Phi(ny*lags + nx + timetrend +1 ....
+        Exo1(:,1:nx) = Phi(ny*lags + nx + timetrend +1 ....
                             : ny*lags + nx + timetrend + nexogenous, 1 : ny)';
         Sig1         = eye(ny);
         % unitary increase        
