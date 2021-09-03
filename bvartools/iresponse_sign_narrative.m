@@ -28,16 +28,11 @@ function [ir,Omeg] = iresponse_sign_narrative(errors,Phi,Sigma,hor,signrestricti
 % 2st dimension:   horizon
 % 3st dimension:   shock
 
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
+% Filippo Ferroni, 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 [m,n]   = size(Sigma);
-ir      = nan(n,hor,n);
-Omeg    = nan(n);
 d       = 0;
 d0      = 0;
 tol     = 0;
@@ -47,6 +42,17 @@ if nargin < 7
     favar = 0;
 end
 
+Omeg    = nan(n);
+if favar == 0
+    ir      = nan(n,hor,n);
+else
+    ir      = nan(size(cont,1),hor,n);
+    yy      = nan(size(cont,1),hor,n);   
+end
+do_pagemtimes = 0;
+if exist('pagemtimes','builtin') == 5
+    do_pagemtimes = 1;
+end
 
 A       = chol(Sigma,'lower');
 v       = zeros(size(errors));
@@ -58,8 +64,13 @@ while d==0 && tol < 30000
     y = iresponse(Phi,Sigma,hor,Omega);
     % uncompress the factors (if favar)
     if favar == 1
-        for jj  = 1 : size(y,3)
-            yy(:,:,jj) = cont * y(:,:,jj);
+        if do_pagemtimes == 0
+            for jj  = 1 : size(y,3)
+                yy(:,:,jj) = cont * y(:,:,jj);
+            end
+        else
+            lam  = repmat(cont,1,1,n);
+            yy   = pagemtimes(lam,y);
         end
         clear y; y = yy;
     end

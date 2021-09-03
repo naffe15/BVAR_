@@ -24,37 +24,47 @@ function [ir,Omeg] = iresponse_sign(Phi,Sigma,hor,signrestriction,cont)
 % 2st dimension:   horizon 
 % 3st dimension:   shock
 
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-% Revised, 4/11/2020
+% Filippo Ferroni, 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 [m,n]   = size(Sigma);
-ir      = nan(n,hor,n);
-Omeg    = nan(n);
 d       = 0;
 tol     = 0;
 favar   = 1;
-
 if nargin < 5
     cont  = eye(n);
     favar = 0;
 end
 
-
+Omeg    = nan(n);
+if favar == 0
+    ir      = nan(n,hor,n);
+else
+    ir      = nan(size(cont,1),hor,n);
+    yy      = nan(size(cont,1),hor,n);   
+end
+do_pagemtimes = 0;
+if exist('pagemtimes','builtin') == 5
+    do_pagemtimes = 1;
+end
+    
+    
 while d==0 && tol < 30000
     % generate a random orthonormal matrix
     Omega = generateQ(m);
     % compute IRF
     y = iresponse(Phi,Sigma,hor,Omega);
     % uncompress the factors (if favar)
-    if favar == 1 
-        for jj  = 1 : size(y,3) 
-            yy(:,:,jj) = cont * y(:,:,jj);
+    if favar == 1   
+        if do_pagemtimes ==0
+            for jj  = 1 : size(y,3)
+                yy(:,:,jj) = cont * y(:,:,jj);
+            end
+        else
+            lam  = repmat(cont,1,1,n);
+            yy   = pagemtimes(lam,y);
         end
-        clear y; y = yy;
+        clear y; y = yy;        
     end
     % check restrictions
     d = checkrestrictions(signrestriction,y);

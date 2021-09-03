@@ -83,6 +83,7 @@ switch state_space_model
         for jj  = 1 : size(Phi,3)
             [A(:,:,jj),B(:,:,jj),C(:,:,jj),const(:,jj),Sigma(:,:,jj),~,index_var]=var2ss(Phi,Sigma,index);
         end
+        %===>>> NOTE Sigma now is the cholesky of Sigma
     case 2
         %------------------------------------------------------------------
         % Unobserved Component I(2)
@@ -163,9 +164,10 @@ for ii=1:T
     %     yfrsct(ii,dimt,4) = Ztt*(G(:,:,tauVec(ii))^4*stt(:,ii) + C(:,tauVec(ii)));
     
     [stt(:,ii+1),ptt(:,:,ii+1),logLnc(ii),vt(dimt,ii),finvt(dimt,dimt,ii),...
-        kpartg(:,dimt,ii),]=feval(@kf_dk,ytt,Ztt,...%Z(:,:,tauVec(ii)),...
+        kpartg(:,dimt,ii),] = kf_dk(ytt,Ztt,...
         state,ptt(:,:,ii),A(:,:,tauVec(ii)),...
         B(:,:,tauVec(ii))*(Sigma(:,:,tauVec(ii))'));
+
     
     % if there is break
     if ii < T
