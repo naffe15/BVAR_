@@ -308,7 +308,7 @@ if nargin > 2
                 prior.Phi.cov   = options.priors.Phi.cov;
 %                 if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) * ny
                 if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend+nexogenous ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
-                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)x')
+                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)')
                 end
             else
                 warning(['You did not provide a Covariance for the AR coeff. ' ...
@@ -332,7 +332,7 @@ if nargin > 2
                     error('Size mismatch')
                 end
             else
-                warning(['You did not provide a prior mean for the Residual Covariance. ' ...
+                warning(['You did not provide a prior scale for the Residual Covariance. ' ...
                     'Assume identity matrix.'])
                 prior.Sigma.scale = eye(ny);
             end
@@ -354,7 +354,7 @@ if nargin > 2
                 end
             end
         else
-            warning(['You did not provide prior mean and variance for the Residual Covariance. ' ...
+            warning(['You did not provide prior scale and degrees of freedom for the Residual Covariance. ' ...
                 'Assume an identity matrix matrix with N+1 degrees of freedom.'])
             prior.Sigma.scale = eye(ny);
             prior.Sigma.df    = ny + nexogenous + timetrend + 1;
