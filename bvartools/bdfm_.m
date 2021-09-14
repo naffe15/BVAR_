@@ -25,10 +25,13 @@ function [BDFM] = bdfm_(y,lags,nfac,options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if nargin < 3
-    error('the BDFM toolbox needs at least three inputs: data, number of lags and of factors');
+    error('the BDFM function needs at least three inputs: data, # of lags and # of factors');
 end
-if lags < 1
-    error('lags cannot be zero or negative');
+if lags < 0
+    error('lags cannot be negative');
+end
+if nfac < 1 
+    error('need at least one factor');
 end
 
 % length of TS and number of observable variables
@@ -116,7 +119,7 @@ if nargin > 3
         % lag structure of the idiosyncratic component
         ilags 	  =	options.ilags;
         if ilags > 0
-            warning(['AR1 for the idiosyncratic errors is currently not supported by the toolbox.'...
+            warning(['AR1 for the idiosyncratic errors is currently not supported by the toolbox. '...
                 'Assume that all AR1 coefficients of the idiosyncratic errors are zero.'])
             ilags = 0;
         end
@@ -140,8 +143,9 @@ if nargin > 3
     %======================================================================
     % Conjugate/Hierachical MN-IW prior options
     %======================================================================
-    if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Conjugate')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'conjugate')==1) || ...
-       (isfield(options,'prior')==1 && strcmp(options.prior.name,'Conjugate')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'conjugate')==1)
+%     if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Conjugate')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'conjugate')==1) || ...
+%        (isfield(options,'prior')==1 && strcmp(options.prior.name,'Conjugate')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'conjugate')==1)
+    if isfield(options,'priors')==1  || isfield(options,'priors')==1 
         
         if isfield(options,'prior')==1
             options.priors = options.prior;
@@ -167,8 +171,10 @@ if nargin > 3
                         error('Size mismatch')
                     end
                 else
-                    warning(['You did not provide a prior mean for the Factor AR coeff.'...
-                        'Assume the default values (0.2 on AR1, zeros elsewhere). See the Hitchhiker''s guide.'])                    
+                    if lags > 0
+                        warning(['You did not provide a prior mean for the Factor AR coeff. '...
+                            'Assume the default values (0.2 on AR1, zeros elsewhere). See the Hitchhiker''s guide.'])
+                    end
                 end
                 % variance
                 if isfield(options.priors.F.Phi,'cov') == 1
@@ -177,13 +183,16 @@ if nargin > 3
                         error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1) x size(Phi.mean,1)')
                     end
                 else
-                    warning(['You did not provide a Covariance for the Factor AR coeff.'...
-                        'Assume the default values (5 * identity matrix). See the Hitchhiker''s guide.'])   
+                    if lags > 0
+                        warning(['You did not provide a Covariance for the Factor AR coeff. '...
+                            'Assume the default values (5 * identity matrix). See the Hitchhiker''s guide.'])
+                    end
                 end
             else
-                warning(['You did not provide priors for the AR part of the Factors.'...
-                    'Assume the default values. See the Hitchhiker''s guide.'])
-                
+                if lags > 0                    
+                    warning(['You did not provide priors for the AR part of the Factors. '...
+                        'Assume the default values. See the Hitchhiker''s guide.'])
+                end
             end
         
             % =========================================================== %
@@ -199,8 +208,10 @@ if nargin > 3
                         error('Size mismatch')
                     end
                 else
-                    warning(['You did not provide a prior scale for the Factor Covariance.'...
-                        'Assume the default values. See the Hitchhiker''s guide.'])                          
+                    if lags > 1 
+                        warning(['You did not provide a prior scale for the Factor Covariance. '...
+                            'Assume the default values. See the Hitchhiker''s guide.'])
+                    end
                 end
                 % degrees of freedom
                 if isfield(options.priors.F.Sigma,'df') == 1
@@ -212,12 +223,16 @@ if nargin > 3
                         error('Too few degrees of freedom - Increase prior df')
                     end
                 else
-                    warning(['You did not provide the degrees of freedom for the Factor Covariance.'...
-                        'Assume the default values (identity matrix). See the Hitchhiker''s guide.'])                                             
+                    if lags > 1 
+                        warning(['You did not provide the degrees of freedom for the Factor Covariance. '...
+                            'Assume the default values (identity matrix). See the Hitchhiker''s guide.'])
+                    end
                 end
             else
-                warning(['You did not provide prior scale and the degrees of freedom for the Factor Covariance.'...
-                    'Assume the default values (nfac+1). See the Hitchhiker''s guide.'])                                    
+                if lags > 1                    
+                    warning(['You did not provide prior scale and the degrees of freedom for the Factor Covariance. '...
+                        'Assume the default values (nfac+1). See the Hitchhiker''s guide.'])
+                end
             end
             
             % =========================================================== %
@@ -233,7 +248,7 @@ if nargin > 3
                         error('Size mismatch: lambda prior mean should be a scalar; same mean prior for all loadings.')
                     end
                 else
-                    warning(['You did not provide a prior mean for the factor loadings.'...
+                    warning(['You did not provide a prior mean for the factor loadings. '...
                         'Assume the default value (zero). See the Hitchhiker''s guide.'])                    
                 end
                 % variance
@@ -243,17 +258,15 @@ if nargin > 3
                         error('Size mismatch: covariance Lambda should be a scalar (i.e. the variance)')
                     end
                 else
-                    warning(['You did not provide prior variance for the factor loadings.'...
+                    warning(['You did not provide prior variance for the factor loadings. '...
                         'Assume the default values (10). See the Hitchhiker''s guide.'])   
                 end
             else
-                warning(['You did not provide priors for the factor loadings.'...
-                    'Assume the default values (zero mean and 10 variance). See the Hitchhiker''s guide.'])
-                
-            end
-            
+                warning(['You did not provide priors for the factor loadings. '...
+                    'Assume the default values (zero mean and 10 variance). See the Hitchhiker''s guide.'])               
+            end            
         else
-            warning(['You did not provide any prior for the factors (loadings, AR and Sigma).'...
+            warning(['You did not provide any prior for the factors (loadings, AR and Sigma). '...
                 'Assume the default values. See the Hitchhiker''s guide.'])                                    
         end
         
@@ -360,9 +373,8 @@ end
 %* Consistency Checks
 %********************************************************
 if lags < l_F
-    error('The number of lags in the factor equation must equal the number of lagged factor entering the measurement equation');
+    error('The number of lags in the factor transition equation must be as large as the number of lagged factor entering the measurement equation');
 end
-
 
 % constant in the factor equations
 nx    = 1-noconstant; 
@@ -407,16 +419,10 @@ end
 % First draw starting values of aggregate factors on their own lags
 % to obtain starting values for the psi_F's (autoregressive factor) and
 % sig2_F's (variance of factor) 
-% start from diffuse priors independent factors
-% startprior.Phi.cov     = 1e10;
-% startprior.Phi.cov     = 1;
-% startprior.Phi.mean    = 0;
-% startprior.Sigma.scale = 0; 
-% startprior.Sigma.df    = 0;
-%[psi_F,sig2_F]         = draw_psi_sigma(f,.5*ones(nfac,1),ones(nfac,1),startprior,paramsF,sig_fix);
-% 3: draw VAR-COV parameters of the factors
-[psi_F, sig2_F] = draw_Psi_Sigma(f, priors.F, lags);    
-
+% Draw VAR-COV parameters of the factors (if dynamic)
+if lags > 0 
+    [psi_F, sig2_F] = draw_Psi_Sigma(f, priors.F, lags);
+end
 
 % Now regress starting values of block factors on starting values of
 % aggregate factors to obtain starting value for Lambda_F
@@ -445,9 +451,10 @@ end
 % lambda_Fb       = cell2mat(Lambda_F);
 Lambda_F_mat    = cell2mat(Lambda_F);
 eG              = compute_resids(y, f, Lambda_F_mat, paramsF); % oo = y - f* Lambda_F_mat';
-paramsGb.q_F    = ilags*ones(ny,1); 
-paramsGb.K_facs = ny; 
-paramsGb.l_F    = l_G;
+
+% paramsGb.q_F    = ilags*ones(ny,1); 
+% paramsGb.K_facs = ny; 
+% paramsGb.l_F    = l_G;
 % draw starting values of idiosyncratic part on their own lags
 % to obtain starting values for the psi_G's (autoregressive factor) and
 % sig2_G's (variance of factor) 
@@ -523,16 +530,33 @@ end
 for d = 1 : K
     %======================================================================
     % Inferece: Drawing from the posterior distribution
-    % 1: draw factors (Kalman Smoother)
-    %f              = sample_facs(y, zeros(size(f)), Lambda_F_mat, psi_F, sig2_F, psi_G, sig2_G, paramsF);    
-    %[f, f_filt]    = sample_facs(y, zeros(size(f)), Lambda_F_mat, psi_F, sig2_F, psi_G, sig2_G);    
-    [f , f_filt]   = sample_facs(y, zeros(size(f)), Lambda_F_mat, psi_F, sig2_F, psi_G, sig2_G);    
+    % 1: draw factors 
+    if lags == 0 
+        % static factor model
+        f_filt      = zeros(T,nfac);
+        iSigmay     = (Lambda_F_mat * Lambda_F_mat' + diag(sig2_G))\eye(ny);        %iSigmay = inv(Lambda_F_mat * Lambda_F_mat' + diag(sig2_G));
+        f_var       = eye(nfac) -  Lambda_F_mat' * iSigmay * Lambda_F_mat;
+        f_var_chol  = chol(f_var,'lower');
+        i_f         = randn(T,nfac);
+        f_mean      = y * iSigmay' * Lambda_F_mat;
+        f           = f_mean + i_f * f_var_chol';                            
+    else
+        % dynamic factors (Kalman Smoother)
+        %f              = sample_facs(y, zeros(size(f)), Lambda_F_mat, psi_F, sig2_F, psi_G, sig2_G, paramsF);
+        %[f, f_filt]    = sample_facs(y, zeros(size(f)), Lambda_F_mat, psi_F, sig2_F, psi_G, sig2_G);
+        [f , f_filt]   = sample_facs(y, zeros(size(f)), Lambda_F_mat, psi_F, sig2_F, psi_G, sig2_G);
+    end
     
     % 2: draw loadings 
     Lambda_F_mat   = draw_lambda(y, f, psi_G, sig2_G, priors.F.Lambda, paramsF);    
     
     % 3: draw VAR-COV parameters of the factors
-    [psi_F, sig2_F] = draw_Psi_Sigma(f, priors.F, lags);    
+    if lags == 0 % static factor model
+        psi_F  = zeros(nk,nfac);
+        sig2_F = eye(nfac);
+    else % dynamic factors (MN-IW)
+        [psi_F, sig2_F] = draw_Psi_Sigma(f, priors.F, lags);
+    end
     
     % 4: draw idiosyncratic errors
     eG              = compute_resids(y, f, Lambda_F_mat, paramsF); 
@@ -560,66 +584,68 @@ for d = 1 : K
     errors              = ff - FF * psi_F;
     ef_draws(:,:,d)     = errors;
  
-    %======================================================================
-    % IRF
-    % Compute the impulse response functions
-    %C_       = rescaleFAVAR(STD,Lambda,size(y1,2),order_pc);
-    % with cholesky
-    tmp                    = iresponse(psi_F,sig2_F,hor,eye(nfac));
-    if do_pagemtimes == 1
-        Lam_                   = repmat(Lambda_F_mat,1,1,nfac);
-        ir_draws(:,:,:,d)      = pagemtimes(Lam_,tmp);
-    else
-        for ff = 1 : nfac
-            ir_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
-        end
-    end
-    % with long run restrictions
-    if long_run_irf == 1
-        [irlr,Omega]           = iresponse_longrun(psi_F,sig2_F,hor,lags);
+    if lags > 0
+        % IRF and Forecasts are computed only with dynamic factors
+        %======================================================================
+        % IRF
+        % Compute the impulse response functions
+        %C_       = rescaleFAVAR(STD,Lambda,size(y1,2),order_pc);
+        % with cholesky
+        tmp                    = iresponse(psi_F,sig2_F,hor,eye(nfac));
         if do_pagemtimes == 1
-            irlr_draws(:,:,:,d)    = pagemtimes(Lam_,irlr);
+            Lam_                   = repmat(Lambda_F_mat,1,1,nfac);
+            ir_draws(:,:,:,d)      = pagemtimes(Lam_,tmp);
         else
             for ff = 1 : nfac
                 ir_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
             end
-        end        
-        Qlr_draws(:,:,d)       = Omega;        
-    end
-    % with sign restrictions
-    if signs_irf == 1
-        [irsign,Omega]         = iresponse_sign(psi_F,sig2_F,hor,signs,Lambda_F_mat);
-        irsign_draws(:,:,:,d)  = irsign;
-        Omega_draws(:,:,d)     = Omega;
-    end
-    % with narrative and sign restrictions
-    if narrative_signs_irf == 1        
-        [irnarrsign,Omega]         = iresponse_sign_narrative(errors,psi_F,sig2_F,hor,signs,narrative,Lambda_F_mat);
-        irnarrsign_draws(:,:,:,d)  = irnarrsign;
-        Omegan_draws(:,:,d)        = Omega;
-    end
-    % with proxy
-    if proxy_irf == 1
-        in.Phi                  = psi_F;
-        in.Sigma                = sig2_F;
-        for nf = 1 : nfac
-            nfnot                   = setdiff(1 : nfac, nf);
-            in.res                  = ef_draws(:, [nf, nfnot], d);
-            in.vars                 = f;
-            tmp_                    = iresponse_proxy(in);
-            irproxy_draws(:,:,nf,d) = Lambda_F_mat * tmp_.irs';
-            clear tmp_
         end
-    end
-    
-    %======================================================================
-    % Forecasts
-    % compute the out of sample forecast (unconditional)
-    forecast_data.initval     = f(end-lags+1:end, :);    
-    [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,psi_F,sig2_F,fhor,lags);
-    yhatfut_no_shocks(:,:,d)            = frcst_no_shock * Lambda_F_mat';
-    yhatfut_with_shocks(:,:,d)          = frcsts_with_shocks * Lambda_F_mat';
+        % with long run restrictions
+        if long_run_irf == 1
+            [irlr,Omega]           = iresponse_longrun(psi_F,sig2_F,hor,lags);
+            if do_pagemtimes == 1
+                irlr_draws(:,:,:,d)    = pagemtimes(Lam_,irlr);
+            else
+                for ff = 1 : nfac
+                    irlr_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
+                end
+            end
+            Qlr_draws(:,:,d)       = Omega;
+        end
+        % with sign restrictions
+        if signs_irf == 1
+            [irsign,Omega]         = iresponse_sign(psi_F,sig2_F,hor,signs,Lambda_F_mat);
+            irsign_draws(:,:,:,d)  = irsign;
+            Omega_draws(:,:,d)     = Omega;
+        end
+        % with narrative and sign restrictions
+        if narrative_signs_irf == 1
+            [irnarrsign,Omega]         = iresponse_sign_narrative(errors,psi_F,sig2_F,hor,signs,narrative,Lambda_F_mat);
+            irnarrsign_draws(:,:,:,d)  = irnarrsign;
+            Omegan_draws(:,:,d)        = Omega;
+        end
+        % with proxy
+        if proxy_irf == 1
+            in.Phi                  = psi_F;
+            in.Sigma                = sig2_F;
+            for nf = 1 : nfac
+                nfnot                   = setdiff(1 : nfac, nf);
+                in.res                  = ef_draws(:, [nf, nfnot], d);
+                in.vars                 = f;
+                tmp_                    = iresponse_proxy(in);
+                irproxy_draws(:,:,nf,d) = Lambda_F_mat * tmp_.irs';
+                clear tmp_
+            end
+        end
         
+        %======================================================================
+        % Forecasts
+        % compute the out of sample forecast (unconditional)
+        forecast_data.initval     = f(end-lags+1:end, :);
+        [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,psi_F,sig2_F,fhor,lags);
+        yhatfut_no_shocks(:,:,d)            = frcst_no_shock * Lambda_F_mat';
+        yhatfut_with_shocks(:,:,d)          = frcsts_with_shocks * Lambda_F_mat';
+    end
     if waitbar_yes, waitbar(d/K, wb); end
 end
 if waitbar_yes, close(wb); end

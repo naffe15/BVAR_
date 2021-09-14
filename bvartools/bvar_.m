@@ -33,7 +33,7 @@ function [BVAR] = bvar_(y,lags,options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if nargin < 2
-    error('the BVAR toolbox needs at least two inputs: data and number of lags');
+    error('the BVAR funtion needs at least two inputs: data and number of lags');
 end
 if lags < 1
     error('lags cannot be zero or negative');

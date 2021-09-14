@@ -93,14 +93,33 @@ else
 end
 
 
-%%
+
+
+%% static factor model
+options.priors.F.Lambda.mean = 0;
+options.priors.F.Lambda.cov  = 6;
+
+nfac   = size(f,2);
+[BSFM] = bdfm_(y,0,nfac,options);
+
+index = 5000:20:size(BSFM.Phi_draws,3);
+figure,
+for gg=1:nfac
+    subplot(nfac,1,gg)
+    plot([squeeze(BSFM.f_draws(:,gg,index))],'Color',[0.7 0.7 0.7])
+    hold on
+    plot(f(:,gg),'b','Linewidth',2)
+    hold on
+    plot(mean(BSFM.f_draws(:,gg,index),3),'k','Linewidth',2)
+end
+
+
+%% dynamic factor model
 
 nfac   = size(f,2);
 lags   = round(size(Phi,2)/nfac);
 
-
 % Priors options
-options.priors.name = 'Conjugate';
 % factors priors
 options.priors.F.Phi.mean    = Phi;
 options.priors.F.Phi.cov     = 10 * eye(size(Phi,1));
