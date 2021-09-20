@@ -76,7 +76,13 @@ transf = 0;
 
 % scree plot
 figure,
-plot(egv(1:10),'b');
+plot(egv(1:10),'b','Linewidth',2);
+grid on
+title('Eigenvalues')
+% STR_RECAP = [ dirname '/screeplot'];
+% saveas(gcf,STR_RECAP,'fig');
+% savefigure_pdf([STR_RECAP '.pdf']);
+
 
 
 %% static factor model
@@ -124,6 +130,7 @@ options.priors.F.Sigma.scale = Sigma;
 options.priors.F.Sigma.df    = 4;
 options.priors.F.Lambda.mean = 0;
 options.priors.F.Lambda.cov  = 6;
+% else Jeffrey prior on PhiSigma: options.priors.name = 'Jeffrey';
 % idyosincratic error priors
 options.priors.G.Sigma.scale = sig;
 options.priors.G.Sigma.df    = 4;
@@ -230,6 +237,8 @@ options.add_irfs   = ir_true(index_var,:,index_sho);
 options.conf_sig_2 = 0.9;   
 % additional 90% HPD set
 options.nplots = [2 3];   
+% variables names for the plots
+options.varnames      = {'Var1','Var2','Var4','Var5','Var15','Var20'};  
 % name of the directory where the figure is saved
 options.saveas_dir    = './factor_plt';
 % name of the figure to save

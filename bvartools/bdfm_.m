@@ -68,6 +68,9 @@ long_run_irf        = 0;            % when 0, it does not compute long run IRF
 signs_irf           = 0;
 narrative_signs_irf = 0;
 proxy_irf           = 0;
+do_the_demean       = 1;            % demean the data
+dummy               = 2;            % Conjugate MN-IW on the factors
+use_the_ss_kalman_gain = 0;
 
 
 % Default Prior Distributions 
@@ -139,6 +142,13 @@ if nargin > 3
     if isfield(options,'noise_var')==1        
         % size of the noise variance when perturbing the PC factors to initiallize the Gibbs sampler
         noise_var =	options.noise_var;
+    end
+    if isfield(options,'do_the_demean')==1
+        % demean the data unless otherwise specified (do_the_demean=0)
+        do_the_demean = options.do_the_demean;
+    end
+    if isfield(options,'use_the_ss_kalman_gain')==1
+        use_the_ss_kalman_gain = options.use_the_ss_kalman_gain;
     end
     %======================================================================
     % Conjugate/Hierachical MN-IW prior options
@@ -264,12 +274,11 @@ if nargin > 3
             else
                 warning(['You did not provide priors for the factor loadings. '...
                     'Assume the default values (zero mean and 10 variance). See the Hitchhiker''s guide.'])               
-            end            
+            end             
         else
             warning(['You did not provide any prior for the factors (loadings, AR and Sigma). '...
                 'Assume the default values. See the Hitchhiker''s guide.'])                                    
-        end
-        
+        end    
         % =========================================================== %
         % Priors for the idiosyncratic term
         % =========================================================== %
@@ -280,7 +289,6 @@ if nargin > 3
             % =========================================================== %
             % priors for the standard devitiations
             if isfield(options.priors.G,'Sigma') == 1
-                % scale
                 % scale
                 if isfield(options.priors.G.Sigma,'scale') == 1
                     priors.G.Sigma.scale = options.priors.G.Sigma.scale;
@@ -317,7 +325,16 @@ if nargin > 3
 %                 error('If you specify the priors for the idiosyncratic error (options.priors.G), you need also to specify the number of lags (options.ilags)')
 %             end
         end
+        %======================================================================
+        % Jeffrey priors on Factor dynamics
+        %======================================================================
+        if isfield(options.priors,'name')==1 && strmatch(options.priors.name,'Jeffrey') == 1
+            dummy = 0;
+            priors.name= 'Conjugate-and-Jeffry-on-Factors-Dynamics';
+        end
+
     end
+
 
     %======================================================================
     % IRF options
@@ -368,6 +385,12 @@ if nargin > 3
 
 end
 
+%********************************************************
+%* Prepare the data
+%********************************************************
+if do_the_demean == 1
+    y = demean(y);
+end
 
 %********************************************************
 %* Consistency Checks
@@ -826,18 +849,31 @@ function [Phi,Sigma] = draw_Psi_Sigma(yfac,prior,lags)
         Tu  = size(var.u, 1);
         Ny  = size(var.y, 2);
         Nx  = size(var.X, 2);
-        %********************************************************
-        % Step 0: Compute the Posterior Distribution Moments (MN-IW) 
-        %********************************************************
-        Ai              = inv(prior.Phi.cov);
-        %posterior.df    = Tu - Ny*lags - nx - nexogenous - prior.Sigma.df;
-        posterior.df    = Tu - Nx - prior.Sigma.df;
-        posterior.XXi   = inv(var.X'*var.X + Ai);
-        posterior.PhiHat = posterior.XXi * (var.X' * var.y + Ai * prior.Phi.mean);
-        posterior.S = var.u' * var.u + prior.Sigma.scale + ...
-            prior.Phi.mean' * Ai * prior.Phi.mean + ...
-            var.B' * (var.X'*var.X) * var.B ...
-            - posterior.PhiHat' * (var.X'*var.X + Ai) * posterior.PhiHat;
+        
+        if dummy == 0
+            %********************************************************
+            % Flat Jeffrey Prior
+            %********************************************************
+            flat            = 1;
+            posterior.df    = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
+            posterior.S     = var.u' * var.u;
+            posterior.XXi   = var.xxi;
+            posterior.PhiHat = var.B;
+        
+        else
+            %********************************************************
+            % Step 0: Compute the Posterior Distribution Moments (MN-IW) 
+            %********************************************************
+            Ai              = inv(prior.Phi.cov);
+            %posterior.df    = Tu - Ny*lags - nx - nexogenous - prior.Sigma.df;
+            posterior.df    = Tu - Nx - prior.Sigma.df;
+            posterior.XXi   = inv(var.X'*var.X + Ai);
+            posterior.PhiHat = posterior.XXi * (var.X' * var.y + Ai * prior.Phi.mean);
+            posterior.S = var.u' * var.u + prior.Sigma.scale + ...
+                prior.Phi.mean' * Ai * prior.Phi.mean + ...
+                var.B' * (var.X'*var.X) * var.B ...
+                - posterior.PhiHat' * (var.X'*var.X + Ai) * posterior.PhiHat;
+        end
         %********************************************************
         % Inferece: Draw Phi-Sigma from the posterior distribution
         %********************************************************
@@ -851,7 +887,7 @@ function [Phi,Sigma] = draw_Psi_Sigma(yfac,prior,lags)
         Phi1 = randn(Nx * Ny, 1);
         Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
         Phi3 = reshape(Phi2, Nx, Ny);
-        Phi  = Phi3 + posterior.PhiHat;
+        Phi  = Phi3 + posterior.PhiHat;        
         
 end
 
@@ -909,25 +945,36 @@ function [FT_mat, f_filt] = sample_facs(g,alpha,lambda_tilde,psi_F,sig2_F,psi_G,
 %     Ptt     = reshape(P00,ndim,ndim);
     Fmat  = zeros(nfac * lags,T);
     Pmat  = zeros(nfac * lags,nfac * lags,T);
+    
+    if use_the_ss_kalman_gain == 1
+        % compute the SS kalman gain
+        [SigSS,KapSS] = GetSigKap(A,H,QQ,R);
+    end
+    
     % Kalman filter recursion
     for t = 1 : T
         Gtt1   = Alpha(t,:)' + A*Gtt;         % x(t|t-1)
         Ptt1   = A*Ptt*A' + QQ;               % P(t|t-1)
         ett1   = ystar(:,t) - H*Gtt1;         % eta(t|t-1) = y(t)- y(t|t-1)= y(t)-H*x(t|t-1)
-        v_ett1 = H*Ptt1*H' + R;               % var(eta(t|t-1))
-        k_gn   = Ptt1*H'/v_ett1;              % K      = P(t|t-1)H'/ f(t|t-1)
-        Gtt    = Gtt1 + k_gn*ett1;            % x(t|t) = x(t|t-1)+ K eta(t|t-1)
-        Ptt    = (eye(ndim)-k_gn*H)*Ptt1;     % P(t|t) = P(t|t-1)-K*H*P(t|t-1)
-        Fmat(:,t)   = Gtt;
-        %Pmat{t}     = Ptt;
-        Pmat(:,:,t) = Ptt;
+        if use_the_ss_kalman_gain
+            k_gn   = KapSS;
+            Ptt    = SigSS;
+        else
+            v_ett1 = H*Ptt1*H' + R;           % var(eta(t|t-1))
+            k_gn   = Ptt1*H'/v_ett1;          % K      = P(t|t-1)H'/ f(t|t-1)
+            Ptt    = (eye(ndim)-k_gn*H)*Ptt1;     % P(t|t) = P(t|t-1)-K*H*P(t|t-1)
+        end
+        Gtt         = Gtt1 + k_gn*ett1;            % x(t|t) = x(t|t-1)+ K eta(t|t-1)        
+        Fmat(:,t)   = Gtt;       
+        Pmat(:,:,t) = Ptt;                    % Pmat{t}     = Ptt;
     end
     f_filt = Fmat(1:nfac,:)';
 
     % Carter-Kohn backward sampling algorithm
     FT_mat          = zeros(T, nfac);         
     %G               = chol(Pmat{T})';
-    G               = chol(Pmat(:,:,T))';
+    [G,flag]        = chol(Pmat(:,:,T),'lower');
+    if flag ~= 0, keyboard; end        
     FT              = Fmat(:,T)+G*randn(ndim,1);
     FT_mat(T, 1:nfac) = FT(1:nfac)';           
     for t= T-1 : -1 : 1
