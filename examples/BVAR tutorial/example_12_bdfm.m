@@ -104,10 +104,12 @@ for gg=1:nfac
     % draws of factors
     plot([squeeze(BSFM.f_draws(:,gg,index))],'Color',[0.7 0.7 0.7])
     hold on
-    % true factors
-    plot(f(:,gg),'b','Linewidth',2)
+    % true factor
+    f_mean = mean(BSFM.f_draws(:,gg,index),3);
+    sign_ = sign(corr(f_mean,f(:,gg)));
+    plot(sign_ * f(:,gg),'b','Linewidth',2)
     hold on
-    plot(mean(BSFM.f_draws(:,gg,index),3),'k','Linewidth',2)
+    plot(f_mean,'k','Linewidth',2)
 end
 % save plot
 dirname  = 'factor_plt';
@@ -150,9 +152,12 @@ for gg=1:nfac
     subplot(nfac,1,gg)
     plot([squeeze(BDFM.f_draws(:,gg,index))],'Color',[0.7 0.7 0.7])
     hold on
-    plot(f(:,gg),'b','Linewidth',2)
+    f_mean = mean(BDFM.f_draws(:,gg,index),3);
+    sign_ = sign(corr(f_mean,f(:,gg)));
+    % true factor
+    plot(sign_ * f(:,gg),'b','Linewidth',2)
     hold on
-    plot(mean(BDFM.f_draws(:,gg,index),3),'k','Linewidth',2)
+    plot(f_mean,'k','Linewidth',2)
 end
 STR_RECAP = [ dirname '/dfm'];
 saveas(gcf,STR_RECAP,'fig');

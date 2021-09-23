@@ -8,7 +8,10 @@ function [dm] = directmethods(y,lags,options)
 % - y, data columns variables
 % - lags, lag order of the VAR
 
-% Additonal Inputs collected options: see below
+% Additonal Inputs collected options
+% (...) see below
+% See the Hitchhiker's guide for more details. 
+% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
 
 % Filippo Ferroni, 27/02/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

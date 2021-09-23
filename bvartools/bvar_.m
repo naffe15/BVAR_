@@ -18,10 +18,13 @@ function [BVAR] = bvar_(y,lags,options)
 % - options.priors, a string with he priors for the autoregressive paramters and
 %   for the scaling matrix.
 % (...) see below
+% See the Hitchhiker's guide for more details. 
+% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
+
 
 % Output: Draws from the conditional distribution of Phi, Sigma and
-% Omega, impulse response with the cholesky decompotion and long run
-% restricions, forecast and marginal likelihood.
+% Omega, impulse response with the various identification restrictions,
+% forecast and marginal likelihood. 
 
 % Filippo Ferroni, 6/1/2015
 % Revised, 2/15/2017

@@ -2,19 +2,21 @@ function [BDFM] = bdfm_(y,lags,nfac,options)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bdfm_' generates draws from the paramters and factors of dynamic factor
-% model with AR error distributed as a multivariate normal
+% 'bdfm_' generates draws from the paramters and latent variables of
+% static/dynamic factor model with factors and idiosyncrati errors
+% distributed as multivariate normals 
 
 % Core Inputs:
 % - y, data columns variables
-% - lags, lag order of the dynamic factor model 
+% - lags, lag order of the dynamic factor model (when =0 static factor model)
 % - nfac, number of factors 
 
 % Additonal Inputs collected options:
 % - options are not mandatory. if nothing is specified then a number of
-% default options are assumed. Look at the Hickhiker guide for more
-% details.
+% default options are assumed. 
 % (...) see below
+% See the Hitchhiker's guide for more details. 
+% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
 
 % Output: Draws from the conditional distribution of Phi, Sigma and
 % Omega, impulse response with the cholesky decompotion and long run
