@@ -1014,13 +1014,23 @@ BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
 % the model with the lowest IC is preferred
 
 % OLS irf
+% cholesky
 BVAR.ir_ols      = iresponse(BVAR.Phi_ols,BVAR.Sigma_ols,hor,eye(ny));
+% long run
 if long_run_irf == 1
     [irlr,Qlr]              = iresponse_longrun(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags);
     BVAR.irlr_ols           = irlr;
     BVAR.Qlr_ols(:,:)       = Qlr;
 end
-
+% proxy
+if proxy_irf == 1
+    inols.res               = BVAR.e_ols;
+    inols.Phi               = BVAR.Phi_ols;
+    inols.Sigma             = BVAR.Sigma_ols;
+    tmp_                    = iresponse_proxy(inols);
+    BVAR.irproxy_ols(:,:,1) = tmp_.irs';
+    clear tmp_
+end
 % test the normality of the ols VAR residuals (matlab stat toolbox needed)
 if  exist('kstest') ==2
     for gg = 1 : ny
