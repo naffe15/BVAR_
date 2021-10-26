@@ -437,6 +437,7 @@ if nargin > 2
         if isnumeric(in.proxies) == 0
             error(['options.proxy should be a numeric array (nans or inf not allowed)'],class(in.proxies))
         end
+        inols =in;
     end
     if isfield(options,'irf_1STD')==1
         % Activating of unitary IRF, i.e. a unitary increase in the shocks
