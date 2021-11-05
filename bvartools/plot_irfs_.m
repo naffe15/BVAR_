@@ -182,7 +182,7 @@ for sho = 1 : nshocks
         end
         
         jplot=jplot+1;
-        subplot(nplots(1),nplots(2),jplot)
+        subplot(nplots(jfig,1),nplots(jfig,2),jplot)
         
         if add_multiple_bands_yes == 1
             
