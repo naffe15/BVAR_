@@ -600,7 +600,8 @@ if cfrcst_yes ~= 0 && nexogenous > 0
 end
 if size(exogenous,1) == size(y,1) && nexogenous > 0
     warning('For forecast purposes, I will assume that exo are zero out-of sample.')
-    fprintf('To change this, include the exogenous forecasts in options.exogenous.\n')
+    warning('To change this, include the exogenous forecasts in options.exogenous.\n')
+    %fprintf('To change this, include the exogenous forecasts in options.exogenous.\n')
     exogenous = [exogenous; zeros(fhor,nexogenous)];
 end
 
