@@ -54,6 +54,6 @@ pause;
 hyperpara(1)            = postmode(1); % use as starting value previous mode
 options.index_est       = 1:3;         % set hyper-parameters over which maximize
 options.lb              = [0.1 0.1 0.1]; % Lower bounds
-options.ub              = [50 50 50];    % Upper bounds
+options.ub              = [10 10 10];    % Upper bounds
 [postmode,log_dnsty,~] = bvar_max_hyper(hyperpara,y,lags,options);
 
