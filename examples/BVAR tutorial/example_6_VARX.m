@@ -28,9 +28,12 @@ lags        = 4 ;
 options.hor = 24;
 options.K   = 1000;
 options.priors.name = 'Conjugate';
-y= demean(100*diff(log ([ipi_uk ,cpi_uk , ltr_uk , str_uk]) )) ; 
-options.controls = demean(100*diff(log (str_us)));
-
+y = demean(100*diff(log ([ipi_uk ,cpi_uk , ltr_uk , str_uk]) )) ; 
+% exogenous variable
+z = demean(100*diff(log (str_us)));
+% include one lag for the exogenous variable
+options.controls = lagX(z,[0:1]);
+% estimate the VARX
 bvar1       = bvar_(y,lags,options); 
 
 % IRF to PLOT
