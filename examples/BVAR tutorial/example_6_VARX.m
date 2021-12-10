@@ -33,6 +33,20 @@ y = demean(100*diff(log ([ipi_uk ,cpi_uk , ltr_uk , str_uk]) )) ;
 z = demean(100*diff(log (str_us)));
 % include one lag for the exogenous variable
 options.controls = lagX(z,[0:1]);
+% % signs res
+% options.signs{1}     = 'y(1,1:3,1)>0'; % 
+% options.signs{2}     = 'y(2,1:3,1)<0'; % 
+% options.narrative{1} = 'v([3],1)>0'; 
+
+% specify the restrictions
+% 1) ad = aggregate demand disturbance [sign restrictions]
+options.zeros_signs{1}     = 'y(1,1)=1;';
+options.zeros_signs{end+1} = 'y(2,1)=1;'; 
+options.zeros_signs{end+1} = 'y(3,1)=1;';
+% 2) as = aggregate supply shock [sign restrictions]
+options.zeros_signs{end+1} = 'y(1,2)=1;';
+options.zeros_signs{end+1} = 'y(2,2)=-1;';
+
 % estimate the VARX
 bvar1       = bvar_(y,lags,options); 
 

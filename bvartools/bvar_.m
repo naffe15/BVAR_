@@ -393,6 +393,9 @@ if nargin > 2
             warning('You did not provide any sign restrictions.')
             signs{1} = 'isempty(y(1,1,1))==0';
         end
+        if signs_irf  == 1
+            signs_irf       = 0;  % disactivating signs
+        end
         narrative_signs_irf = 1; 
         narrative           = options.narrative ;
     end

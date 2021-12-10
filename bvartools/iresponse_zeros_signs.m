@@ -38,9 +38,10 @@ if nargin< 9
     toler = 10000; % Number of rotation attempt
 end
 
-p  = lag;
-k  = size(Sigma,1);
-C1 = chol(Sigma,'lower');
+p         = lag;
+k         = size(Sigma,1);
+endo_numb = p*k;
+C1        = chol(Sigma,'lower');
 
 ir      = nan(k,hor,k);
 Omeg    = nan(k);
@@ -71,8 +72,10 @@ R = zeros(k,T,length(shocks),draws); % Contains impulse resonse functions
 
 counter = 1;
 
-B      = [Phi(end,:); Phi(1:end-1,:)];
-Btilde = B(2:end,:)';
+B      = [Phi(endo_numb+1:end,:); Phi(1:endo_numb,:)];
+Btilde = Phi(1:endo_numb,:)';
+% B      = [Phi(end,:); Phi(1:end-1,:)];
+% Btilde = B(2:end,:)';
 % Btilde = Phi(1:end-1,:)';
 alpha = [Btilde;eye(k*(p-1)),zeros(k*(p-1),k)]; % Build companion form matrix
 if draws > 10
