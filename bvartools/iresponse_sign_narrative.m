@@ -31,7 +31,6 @@ function [ir,Omeg] = iresponse_sign_narrative(errors,Phi,Sigma,hor,signrestricti
 % Filippo Ferroni, 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 [m,n]   = size(Sigma);
 d       = 0;
 d0      = 0;
@@ -75,9 +74,11 @@ while d==0 && tol < 30000
         clear y; y = yy;
     end
     % check sign restrictions
-    d0 = checkrestrictions(signrestriction,y);
+    % fsign = 1;
+    %d0 = checkrestrictions(signrestriction,y);
+    [d0, fsign] = checkrestrictions2(signrestriction,y);
     if d0 ==1
-        v = errors / ( Omega' * A');  % structural innovations
+        v = errors / ( (fsign * Omega)' * A');  % structural innovations
         % check narrative restrictions
         d = checkrestrictions(narrative,y,v);
     end

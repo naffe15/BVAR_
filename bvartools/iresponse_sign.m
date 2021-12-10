@@ -27,6 +27,7 @@ function [ir,Omeg] = iresponse_sign(Phi,Sigma,hor,signrestriction,cont)
 % Filippo Ferroni, 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 [m,n]   = size(Sigma);
 d       = 0;
 tol     = 0;
@@ -67,10 +68,12 @@ while d==0 && tol < 30000
         clear y; y = yy;        
     end
     % check restrictions
-    d = checkrestrictions(signrestriction,y);
+    % fsign = 1;
+    % d = checkrestrictions(signrestriction,y);
+    [d,fsign] = checkrestrictions2(signrestriction,y);
     if d==1
-        Omeg  = Omega;
-        ir    = y;
+        Omeg  = fsign * Omega;
+        ir    = fsign * y;
     else
         tol = tol + 1;
     end
