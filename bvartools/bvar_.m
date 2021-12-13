@@ -1027,6 +1027,21 @@ if long_run_irf == 1
     BVAR.irlr_ols           = irlr;
     BVAR.Qlr_ols(:,:)       = Qlr;
 end
+% with sign restrictions
+if signs_irf == 1
+    [BVAR.irsign_ols,BVAR.Omega_ols] = ...
+        iresponse_sign(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,signs);
+end
+% with narrative and sign restrictions
+if narrative_signs_irf == 1
+    [BVAR.irnarrsign_ols,BVAR.Omegan_ols] = ... 
+        iresponse_sign_narrative(BVAR.e_ols,BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,signs,narrative);
+end
+% with zeros and sign restrictions
+if zeros_signs_irf == 1         %= iresponse_zeros_signs( Phi,Sigma,bvar1.hor,lags,var_pos,f,sr);
+    [BVAR.irzerosign_ols,BVAR.Omegaz_ols] = ... 
+        iresponse_zeros_signs(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags,var_pos,f,sr);    
+end
 % proxy
 if proxy_irf == 1
     inols.res               = BVAR.e_ols;

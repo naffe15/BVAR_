@@ -143,6 +143,7 @@ irfs_to_plot = bvar4.irzerosign_draws(indx_var,:,indx_sho,:);
 % Customize the IRF plots
 options.saveas_strng    = 'zerossigns';
 options.shocksnames     = {'ADshck','ASshck','MPshck'}; % 
+% options.add_irfs        = bvar4.irzerosign_ols(indx_var,:,indx_sho,:);
 plot_irfs_(irfs_to_plot,options)
 pause
 
