@@ -881,10 +881,10 @@ for  d =  1 : K
     % with cholesky
     if irf_1STD == 1
         % one STD increase
-        ir_draws(:,:,:,d)      = iresponse(Phi,Sigma,hor,eye(ny));
+        ir_draws(:,:,:,d)      = iresponse(Phi(1 : ny*lags, 1 : ny),Sigma,hor,eye(ny));
     else
         % one percent increase
-        ir_draws(:,:,:,d)      = iresponse(Phi,Sigma,hor,eye(ny),0);
+        ir_draws(:,:,:,d)      = iresponse(Phi(1 : ny*lags, 1 : ny),Sigma,hor,eye(ny),0);
     end
     if nexogenous > 0
         Phi1         = Phi(1 : ny*lags + nx + timetrend, 1 : ny);
@@ -900,20 +900,20 @@ for  d =  1 : K
     
     % with long run restrictions
     if long_run_irf == 1
-        [irlr,Qlr]             = iresponse_longrun(Phi,Sigma,hor,lags);
+        [irlr,Qlr]             = iresponse_longrun(Phi(1 : ny*lags, 1 : ny),Sigma,hor,lags);
         irlr_draws(:,:,:,d)    = irlr;
         Qlr_draws(:,:,d)       = Qlr;
         Omega                  = Qlr;
     end
     % with sign restrictions
     if signs_irf == 1
-        [irsign,Omega]         = iresponse_sign(Phi,Sigma,hor,signs);
+        [irsign,Omega]         = iresponse_sign(Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs);
         irsign_draws(:,:,:,d)  = irsign;
         Omega_draws(:,:,d)     = Omega;
     end
     % with narrative and sign restrictions
     if narrative_signs_irf == 1
-        [irnarrsign,Omega]         = iresponse_sign_narrative(errors,Phi,Sigma,hor,signs,narrative);
+        [irnarrsign,Omega]         = iresponse_sign_narrative(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,narrative);
         irnarrsign_draws(:,:,:,d)  = irnarrsign;
         Omegan_draws(:,:,d)        = Omega;
     end
@@ -969,7 +969,7 @@ for  d =  1 : K
         KFoptions.index   = index;
         KFoptions.noprint = noprint;
         % Forward Kalman Filter and Smoother
-        [logL,KFout]          = kfilternan(Phi,Sigma,yoriginal,KFoptions);
+        [logL,KFout]     = kfilternan(Phi,Sigma,yoriginal,KFoptions);
         yfill(:,:,d)     = KFout.smoothSt_plus_ss(:,KFout.index_var);
         yfilt(:,:,d)     = KFout.filteredSt_plus_ss(:,KFout.index_var);
         % recompute the posterior with smoothed data
@@ -989,9 +989,9 @@ for  d =  1 : K
 %         else
 %         end
         if cnnctdnss_ == 2 
-            [C] = connectedness(Phi,Sigma,nethor, Sigma_lower_chol * Omega );
+            [C] = connectedness(Phi(1 : ny*lags, 1 : ny),Sigma,nethor, Sigma_lower_chol * Omega );
         elseif cnnctdnss_ == 1
-            [C] = connectedness(Phi,Sigma,nethor);
+            [C] = connectedness(Phi(1 : ny*lags, 1 : ny),Sigma,nethor);
         end
         CnndtnssIndex(d,1)         = C.Index;
         CnndtnssFromAlltoUnit(:,d) = C.FromAllToUnit;
@@ -1020,10 +1020,10 @@ BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
 
 % OLS irf
 % cholesky
-BVAR.ir_ols      = iresponse(BVAR.Phi_ols,BVAR.Sigma_ols,hor,eye(ny));
+BVAR.ir_ols      = iresponse(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,eye(ny));
 % long run
 if long_run_irf == 1
-    [irlr,Qlr]              = iresponse_longrun(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags);
+    [irlr,Qlr]              = iresponse_longrun(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,lags);
     BVAR.irlr_ols           = irlr;
     BVAR.Qlr_ols(:,:)       = Qlr;
 end
@@ -1098,7 +1098,7 @@ for pp = 1 : 3
         eval(['BVAR.' penalizationstrn{pp} '.Sigma  = 1/(nobs-nk) * var' penalizationstrn{pp} '.u'' * var' penalizationstrn{pp} '.u;'])        
         eval(['Sigma_ = BVAR.' penalizationstrn{pp} '.Sigma;'])
         % Recursive IRFs
-        eval(['BVAR.' penalizationstrn{pp} '.ir      = iresponse(Phi_,Sigma_,hor,eye(ny));']);                
+        eval(['BVAR.' penalizationstrn{pp} '.ir      = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));']);                
         % info crit
         [InfoCrit_.AIC, InfoCrit_.HQIC, InfoCrit_.BIC] ...
             = IC(Sigma_, u_, nobs, nk);
@@ -1106,7 +1106,7 @@ for pp = 1 : 3
         % IRFs with different identification schemes
         % point identification: LR
         if long_run_irf == 1
-            eval(['[BVAR.' penalizationstrn{pp} '.irlr,Omega_] = iresponse_longrun(Phi_,Sigma_,hor,lags);'])
+            eval(['[BVAR.' penalizationstrn{pp} '.irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);'])
         end
         % set identification: signs
         if set_irf > 0  
@@ -1115,7 +1115,7 @@ for pp = 1 : 3
         if signs_irf == 1
             for d1 = 1 : K                
                 eval(['[BVAR.' penalizationstrn{pp} '.irsign_draws(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign(Phi_,Sigma_,hor,signs);'])
+                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);'])
                 waitbar(d1/K, wb);
             end            
         end
@@ -1123,7 +1123,7 @@ for pp = 1 : 3
         if narrative_signs_irf == 1
             for d1 = 1 : K
                 eval(['[BVAR.' penalizationstrn{pp} '.irnarrsign_draws(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign_narrative(Phi_,Sigma_,hor,signs,narrative);'])
+                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);'])
                 waitbar(d1/K, wb);
             end
         end
@@ -1131,18 +1131,18 @@ for pp = 1 : 3
         if zeros_signs_irf == 1
             for d1 = 1 : K
                 eval(['[BVAR.' penalizationstrn{pp} 'irzerosign_draws.(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_zeros_signs(Phi_,Sigma_,hor,lags,var_pos,f,sr);'])
+                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);'])
                 waitbar(d1/K, wb);
             end
         end
         if set_irf>0, close(wb); end
     end
     if cnnctdnss_ == 1 % default identification (Pesaran and Shin)
-        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_,Sigma_,nethor);']);        
+        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);']);        
     elseif cnnctdnss_ == 2 % customized identification
         Sigma_lower_chol = chol(Sigma_)';
         Omegam           = median(Omega_,3);
-        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_, Sigma_, nethor, Sigma_lower_chol * Omegam);']);                
+        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);']);                
     end
 
 end

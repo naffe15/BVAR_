@@ -74,13 +74,13 @@ while d==0 && tol < 30000
         clear y; y = yy;
     end
     % check sign restrictions
-    % fsign = 1;
-    %d0 = checkrestrictions(signrestriction,y);
-    [d0, fsign] = checkrestrictions2(signrestriction,y);
+    fsign = 1;
+    d0 = checkrestrictions(signrestriction,y);
+    %[d0, fsign] = checkrestrictions2(signrestriction,y);
     if d0 ==1
         v = errors / ( (fsign * Omega)' * A');  % structural innovations
         % check narrative restrictions
-        d = checkrestrictions(narrative,y,v);
+        d = checkrestrictions(narrative,[],v);
     end
     if d==1 % stop 
         Omeg  = Omega;
