@@ -95,10 +95,14 @@ ElasticNet_         = 0;
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
-if any(any(isnan(y)))==1
-    warning('Activating the Mixed Frequency BVAR')
-    
-    mixed_freq_on = 1;
+mixed_freq_on = 0;
+if any(any(isnan(y))) %== 1
+    if any(sum(isnan(y),2) == ny)
+        warning('Cannot activate the Mixed Frequency BVAR. Data contains raws that have only ''nan''s. Each variable is interpolated individually.')        
+    else
+        disp('Activating the Mixed Frequency BVAR')
+        mixed_freq_on = 1;
+    end    
     index_nan_var = find(sum(isnan(y),1) ~= 0);
     yoriginal     = y;
     % interporlate the variables that have nans
@@ -113,12 +117,9 @@ if any(any(isnan(y)))==1
         end
         yinterpol               = y;
     end
-else
-    mixed_freq_on = 0;
 end
 if mixed_freq_on == 1 && nargin < 3
-    warning(['You did not specified the aggregation of the mixed freq. '...
-        'I will treat them as stocks.']);
+    warning('You did not specified the aggregation of the mixed freq. Variables will be treated as stocks.');
     index = zeros(size(y,2),1);
 end
 
@@ -181,6 +182,9 @@ if nargin > 2
         nexogenous = size(exogenous,2);
         if size(exogenous,1) ~= size(y,1)+ fhor && size(exogenous,1) ~= size(y,1)
             error('Size Mismatch between endogenous and exogenos variables; exo must be either T or T+fhor');
+        end
+        if any(isnan(exogenous(lags+1:end,:)))
+            error('Exogenous variables cannnot be ''nan'' from lags+1 onward.');
         end
     end
     %======================================================================
@@ -499,8 +503,7 @@ if nargin > 2
         index = zeros(ny,1);
         index(options.mf_varindex) = 2;        
     elseif (mixed_freq_on == 1 && isfield(options,'mixed_freq_index')== 0) || (mixed_freq_on == 1 && isfield(options,'mf_varindex')== 0)
-        warning(['You did not specified the aggregation of the mixed freq.'...
-            '\nI will treat them as stocks.']);
+        warning(['You did not specified the aggregation of the mixed freq. Variables will be treated as stocks.']);
         index = zeros(size(y,2),1);                
     end
     if isfield(options,'noprint')==1
@@ -597,13 +600,17 @@ if mixed_freq_on == 1 && nexogenous > 0
     warning('I will not use exogenous variables with missing observations');
     nexogenous = 0;
 end
+if mixed_freq_on == 1 && timetrend > 0
+    warning('I will not use time trend with missing observations');   
+    timetrend = 0;
+end
 if cfrcst_yes ~= 0 && nexogenous > 0
     warning('I will not use exogenous variables with conditional forecasts');
     nexogenous = 0;
 end
 if size(exogenous,1) == size(y,1) && nexogenous > 0
     warning('For forecast purposes, I will assume that exo are zero out-of sample.')
-    warning('To change this, include the exogenous forecasts in options.exogenous.\n')
+    warning('To change this, include the exogenous forecasts in options.exogenous.')
     %fprintf('To change this, include the exogenous forecasts in options.exogenous.\n')
     exogenous = [exogenous; zeros(fhor,nexogenous)];
 end
@@ -766,7 +773,6 @@ yhatfut_no_shocks         = NaN(fhor, ny, K);   % forecasts with shocks
 yhatfut_with_shocks       = NaN(fhor, ny, K);   % forecast without the shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K);   % forecast conditional on endogenous path
 logL                      = NaN(K,1);
-
 if signs_irf == 1
     irsign_draws = ir_draws;
     Omega_draws    = Sigma_draws;
@@ -786,6 +792,17 @@ end
 if proxy_irf == 1
     irproxy_draws = ir_draws;
 end
+if mixed_freq_on
+    yfill = nan(size(y,1),ny,K);
+    yfilt = nan(size(y,1),ny,K);    
+    logL  = nan(K,1);
+end
+if cnnctdnss_ == 1
+    CnndtnssIndex         = nan(K,1);
+    CnndtnssFromAlltoUnit = nan(ny,K);
+    CnndtnssFromUnitToAll = nan(ny,K);
+    Ctheta                = nan(ny,ny,K);
+end
 
 % Settings for the forecasts
 forecast_data.xdata       = ones(fhor, nx);
@@ -797,14 +814,11 @@ if nexogenous>0
 end    
 forecast_data.initval     = ydata(end-lags+1:end, :);
 
-% preallocation for connectedness
-if cnnctdnss_ == 1
-    CnndtnssIndex         = nan(K,1);
-    CnndtnssFromAlltoUnit = nan(ny,K);
-    CnndtnssFromUnitToAll = nan(ny,K);
-    Ctheta                = nan(ny,ny,K);
+% Settings for the MFVAR
+if mixed_freq_on == 1
+    KFoptions.index   = index;
+    KFoptions.noprint = noprint;
 end
-
 
 
 try
@@ -966,8 +980,6 @@ for  d =  1 : K
         if any(test>1.0000000000001)
             KFoptions.initialCond = 1;
         end
-        KFoptions.index   = index;
-        KFoptions.noprint = noprint;
         % Forward Kalman Filter and Smoother
         [logL,KFout]     = kfilternan(Phi,Sigma,yoriginal,KFoptions);
         yfill(:,:,d)     = KFout.smoothSt_plus_ss(:,KFout.index_var);

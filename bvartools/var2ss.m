@@ -20,7 +20,13 @@ Sigma = chol(Sigma);
 
 N           = size(Sigma,1);
 [m , n]     = size(Phi);
-lags        = (m-1)/n;
+if rem(m, n)==0 % no constant
+    lags = m/n;
+    nx   = 0;
+else % with constant
+    nx  =  1;
+    lags = floor((m-1)/n);
+end
 
 % companion form
 A       = [Phi(1 : N * lags, :)'; eye(N*(lags-1), N*lags)];
@@ -31,9 +37,14 @@ IminusAlags = eye(N);
 for ell = 1 : lags
     IminusAlags = IminusAlags - Phi(N * (ell -1) + 1 : N * ell, :)'; 
 end
-iIminusAlags  = inv(IminusAlags);
+%iIminusAlags  = inv(IminusAlags);
+iIminusAlags  = IminusAlags\eye(N);
 
-const    = [iIminusAlags*Phi(end, :)'; zeros(N*(lags-1), 1)];
+if nx==1
+    const    = [iIminusAlags*Phi(end, :)'; zeros(N*(lags-1), 1)];
+else
+    const    = [iIminusAlags*zeros(N,1); zeros(N*(lags-1), 1)];
+end
 
 % index =0 % stock:      xq(t) = xm(t)
 % index =1 % TBA
