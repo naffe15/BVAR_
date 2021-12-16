@@ -453,6 +453,7 @@ if nargin > 2
         in.proxies  = options.proxy;
         in.vars     = y;
         in.p        = lags;
+        in.compute_F_stat = 0;
         if isfield(options,'proxy_end') == 1
             in.T_m_end  = options.proxy_end;
         else
@@ -1105,8 +1106,13 @@ if proxy_irf == 1
     inols.res               = BVAR.e_ols;
     inols.Phi               = BVAR.Phi_ols;
     inols.Sigma             = BVAR.Sigma_ols;
+    inols.compute_F_stat    = 1;
     tmp_                    = iresponse_proxy(inols);
     BVAR.irproxy_ols(:,:,1) = tmp_.irs';
+    BVAR.proxy.F_m          = tmp_.F_m;
+    BVAR.proxy.F_m_rob      = tmp_.F_m_rob;
+    BVAR.proxy.R2adj_m      = tmp_.R2adj_m;
+    BVAR.proxy.data         = options.proxy;
     clear tmp_
 end
 % with heteroskedasticity

@@ -14,9 +14,9 @@ function in = iresponse_proxy(in)
 % Revised, 9/11/2019
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Y      = in.vars(in.p+1:end,:);
-[T,n]   = size(Y);
-[T_m,~] = size(in.proxies);
+Y         = in.vars(in.p+1:end,:);
+[T,n]     = size(Y);
+[T_m,n_m] = size(in.proxies);
 
 % number of proxies
 k  = 1;
@@ -58,7 +58,7 @@ in.Phib = Phib;
 % initial shock: eps(1,1)=1
 irs(in.p+1,:) = in.b1(:,1);
 
-for jj=2:in.irhor%+max(max(VAR.term_spreads_matur),max(VAR.real_rates_init+VAR.real_rates_matur-1))
+for jj = 2:in.irhor%+max(max(VAR.term_spreads_matur),max(VAR.real_rates_init+VAR.real_rates_matur-1))
     lvars = (irs(in.p+jj-1:-1:jj,:))';
     irs(in.p+jj,:) = lvars(:)'*in.Phi(1:in.p * n,:);     
 end
@@ -66,3 +66,30 @@ end
 in.irs   = irs(in.p+1:in.p+in.irhor,:);
 in.uhat1 = uhat1;
 
+
+if in.compute_F_stat == 1
+    % F-test
+    %%%%%%%%%%%%%%%%%%%%%%%%%
+    XX_m      = [ones(T_m,1) instrument];
+    Res_m     = in.res( T-T_m-in.T_m_end+1 : T-in.T_m_end , :)- XX_m * Phib;
+    Res_const = in.res( T-T_m-in.T_m_end+1 : T-in.T_m_end,1) - ...
+        ones(T_m,1)*(ones(T_m,1)\in.res(T-T_m-in.T_m_end+1 : T-in.T_m_end,1));
+    
+    SST_m      = Res_const'*Res_const;
+    SSE_m      = Res_m(:,1)'*Res_m(:,1);
+    in.F_m     = ((SST_m-SSE_m)/n_m)/ ...
+        (SSE_m/(length(in.res(T-T_m-in.T_m_end+1 : T-in.T_m_end,1))-(n_m+1)));
+    in.R2_m    = (1-SSE_m/(SST_m));
+    in.R2adj_m = in.R2_m-...
+        (n_m / ((length(in.res(T-T_m-in.T_m_end+1 : T-in.T_m_end,1)) -(n_m+1))))*(1-in.R2_m);
+    
+    % Calculate robust standard errors
+    SS_m = zeros(n_m+1,n_m+1);
+    for ii = 1 : T_m
+        SS_m = SS_m+1/T_m * XX_m(ii,:)'*XX_m(ii,:)*Res_m(ii,1)^2;
+    end
+    Avarb_m    = inv(1/T_m * XX_m'*XX_m)*SS_m *inv(1/T_m * XX_m'*XX_m);
+    RR_m       = [zeros(n_m,1) eye(n_m)];
+    WW_m       = T_m*(RR_m*Phib(:,1))' * inv(RR_m*Avarb_m*RR_m') * (RR_m*Phib(:,1));
+    in.F_m_rob = WW_m/n_m;
+end
