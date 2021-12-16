@@ -40,7 +40,6 @@ if nargin < 7
     cont  = eye(n);
     favar = 0;
 end
-
 Omeg    = nan(n);
 if favar == 0
     ir      = nan(n,hor,n);

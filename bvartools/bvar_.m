@@ -84,6 +84,7 @@ signs_irf           = 0;
 narrative_signs_irf = 0;
 zeros_signs_irf     = 0;
 proxy_irf           = 0;
+heterosked_irf      = 0;
 noprint             = 0;
 nexogenous          = 0;
 exogenous           = [];
@@ -91,7 +92,7 @@ cnnctdnss_          = 0;
 Ridge_              = 0; 
 Lasso_              = 0;
 ElasticNet_         = 0;
-
+set_irf             = 0;
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -376,10 +377,27 @@ if nargin > 2
     if isfield(options,'hor') ==1
         hor = options.hor;
     end
+    if isfield(options,'set_irf') ==1        
+        % set_irf is the # of rotations for set identified systems in wihch
+        % Phi and Sigma are point estimates (e.g. OLS, Ridge, Lasso or
+        % Elastic Nets); default 0
+        set_irf = options.set_irf;
+    end
     if isfield(options,'long_run_irf')==1
         % Activating Long run IRF
         long_run_irf = options.long_run_irf;
     end
+    if isfield(options,'heterosked_regimes')==1
+        % Activating identification via heteroskedasticity
+        if length(options.heterosked_regimes) ~= size(y,1)
+            error('heterosked_regimes must have the same time dimension of y')            
+        end
+        heterosked_irf     = 1;
+        heterosked_regimes = options.heterosked_regimes(lags+1:end);
+        if any(heterosked_regimes>1) || any(heterosked_regimes<0) 
+            error('heterosked_regimes must contain zero (first regime) and one (second regime)')
+        end
+    end    
     if isfield(options,'signs')==1
         % Activating IRF with sign restrictions (mulitple horizons allowed)
         signs_irf       = 1;
@@ -516,7 +534,10 @@ if nargin > 2
         nethor = options.nethor;
     end
     if isfield(options,'connectedness')==1 
-        cnnctdnss_ = options.connectedness;        
+        cnnctdnss_ = options.connectedness;      
+        if cnnctdnss_ == 2 && set_irf == 0
+           set_irf = 100; 
+        end            
     end
     if isfield(options,'Ridge')==1
         Ridge_     = 1;%options.Ridge;
@@ -792,6 +813,11 @@ end
 if proxy_irf == 1
     irproxy_draws = ir_draws;
 end
+if heterosked_irf == 1
+   irheterosked_draws = ir_draws;
+   Omegah_draws       = Sigma_draws;
+end
+    
 if mixed_freq_on
     yfill = nan(size(y,1),ny,K);
     yfilt = nan(size(y,1),ny,K);    
@@ -946,6 +972,12 @@ for  d =  1 : K
         irproxy_draws(:,:,1,d)  = tmp_.irs';
         clear tmp_
     end
+    % with heteroskedasticity 
+    if heterosked_irf == 1
+        [irheterosked,Omegah]       = iresponse_heterosked(Phi(1 : ny*lags, 1 : ny),errors,hor,heterosked_regimes);
+        irheterosked_draws(:,:,:,d) = irheterosked;
+        Omegah_draws(:,:,d)         = Omegah;
+    end
     
     %======================================================================
     % Forecasts
@@ -1031,28 +1063,42 @@ BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
 % the model with the lowest IC is preferred
 
 % OLS irf
-% cholesky
+% with cholesky
 BVAR.ir_ols      = iresponse(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,eye(ny));
-% long run
+% with long run
 if long_run_irf == 1
     [irlr,Qlr]              = iresponse_longrun(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,lags);
     BVAR.irlr_ols           = irlr;
     BVAR.Qlr_ols(:,:)       = Qlr;
 end
-% with sign restrictions
-if signs_irf == 1
-    [BVAR.irsign_ols,BVAR.Omega_ols] = ...
-        iresponse_sign(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,signs);
-end
-% with narrative and sign restrictions
-if narrative_signs_irf == 1
-    [BVAR.irnarrsign_ols,BVAR.Omegan_ols] = ... 
-        iresponse_sign_narrative(BVAR.e_ols,BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,signs,narrative);
-end
-% with zeros and sign restrictions
-if zeros_signs_irf == 1         %= iresponse_zeros_signs( Phi,Sigma,bvar1.hor,lags,var_pos,f,sr);
-    [BVAR.irzerosign_ols,BVAR.Omegaz_ols] = ... 
-        iresponse_zeros_signs(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags,var_pos,f,sr);    
+% set identified IRF
+if set_irf > 0  
+    wb = waitbar(0, ['Generating rotations for set-identification - OLS Estimator']);    
+    % with sign restrictions
+    if signs_irf == 1
+        for d1 = 1 : set_irf
+            [BVAR.irsign_ols(:,:,:,d1),BVAR.Omega_ols(:,:,d1)] = ...
+                iresponse_sign(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,signs);
+            waitbar(d1/set_irf, wb);
+        end
+    end
+    % with narrative and sign restrictions
+    if narrative_signs_irf == 1
+        for d1 = 1 : set_irf
+            [BVAR.irnarrsign_ols(:,:,:,d1),BVAR.Omegan_ols(:,:,d1)] = ...
+                iresponse_sign_narrative(BVAR.e_ols,BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,signs,narrative);
+            waitbar(d1/set_irf, wb);
+        end
+    end
+    % with zeros and sign restrictions
+    if zeros_signs_irf == 1         
+        for d1 = 1 : set_irf
+            [BVAR.irzerosign_ols(:,:,:,d1),BVAR.Omegaz_ols(:,:,d1)] = ...
+                iresponse_zeros_signs(BVAR.Phi_ols,BVAR.Sigma_ols,hor,lags,var_pos,f,sr);
+            waitbar(d1/set_irf, wb);
+        end
+    end
+    close(wb)
 end
 % proxy
 if proxy_irf == 1
@@ -1062,6 +1108,11 @@ if proxy_irf == 1
     tmp_                    = iresponse_proxy(inols);
     BVAR.irproxy_ols(:,:,1) = tmp_.irs';
     clear tmp_
+end
+% with heteroskedasticity
+if heterosked_irf == 1
+    [BVAR.irheterosked_ols,BVAR.Omegah_ols] = ...
+        iresponse_heterosked(BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.e_ols,hor,heterosked_regimes);    
 end
 % test the normality of the ols VAR residuals (matlab stat toolbox needed)
 if  exist('kstest') ==2
@@ -1109,7 +1160,7 @@ end
 %     BVAR.ElasticNet.ir      = iresponse(BVAR.ElasticNet.Phi,BVAR.ElasticNet.Sigma,hor,eye(ny));   
 % end
 % Parameters Estiamtes - IRFs - Connectedness
-set_irf = signs_irf + narrative_signs_irf + zeros_signs_irf;
+%set_irf = signs_irf + narrative_signs_irf + zeros_signs_irf;
 penalizationstrn = {'Ridge','Lasso','ElasticNet'};
 % loop across penalization approaches
 for pp = 1 : 3    
@@ -1135,31 +1186,35 @@ for pp = 1 : 3
         if long_run_irf == 1
             eval(['[BVAR.' penalizationstrn{pp} '.irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);'])
         end
+        % point identification: with heteroskedasticity
+        if heterosked_irf == 1
+            eval(['[BVAR.' penalizationstrn{pp} '.irheterosked,Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);'])
+        end
         % set identification: signs
         if set_irf > 0  
             wb = waitbar(0, ['Generating rotations for set-identification - ' penalizationstrn{pp} ' Estimator']);
         end        
         if signs_irf == 1
-            for d1 = 1 : K                
+            for d1 = 1 : set_irf                
                 eval(['[BVAR.' penalizationstrn{pp} '.irsign_draws(:,:,:,' num2str(d1) ...
                     '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);'])
-                waitbar(d1/K, wb);
+                waitbar(d1/set_irf, wb);
             end            
         end
         % set identification: narrative and sign restrictions
         if narrative_signs_irf == 1
-            for d1 = 1 : K
+            for d1 = 1 : set_irf
                 eval(['[BVAR.' penalizationstrn{pp} '.irnarrsign_draws(:,:,:,' num2str(d1) ...
                     '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);'])
-                waitbar(d1/K, wb);
+                waitbar(d1/set_irf, wb);
             end
         end
         % set identification: zeros and sign restrictions
         if zeros_signs_irf == 1
-            for d1 = 1 : K
+            for d1 = 1 : set_irf
                 eval(['[BVAR.' penalizationstrn{pp} 'irzerosign_draws.(:,:,:,' num2str(d1) ...
                     '),Omega_(:,:,' num2str(d1) ')] = iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);'])
-                waitbar(d1/K, wb);
+                waitbar(d1/set_irf, wb);
             end
         end
         if set_irf>0, close(wb); end
@@ -1237,6 +1292,13 @@ if zeros_signs_irf == 1
 else
     BVAR.irzerosign_draws = [];
     BVAR.Omegaz           = [];
+end
+if heterosked_irf == 1
+    BVAR.irheterosked_draws   = irheterosked_draws;
+    BVAR.Omegah_draws         = Omegah_draws;
+else
+    BVAR.irheterosked_draws   = [];
+    BVAR.Omegah_draws         = [];
 end
 if proxy_irf == 1
     BVAR.irproxy_draws = irproxy_draws;

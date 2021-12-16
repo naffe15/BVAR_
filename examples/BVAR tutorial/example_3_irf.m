@@ -397,3 +397,50 @@ tt = T(timespan(:,end)');
 surf(tt,1:options.hor,squeeze(rollIRF(2,:,:)))
 axis tight
 
+%% EA MP: QE shocks - identification via heteroskedasticity
+
+
+clear all; close all;
+clc
+
+% EA MP events database + Macro data
+% Altavilla et al. / Journal of Monetary Economics 108 (2019) 162–179
+load DataEAMP.mat
+y                 = [DE10Y-DE2Y IPI HICP CORE LTR10Y];
+options.varnames  = {'DE10Y-DE2Y','IPI','HICP','CORE','LRT10Y'}; 
+
+% Identification via heteroskedasticity - pre crisis period less volatile
+figure,
+shade([2008+0/12],[2019+11/12],[0.85 0.85 0.85],max(DE10Y-DE2Y),min(DE10Y-DE2Y))
+hold on
+plot(T,DE10Y-DE2Y,'k','Linewidth',2);
+ylabel('DE10Y-DE2Y')
+title('Changes in the long-end of the yield curve on MP events')
+axis tight
+
+% Options for Volatility-Changes identification
+opts.heterosked_regimes = zeros(length(T),1);
+% high volatility regime starts in 2008
+opts.heterosked_regimes(find(T==2008) : end, 1) = 1;
+opts.hor = 48;
+lags     = 6;
+bvar7    = bvar_(y,lags,opts);
+
+% IRF to plot:
+indx_var        = 1:size(y,2);
+indx_sho        = 1;
+irfs_to_plot    = bvar7.irheterosked_draws(indx_var,:,indx_sho,:);
+% normalize to a 25 bpt increase in the 10-2Y spread
+irfs_to_plot    = 0.25*irfs_to_plot/median(squeeze(irfs_to_plot(1,1,1,:)));
+
+% names of the directory where the figure is saved
+options.saveas_dir    = './irfs_plt';
+% names of the figure to save
+options.saveas_strng  = 'Heterosk';
+% name of the shock
+options.shocksnames   = {'MP'};  
+% additional 90% HPD set
+options.conf_sig_2    = 0.9;
+options.nplots        = [2 3];
+% finally, the plotting command
+plot_irfs_(irfs_to_plot,options)
