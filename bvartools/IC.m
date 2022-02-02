@@ -15,7 +15,7 @@ function [AIC, HQIC, BIC] = IC(S, E, T, K)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % E   = var.e_ols;
 % S   = var.Sigma_ols; 
-iS  = inv(S);
+iS  = pinv(S);
 N   = size(S,1);
 llf = - (T * N / 2) * (1 + log(2 * pi)) - T / 2 * log(det(S));
 llf = llf - 1 /2 * trace( iS * E' * E);

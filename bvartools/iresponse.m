@@ -31,7 +31,15 @@ if rem(m, n)==0
 else
     lags = floor((m-1)/n);
 end
-[Q]         = chol(Sigma,'lower');
+try 
+    [Q]         = chol(Sigma,'lower');
+catch
+    iS               = pinv(Sigma);
+    [L, D, P]        = ldl(iS);
+    S_inv_upper_chol = sqrt(D) * L' * P';
+    Q = S_inv_upper_chol';
+end
+
 
 % units 
 if nargin < 5
