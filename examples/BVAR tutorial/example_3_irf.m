@@ -293,7 +293,8 @@ opts_.Omega         =  mean(bvar4.Omegaz,3);
 [yDecomp,ierror]  = histdecomp(bvar4,opts_); 
 
 % yDecomp = historical decomposition
-% time, variable, shocks and initial condition
+% time, variable, shocks (& exogenous variables if any) and initial
+% condition (last)
 % ierror = structural innovation
 
 %plot_sdcmp_(yDecomp,bvar4)

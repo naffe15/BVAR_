@@ -7,14 +7,23 @@ function  plot_sdcmp_(input,BVAR,options)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+nparams = size(BVAR.Phi_draws,1);
 nshocks = BVAR.N;
-for v = 1 : nshocks
+lags    = BVAR.lags;
+% if  nparams > nshocks * lags
+%     constant_ = 1;
+% end
+nexogenus = 0;
+if  nparams > nshocks * lags + 1
+    nexogenus = nparams - (nshocks * lags + 1);
+end
+for v = 1 : nshocks + nexogenus 
     eval(['namesshock{' num2str(v) '} =  ''Shck' num2str(v) ''';'])
 end
 for v = 1 : BVAR.N
     eval(['pplotvar{'   num2str(v) '} =  ''Var' num2str(v) ''';'])
 end
-for v = 1 : BVAR.N
+for v = 1 : nshocks + nexogenus
     eval(['ex_names_{'   num2str(v) '} =  {''Shck' num2str(v) '''};'])
 end
 ex_names_ = ex_names_';
@@ -60,6 +69,7 @@ if nargin > 2
     end
     if isfield(options,'time') ==1
         TT = options.time;
+        Tlim   = [TT(1) TT(end)];
         if isfield(options,'Tlim') ==1;
             Tlim=options.Tlim;
             if Tlim(1) < TT(1)

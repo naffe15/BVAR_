@@ -12,8 +12,6 @@ function [histdec,ierror] = histdecomp(bvar_,options)
 
 % tolerance
 tol =  10^(-7);
-% Retrieve the initial condition
-yo     = bvar_.XX(1,1:end-1)'; % remove the constant from X
 % use posterior means
 u      = mean(bvar_.e_draws,3);       % reduced form errors
 alpha  = mean(bvar_.Phi_draws,3);     % AR
@@ -25,7 +23,20 @@ lags        = bvar_.lags;
 Omega = eye(N);
 % data
 data = bvar_.data;
+constant_ = 0;
+if size(alpha,1) > N * lags
+    constant_ = 1;
+end
+exogenous_ = 0;
+nexogenous = 0;
+if size(alpha,1) > N * lags + 1
+    exogenous_ = 1;
+    exogenous  = bvar_.XX(:,N*lags + 2 : end);
+    nexogenous = size(exogenous,2);
+end
 
+% Retrieve the initial condition
+yo     = bvar_.XX(1,1:N*lags)'; % remove the constant, timetrend or exogenous variables from X
 
 if nargin > 1
     if isfield(options,'tol')==1
@@ -50,8 +61,9 @@ if nargin > 1
     end    
 end
 
+Tu     = length(u);
 A      = chol(Sigma,'lower');
-ierror = zeros(length(u),N); 
+ierror = zeros(Tu,N); 
 
 % (1) e = A * Omega * eta 
 % e = n * 1         %reduced 
@@ -69,48 +81,84 @@ ierror = u * inv( Omega' * A'); %#ok<MINV>
 
 % companion form
 F       = [alpha(1 : N * lags, :)'; eye(N*(lags-1), N*lags)];
-G       = eye(N * lags, N);
-C       = [alpha(end, :)'; zeros(N*(lags-1),1)];
-ystar   = zeros(length(u),N*lags,N);
+G       = eye(N * lags, N); 
+C       = 0;    
+% if constant
+if constant_
+    C = [alpha(N * lags +1, :)'; zeros(N*(lags-1),1)];
+end
+% if exogenous
+if exogenous_
+    Gamma = [alpha(N * lags + 2 : end, :)'; zeros(N*(lags-1),nexogenous)];
+end
+
+    
+%ystar   = zeros(length(u),N*lags,N);
 
 % Deterministic Part
-for t = 1 : length(u)
+B_ = zeros(Tu,N);
+for t = 1 : Tu
     Aa =  0 ;
     for tau = 1 : t
         Aa = Aa + F^(tau-1)*C;
     end
 %     B(t,:) = (Aa + F^(t) * yo)';
-    B(t,:) = (Aa + F^(t) * yo)';
+    B  = Aa + F^(t) * yo;
+    B_(t,:) = B(1 : N,1)';
 %     initial condition
-    Bb(t,:) = (F^(t) * yo)';
+%    Bb(t,:) = (F^(t) * yo)';
 end
 
 Kappa = G * A * Omega ;
 % Stochastic part
+E_ = zeros(Tu,N,N);
 for shock = 1 : N
     Ind              = zeros(N); 
     Ind(shock,shock) = 1;
-    for t = 1 : length(u)
-        D  = 0;
+    for t = 1 : Tu
+        D_  = 0;
         for tau = 1 : t
-            D     = D + F^(t-tau) *  Kappa * Ind * ierror(tau,:)';
+            D_     = D_ + F^(t-tau) *  Kappa * Ind * ierror(tau,:)';
         end
-        E(t,:,shock) = D';
+        E_(t,:,shock) = D_(1:N,1)';
     end
 end
 
+% Exogenous Part (if any)
+Q_ = 0;
+if exogenous_
+    Q_ = zeros(Tu,N,nexogenous);
+    for exo = 1 : nexogenous
+        for t = 1 : length(u)
+            M_  = 0;
+            for tau = 1 : t
+                M_     = M_ + F^(t-tau) *  Gamma(:,exo) * exogenous(tau,exo)';
+            end
+            Q_(t,:,exo) = M_(1:N,1)';
+        end
+    end
+end
+
+
 % check
-W       = B + sum(E,3);
+W       = B_ + sum(E_,3) + sum(Q_,3);
 yhat    = W(:, 1 : N);
 tmp = max(max(abs(data(lags+1:end,:) - yhat)));
-if  tmp> tol,
+if  tmp> tol
     histdec = [];
     warning(['Maximium Discrepancy ' num2str(tmp)])
     return;
 end
 
-histdec             = E(:,1:N,:);
-histdec(:,:,N+1)    = B(:,1:N);
+
+histdec             = E_; % stochastic part
+if exogenous_
+    histdec(:,:, N+1 : N+nexogenous)    = Q_; % exogenous part
+end
+if constant_ 
+    histdec(:,:, N+nexogenous+1 )    = B_; % deterministic part
+end
+
 
 end
 
