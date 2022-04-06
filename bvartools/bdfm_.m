@@ -374,6 +374,7 @@ if nargin > 3
         in.proxies  = options.proxy;
         %in.vars     = y;
         in.p        = lags;
+        in.compute_F_stat = 0;
         if isfield(options,'proxy_end') == 1
             in.T_m_end  = options.proxy_end;
         else
