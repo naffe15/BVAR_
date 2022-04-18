@@ -2,7 +2,12 @@
 % Author:   Filippo Ferroni and  Fabio Canova
 % Date:     27/02/2020, revised  14/10/2020
 
-close all; clc;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1) classical  LP with  OLS and  IV
+% 2) Bayesian LP with calibrated  parameters and  optimal shrinkage
+%     both  OLS  and  IV
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close all; clc; clear;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
@@ -11,7 +16,6 @@ load DataGK
 y = [logip logcpi gs1 ebp];
 
 %% 1) Classical Cholesky
-
 lags               = 12;
 options.hor        = 48;
 options.conf_sig   = 0.9;
@@ -50,34 +54,61 @@ options =rmfield(options,'add_irfs');
 
 %% 2) Classical IV
 % load the instruments
-[numi,txti,rawi] = xlsread('factor_data.csv','factor_data');
+[numi,txti,rawi] = xlsread('factor_data.xlsx','factor_data');
+% csv is  not read  in  many  matlab stations.
+% depends on the country.  transform  csv  into  xls.
+
 % instrument must have the same lenght as the observed data
 options.proxy  = nan(length(y),1);
 % use the same instrument as GK 
 % instruments and data end in 2012m6
-options.proxy(length(T)- length(numi)+1:end) = numi(:,4);
 
+% 1/ LS with controls:
+% use the instrument/proxy shock directly in the LP
+options.proxy(length(T)- length(numi)+1:end) = numi(:,4);
 dm2 = directmethods(y,lags,options);
 
-options0= options;
-options0.fontsize =18;
+options0 = options;
+options0.fontsize = 18;
 options0.saveas_strng  = 'IV';
-options0.nplots = [1 1];
+options0.nplots = [2 2];
 options0.varnames = {'IP','CPI','1 year rate','EBP'};
 % finally, the plotting command
 norm = dm2.irproxy_lp(3,1,1,2)*4;
 plot_irfs_(dm2.irproxy_lp(:,:,1,:)/norm,options0)
 
+% 2/ 2SLS with controls: 
+% Regress first the policy varible on the instrument/proxy shock. Use the
+% fitted values of the first stage regression (portion of the policy
+% variable explained by the instrument/proxy) as the 
+FirstStageReg = ols_reg(gs1,[ones(length(gs1),1) options.proxy]);
+options2s.proxy  = nan(length(y),1);
+options2s.proxy(FirstStageReg.nindex) = FirstStageReg.yfit;
+options2s.hor        = 48;
+options2s.conf_sig   = 0.9;
+dm2s = directmethods(y,lags,options2s);
+% finally, the plotting command
+norm = dm2s.irproxy_lp(3,1,1,2)*4;
+options0.saveas_strng  = 'IV2S';
+plot_irfs_(dm2s.irproxy_lp(:,:,1,:)/norm,options0)
+
+
+% 3/ no controls except for lags of the endogenous
 options1 = options0;
+irf2plot = nan(size(dm2.irproxy_lp));
 for vv = 1 :size(y,2)
     dm3 = directmethods (y(:,vv),lags,options);    
-    options1.saveas_strng  = ['IV_var' num2str(vv)];
-    options1.varnames = options0.varnames(vv);
-    % finally, the plotting command
-    plot_irfs_(dm3.irproxy_lp(:,:,1,:)/norm,options1)
+    irf2plot(vv,:,1,:) = dm3.irproxy_lp(:,:,1,:)/norm;
 end
+% dm2 and  dm3  differ  in  the  conditioning  variables (lags of
+% all variables,  lags  of  only  own  variables.
+options1.saveas_strng  = ['IV_nocontrols'];
+options1.varnames = options0.varnames;
+% finally, the plotting command
+plot_all_irfs_(irf2plot,options1);
 
 pause;
+
 
 %% 3) Bayesian Local Projection
 
@@ -115,9 +146,10 @@ norm = median(bdm.irproxy_blp(3,1,1,:),4)*4;
 plot_irfs_(bdm.irproxy_blp(indx_var,:,1,:)/norm,options)
 
 pause;
+% close  all
 
 %% 4) Bayesian  LP  with Optimize Shrinkage
-
+ 
 options.priors.max_tau = 1; % 
 options.max_compute    = 1; % fmin search 
 bdm_opt                = directmethods(y(presample+1:end,:),lags,options);
@@ -129,5 +161,4 @@ plot_irfs_(bdm_opt.ir_blp(indx_var,:,indx_sho,:),options)
 % the plotting command
 options.saveas_strng  = 'BLPIVOpt';
 plot_irfs_(bdm_opt.irproxy_blp(indx_var,:,1,:)*0.25,options)
-
 

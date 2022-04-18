@@ -2,30 +2,30 @@
 % Author:   Filippo Ferroni and  Fabio Canova
 % Date:     01/05/2020, revision 14/12/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Estimate a  VAR for  the  UK with  US interest  rate  as exogenous
-% variable. Estimation  is  Bayesian. Responses to  US IR shocks are
-% plotted.
+% Estimate a  VAR for  the  UK with US and DE interest  rate  as exogenous
+% variable. Bayesian estimation. 
+% Plot responses to  US IR shocks.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-close all; clc;
+close all; clc; clear;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
 
 % load the data
 load DataPooling
-% Time:         1978m1 to 2012m8
+% Time span:  1978m1 to 2012m8
 cnames = {'uk','us','jp','de'};   % names of the countries
 Nc = length(cnames);
-% Varible names: IPI, CPI, 1Y GOVT YIELD (LTR), Policy Rate (STR)
+% Variable names: IPI, CPI, 1Y GOVT YIELD (LTR), Policy Rate (STR)
 vnames = {'ipi','cpi','ltr','str'};
 Nv = length(vnames);
 
 T       = size(time,1)-1;
  
-% pick US rate (2,4) as  exogenous in a  VAR with UK variables(1:1;4)
+% pick US rate (2,4) as  exogenous in a  VAR with UK variables(1,1:4)
 lags        = 4 ;
 options.hor = 24;
-options.K   = 1000;
+options.K   = 5000;
 options.priors.name = 'Conjugate';
 y = demean(100*diff(log ([ipi_uk ,cpi_uk , ltr_uk , str_uk]) )) ; 
 % exogenous variables

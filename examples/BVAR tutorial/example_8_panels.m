@@ -2,8 +2,14 @@
 % Author:   Filippo Ferroni and  Fabio Canova
 % Date:     01/05/2020, revision 14/12/2020
 
-warning off;
-close all; clc;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1) calculation of  average  response averaging  individual  responses
+% 2) calculation of  average response  using  pooled  estimator
+% 3) calculation  of  average  response  using shrinkage approach (Partial
+%    Pooling and  Exchangeable  Prior)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+warning off;  close all; clc; clear;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
@@ -20,8 +26,9 @@ addpath ../../bvartools/
 load DataBanks
 [T,NBanks]   = size(LendingRate);
 
+
+irfs_to_plot=zeros(2,24,2,NBanks);
 lags              =  4;
-%opt.priors.name   = 'Conjugate';
 opt.K             = 1;    % Draws from the posterior not needed
 for i  = 1 : NBanks
     % construct the banks i database 
@@ -35,26 +42,24 @@ end
 % Customize the IRF plot
 % variables names for the plots
 options.varnames      = {'Lending Rate','Deposit Rate'};  
-% names of the directory where the figure is saved
+% name of the directory where the figure is saved
  options.saveas_dir    = './panels_plt';
-% names of the figure to save
+% name of the figure to save
  options.saveas_strng  = 'TSAverage';
 % name of the shock
 options.shocksnames   = options.varnames;
-% additional 90% HPD set
+% additional 95% HPD set
 options.conf_sig_2    = 0.95;   
 % plot appeareance
 options.nplots = [2 2];
-% add mean response ( graphs reports  the  median)
+% add mean response (graphs reports  the  median)
 options.add_irfs = mean(irfs_to_plot,4);
 % the plotting command
 plot_all_irfs_(irfs_to_plot,options);
-
 pause;
 
 
-
-%% 2) Pooling before  estimation
+%% 2) Pooling 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Estimating the transmission of a lending  shock  to  lending rates and
 % deposit rates  in a VAR assuming  homogenous dynamics and  fixed  effects
@@ -69,16 +74,15 @@ ypooled  = [LendingRate_ , DepositRate_];
 lags        = 2;
 bvar1       = bvar_(ypooled,lags);
 
-% IRF to PLOT
+% IRF to be plotted
 irfs_to_plot           = bvar1.ir_draws;
-% names of the figure to save
+% name of the figure to save
 options.saveas_strng  = 'Pooling';
 % the plotting command
 plot_all_irfs_(irfs_to_plot,options);
-
 pause;
-
 clear options;
+
 %% 3) Partial pooling
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Estimating the transmission of a lending  shock  to  lending and deposits
@@ -91,8 +95,7 @@ clear options;
 LendingRateDM = demean(LendingRate);
 DepositRateDM = demean(DepositRate);
 
-% number of variables
-Nv = 2; 
+Nv = 2; % number of variables
 
 % prior  cross  sectional  mean
 k       = lags*Nv + 1;
@@ -135,13 +138,12 @@ pause;
 % using  Bayesian partial pooling estimator  for  coefficients
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% use the first 20 units to get the pool estimator
+% use the first 20 units to get a prior  for  the  remaining  50
 N1           = 20; 
 LendingRate_ = reshape(demean(LendingRate(:,1:N1)),T*N1,1);
 DepositRate_ = reshape(demean(DepositRate(:,1:N1)),T*N1,1);
 yp           = [LendingRate_ , DepositRate_];
 bvar3        = bvar_(yp,lags);
-
 
 options.priors.name     = 'Conjugate';
 options.priors.Phi.mean = mean(bvar3.Phi_draws,3);
@@ -151,6 +153,8 @@ gam = 0.1;
 options.priors.Phi.cov  = gam * eye(size(options.priors.Phi.mean,1));
 options.K = 1000;
 i1        = 0;
+%irfs_to_plot2=zeros(2,24,2,options.K);
+irfs_to_plot2=zeros(2,24,2,NBanks-N1);
 
  % compute  responses  for  all  banks; plot the  responses of bank=NBanks
 for i  = N1 + 1:  NBanks    
@@ -168,17 +172,14 @@ for i  = N1 + 1:  NBanks
     end
 end
 
-
 % plot the cross  sectional  distribution of  responses
-% names of the figure to save
+% name of the figure to save
 options.saveas_strng  = 'exchPartialPooling';
 % the plotting command
 plot_all_irfs_(irfs_to_plot2,options);
 
 
-
 return
-
 
 %%=========================================================================
 %% Extra\ Countries

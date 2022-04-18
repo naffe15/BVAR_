@@ -2,15 +2,19 @@
 % Author:   Filippo Ferroni and  Fabio Canova
 % Date:     09/14/2020, revised 16/12/2020
 
-close all; clc;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1) baseline  forecasting
+% 2) forecasting  with  heteroskedastic  weights
+% 3) forecasting  with  optimal  heteroskedastic  weights
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+close all; clc; clear;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
 
-
-%% call the data
-
-if exist('DataCovid.mat') == 2
+%% read the data
+if exist('DataCovid.mat','file') == 2
     load DataCovid
 else    
     url = 'https://fred.stlouisfed.org/';
@@ -20,6 +24,7 @@ else
     enddate   = datenum('07/01/2020', 'mm/dd/yyyy');
     time      = 1988+11/12 : 1/12 : 2020+6/12;
     
+    y=zeros(380,size(series,2)); y0=y; y1=y;
     for kk=1:size(series,2)
         tmp        = fetch(c,series{kk},startdate,enddate);
         if strcmp('UNRATE',series{kk})==1
@@ -30,7 +35,7 @@ else
             y0(:,kk)    = tmp.Data(:,2);
             y1(:,kk)    = log(y0(:,kk));
             % rebase the log variable, transform to a index (2020m1=100)
-            y(:,kk)= y1(:,kk) * 100 / y1(find(time==2019),kk);
+            y(:,kk)= y1(:,kk) * 100 / y1(time==2019,kk);
         end
     end
     save DataCovid y y1 y0 time
@@ -39,7 +44,6 @@ end
 % y, y0, y1 are  in DataCovid.
 
 %% Forecast post COVID-19 (July 2020 - last insample data). Minnesota
-
 lags                 = 13;
 options.priors.name  = 'Minnesota';
 options.fhor         = 24;
@@ -54,7 +58,6 @@ options.varnames = {'PAYMS','UNRATE','PCE','INDPRO','CPIAUCSL','PCEPILFE'};
 % multiple credible set - default .68
 options.conf_sig_2   = 0.9;
 plot_frcst_(bvar0.forecasts.with_shocks,y,time,options)
-
 pause;
 
 % Forecast post COVID-19 (July 2020 - last insample data). 
@@ -62,7 +65,7 @@ pause;
 
 lags = 13;
 tstar  = find(time==2020) + 2; % pick march 2020
-% scale the variables by factor >1 in the periods that
+% scale the variables by factor <1 in the periods that
 % characterize the COVID-19 induced recession
 st                   = ones(size(y,1),1);
 st(tstar:tstar+2 ,:) = [10 10 10]; % March, April, May
@@ -73,14 +76,12 @@ options.priors.name  = 'Minnesota';
 options.fhor         = 24;
 bvar1                = bvar_(y,lags,options);
 
+% adding  forecast  without  weights
 options.add_frcst = [y; mean(bvar0.forecasts.no_shocks,3)];
 plot_frcst_(bvar1.forecasts.with_shocks,y,time,options)
-
 pause;
 
-
-%% this does not work (get  singular matrix  in  the  optimization
-%% Maximize over Minnesota hyperparameters and heterosked weights
+% Forecast  with  optimal  weights
 
 hyperpara(1)    = 3;		  % tau
 hyperpara(2)    = 0.5;		  % decay
@@ -94,19 +95,18 @@ hyperpara(8)    = 2; % s2: scale may   2020
 options.index_est          = [1 6:8]; % hyper-parameter over which maximize
 options.objective_function = 'bvar_opt_heterosked';
 options.tstar              = find(time==2020) + 2; %march 2020
-
 [postmode,logmlike,HH] = bvar_max_hyper(hyperpara,y,lags,options);
 
+disp('weights for 2020:3, 2020:4, 2020:5')
+disp(postmode(2:4))
 heterosked_esse             = postmode(2:end); % s0, s1, s2   
 esse                        = ones(size(y,1),1);
 esse(options.tstar : options.tstar+2 ,:)   = heterosked_esse;
 esse(1:lags)                = []; 
 
 options.heterosked_weights = esse;
-
 options.minn_prior_tau = postmode(1);
 bvar2                 = bvar_(y,lags,options);
-
 plot_frcst_(bvar2.forecasts.with_shocks,y,time,options)
 
 

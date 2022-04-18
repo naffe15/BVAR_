@@ -2,7 +2,11 @@
 % Author:   Filippo Ferroni and  Fabio Canova
 % Date:     27/02/2020, revised  14/12/2020
 
-close all; clc;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1) Calculation of  unconditional  forecasts  with  different  priors
+% 2) calculations  of conditional  forecasts using  different  assumptions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close all; clc; clear;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
@@ -16,29 +20,26 @@ in_sample_end = find(T==2014 + 7/12);
 y             = yactual(1:in_sample_end,:);
 TT            = T(1:in_sample_end);
 
-%% 1)  Unconditional forecasts using flat priors
+%% 1)  Unconditional forecasts with flat prior
 lags         = 6;
 options.fhor = 12;             % one year forecasts
 b.var(1) 	 = bvar_(y,lags,options);
 
 
-%% 2)  Unconditional forecasts using Minnesota priors with default values
-
+%% 2)  Unconditional forecasts with default Minnesota prior
 options.priors.name = 'Minnesota';
 b.var(2)		    = bvar_(y,lags,options);
 
-%% 3) Unconditional forecasts with Minnesota priors and optimal hyperparameters
+%% 3) Unconditional forecasts with optimal Minnesota  prior
 % maximizing the log data density 
-
 options.max_minn_hyper  = 1;
 options.index_est       = 1:4;
-options.max_compute     = 3;         % sims routine
+options.max_compute     = 3;         % sims' optimization routine
 options.lb              = [0 0 0 0]; % setting the lower bound
 b.var(3)                = bvar_(y,lags,options);
 
-%% 4 Forecasts conditional on the path of the short run interest rate
-% (decreasing path). Again we use Minnesota priors with hyperparameter
-% values that maximize the log data density    
+%% 4 Forecasts conditional on the short run interest rate
+% (decreasing path). Use  optimal Minnesota prior.    
  
 options.max_minn_hyper      = 0;
 options.minn_prior_tau      = b.var(3).prior.minn_prior_tau;
@@ -51,16 +52,14 @@ options.endo_index          = 4;
 options.endo_path   = Euribor1Y(in_sample_end+1:end);
 c.var(1)            = bvar_(y,lags,options);
 
-%% 5) Forecasts conditional on the path of the short run interest rate
+%% 5) Forecasts conditional on the short run interest rate
 % (decreasing path) using only monetary policy shocks identified via
-% Cholesky decomposition constructed using Minnesota priors with
-% hyperparameter values  maximizing the log data density    
-
+% Cholesky decomposition and optimal Minnesota prior.
+%  
 options.exo_index   = options.endo_index;
 c.var(2)            = bvar_(y,lags,options);
 
 %% Forecast Plot: plot forecasts against actual values 
-
 
 % Store the mean forecasts for the plot
 for i = 1 :3

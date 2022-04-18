@@ -4,12 +4,12 @@
 % Date:     27/02/2020, revised  14/12/2020
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Computation of IRFs using various  identification schemes
-% Calculation of  variance and  historical decompositions
-% Rolling window estimation
+% 1) Computation of IRFs using various  identification schemes
+% 2) Calculation of  variance and  historical decompositions
+% 3) Rolling window estimation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-close all; clc;
+close all; clc; clear;
 addpath ../../cmintools/
 addpath ../../bvartools/
 
@@ -54,7 +54,6 @@ pause;
 options.signs{1} = 'y(3,1:3,1)>0'; % 1Y rate up in period 1 to 3
 options.signs{2} = 'y(2,1:3,1)<0'; % CPI down in period 1 to 3 
 options.K        = 1000;
- 
 % run the BVAR
 bvar2             = bvar_(y,lags,options);
 
@@ -144,7 +143,7 @@ irfs_to_plot = bvar4.irzerosign_draws(indx_var,:,indx_sho,:);
 options.saveas_strng    = 'zerossigns';
 options.shocksnames     = {'ADshck','ASshck','MPshck'}; % 
 % options.add_irfs        = bvar4.irzerosign_ols(indx_var,:,indx_sho,:);
-plot_irfs_(irfs_to_plot,options)
+plot_all_irfs_(irfs_to_plot,options)
 pause
 
 %% 5) Long Run Restrictions: Technology shock
@@ -153,7 +152,7 @@ pause
 options = rmfield(options,'zeros_signs');
 options = rmfield(options,'saveas_strng');
 options = rmfield(options,'shocksnames');
-options.K        = 5000;
+options.K        = 1000;
 
 % define the dataset for the identification of LR shock
 y = [diff(logip) logcpi(2:end) gs1(2:end) ebp(2:end)];
@@ -190,7 +189,7 @@ pause;
 y = [gs1 logip logcpi ebp];
 
 % load the instruments
-[numi,txti,rawi] = xlsread('factor_data.csv','factor_data');
+[numi,txti,rawi] = xlsread('factor_data.xlsx','factor_data');
 % use the same instrument as GK
 options.proxy  = numi(:,4);
 
@@ -213,7 +212,6 @@ options.saveas_strng    = 'IV';
 % name of the shock
 options.shocksnames     = {'MP'}; 
 plot_irfs_(irfs_to_plot,options)
-
 
 % %%
 % 
@@ -244,7 +242,6 @@ Phi   = mean(bvar1.Phi_draws,3);
 Sigma = mean(bvar1.Sigma_draws,3);
 % index of the shocks of interest (shock to gs1)
 indx_sho              = 3;   
-
 % 2 year ahead FEVD
 hh      = 24;
 FEVD    = fevd(hh,Phi,Sigma);
@@ -261,7 +258,7 @@ pause;
 
 %% Extra part 2): Historical Decomposition 
 % VAR with zero-sign restrictions
-clear all
+clear
 load DataGK
 y = [logip logcpi gs1 ebp];
 lags        = 12;
@@ -327,7 +324,7 @@ pause;
 
 %% Extra part 3): Minnesota Priors IRF 
 
-clear all
+clear;
 
 load DataGK
 y = [logip logcpi gs1 ebp];
@@ -359,50 +356,15 @@ options.saveas_strng  = 'BayesianCholesky';
 options.shocksnames   = {'MP'};  
 % additional 90% HPD set
 options.conf_sig_2    = 0.9;
-% add the Cholesi IRF with flat prior
+% add the Choleskyi IRF with flat prior
 options.add_irfs = squeeze(median(bvar1.ir_draws(indx_var,:,indx_sho,:),4));
 % finally, the plotting command
 plot_irfs_(irfs_to_plot,options)
 pause;
 
-%% tricks 1) Rolling windows
-% housekeeping
-clear all
-% load Qaurterly data
-load DataQ
-% collect the data: GDP deflator YoY inflation, Unemployment, 3m Tbill 
-yQ          = [GDPDEF_PC1 UNRATE TB3MS];
-lags        = 2;
-Wsize       = 120;      % lenght of the rolling window
-shift       = 4;       % time shift between adiacent windows  
-w           = 0;       % index four caounting the windows 
-indx_sho    = 3;       % shocks of interest
-options.K   = 1;       % no draws needed we use the OLS IRF (BVAR.ir_
-options.hor = 24;      % IRF horizon
-rollIRF     = ...      % initialize rolling IRF (One IRF per window)
-    nan(size(yQ,2),options.hor,1);
-timespan       = nan(1,Wsize);
-
-while w*shift + Wsize < size(yQ,1) 
-    w = w + 1;
-    timespan(w,:) = shift*(w-1) + 1 :  Wsize + shift * (w-1);
-    rollbvar   = bvar_(yQ(timespan(w,:),:),lags,options);
-    % normalize for the size of the shock
-    norm           = rollbvar.ir_ols(indx_sho,1,indx_sho);
-    % Collect the MP OLS response in the window
-    rollIRF(:,:,w) =  squeeze(rollbvar.ir_ols(:,:,indx_sho))/norm;
-end
-
-figure('name','UNR')
-tt = T(timespan(:,end)');
-surf(tt,1:options.hor,squeeze(rollIRF(2,:,:)))
-axis tight
 
 %% EA MP: QE shocks - identification via heteroskedasticity
-
-
-clear all; close all;
-clc
+clear; close all; clc
 
 % EA MP events database + Macro data
 % Altavilla et al. / Journal of Monetary Economics 108 (2019) 162–179
@@ -412,7 +374,7 @@ options.varnames  = {'DE10Y-DE2Y','IPI','HICP','CORE','LRT10Y'};
 
 % Identification via heteroskedasticity - pre crisis period less volatile
 figure,
-shade([2008+0/12],[2019+11/12],[0.85 0.85 0.85],max(DE10Y-DE2Y),min(DE10Y-DE2Y))
+shade(2008+0/12,2019+11/12,[0.85 0.85 0.85],max(DE10Y-DE2Y),min(DE10Y-DE2Y))
 hold on
 plot(T,DE10Y-DE2Y,'k','Linewidth',2);
 ylabel('DE10Y-DE2Y')
@@ -443,5 +405,44 @@ options.shocksnames   = {'MP'};
 % additional 90% HPD set
 options.conf_sig_2    = 0.9;
 options.nplots        = [2 3];
+% add the Cholesi IRF with flat prior
+%XXX = squeeze(median(bvar7.ir_draws(indx_var,:,indx_sho,:),4));
+%options.add_irfs =  0.25*XXX/XXX(1,1,1);
 % finally, the plotting command
 plot_irfs_(irfs_to_plot,options)
+
+
+%% Rolling window estimation
+% housekeeping
+clear
+% load Qaurterly data
+load DataQ
+% collect the data: GDP deflator YoY inflation, Unemployment, 3m Tbill 
+yQ          = [GDPDEF_PC1 UNRATE TB3MS];
+lags        = 2;
+Wsize       = 120;      % lenght of the rolling window
+shift       = 4;       % time shift between adiacent windows  
+w           = 0;       % index four caounting the windows 
+indx_sho    = 3;       % shocks of interest
+options.K   = 1;       % no draws needed we use the OLS IRF (BVAR.ir_
+options.hor = 24;      % IRF horizon
+rollIRF     = ...      % initialize rolling IRF (One IRF per window)
+    nan(size(yQ,2),options.hor,1);
+timespan       = nan(1,Wsize);
+
+while w*shift + Wsize < size(yQ,1) 
+    w = w + 1;
+    timespan(w,:) = shift*(w-1) + 1 :  Wsize + shift * (w-1);
+    rollbvar   = bvar_(yQ(timespan(w,:),:),lags,options);
+    % normalize for the size of the shock
+    norm           = rollbvar.ir_ols(indx_sho,1,indx_sho);
+    % Collect the MP OLS response in the window
+    rollIRF(:,:,w) =  squeeze(rollbvar.ir_ols(:,:,indx_sho))/norm;
+end
+
+figure('name','UNR')
+tt = T(timespan(:,end)');
+surf(tt,1:options.hor,squeeze(rollIRF(2,:,:)))
+axis tight
+
+return

@@ -2,86 +2,61 @@
 % Author:   Filippo Ferroni and Fabio Canova
 % Date:     4/6/2021
 
-close all; clc;
-clear all;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% estimation of  connectedness  and  vulnerability of  cryptocurrency
+% market. Exercise  done  on  log  prices  or  volatilities
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close all; clc;  clear;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
 
 %% Load the data
-
 [a,b,c] = xlsread('./crypto_all','price');
 [high,~,~] = xlsread('./crypto_all','high');
 [low,~,~] = xlsread('./crypto_all','low');
 
-% define time
-time = [1: size(b,1)-1]';
+% define time span
+time = (1: size(b,1)-1)';
 % time    = [datenum(b(2,1)):1:datenum(b(end,1))]';
 % timestr = datestr(time);
 T       = size(time,1);
 timestr = b(2:end,1);
 
-
 % crypto names
 cryptonames = b(1,2:end);
 
 % 1. medium cross-section
-% use the 12 crypto that start in 2018/01/01 
+% 12 cryptocurrencies starting in 2018/01/01 
 sel1 = {'Binance Coin','Bitcoin Cash','Bitcoin','Cardano','Dash',...
 'EOS','Ethereum','Ethereum Classic','IOTA','Litecoin',...
     'Monero','NEM','Neo','Qtum','Stellar','TRON','VeChain','XRP','Zcash'};
 [~, indx1] = ismember(sel1,cryptonames);
 
 % 2. larger cross-section starting in 2020/01/01
-sel2 = {'Binance Coin',...
-    'Bitcoin Cash',...
-    'Bitcoin',...
-    'Bitcoin SV',...
-    'BitTorrent',...
-    'Cardano',...
-    'Chainlink',...
-    'Cosmos',...
-    'Dai',...
-    'Dash',...
-    'Decred',...
-    'Dogecoin',...
-    'EOS',...
-    'Ethereum Classic',...
-    'Ethereum',...
-    'FTX Token',...
-    'Huobi Token',...
-    'IOTA',...
-    'Litecoin',...
-    'Maker',...
-    'Monero',...
-    'NEM',...
-    'Neo',...
-    'Polygon',...
-    'Qtum',...
-    'Stellar',...
-    'THETA',...
-    'TRON',...
-    'UNUS SED LEO',...
-    'USD Coin',...
-    'VeChain',...
-    'XRP',...
-    'Zcash'};
+sel2 = {'Binance Coin',    'Bitcoin Cash',    'Bitcoin', ...
+    'Bitcoin SV',    'BitTorrent',  'Cardano', ...
+    'Chainlink', 'Cosmos','Dai', 'Dash', 'Decred',...
+    'Dogecoin',    'EOS','Ethereum Classic',  'Ethereum',...
+    'FTX Token',    'Huobi Token',    'IOTA', 'Litecoin',...
+    'Maker',    'Monero',    'NEM',    'Neo', 'Polygon',...
+    'Qtum',    'Stellar','THETA',    'TRON',  'UNUS SED LEO',...
+    'USD Coin', 'VeChain','XRP',    'Zcash'};
 
 [~, indx2] = ismember(sel2,cryptonames);
 % t1 = strmatch('20-Jan-2020',timestr);
 t1 = find(strcmp('1/20/2020',timestr));
 
-% crypto log price
+% log price
 y1 = log(a(:,indx1));
 y2 = log(a(t1:end,indx2));
 
-
-%%
 % remove zeros and negative prices (if any)
 aa = low(1:end,indx1);
 aa(aa==0) = 0.000001;
 aa(aa<0 ) = 0.000001;
 
+% volatility
 vol1 = 100*sqrt(365*0.361*(log(high(1:end,indx1))-log(aa)).^2);
 % vol1 = 100*sqrt(365*0.361*(log(high(1:end,indx1))-log(low(1:end,indx1))).^2);
 vol2 = 100*sqrt(365*0.361*(log(high(t1:end,indx2))-log(low(t1:end,indx2))).^2);
@@ -97,11 +72,10 @@ if any(any(isnan(vol1))) || any(any(isnan(vol2)))
     error('there are nans in vol');
 end
 
-%% plot crypto
-
+%% plot data
 step_plot = 300;
 tmp_str= b(2:step_plot:end,1);
-
+% log  price
 figure,
 plot(time,log(a(:,indx2)))
 set(gca,'Xtick',time(1:step_plot:end))
@@ -114,7 +88,7 @@ set(gcf,'position' ,[50 50 900 550])
 % saveas(gcf,STR_RECAP,'fig');
 % savefigure_pdf([STR_RECAP '.pdf']);
 
-
+% volatility
 figure,
 vol3 = real(sqrt(365*0.361*(log(high(1:end,indx2))-log(low(1:end,indx2))).^2));
 plot(time, vol3)
@@ -129,13 +103,12 @@ set(gcf,'position' ,[50 50 900 550])
 % saveas(gcf,STR_RECAP,'fig');
 % savefigure_pdf([STR_RECAP '.pdf']);
  
-
 %% select the data to use for connectedness
 
-sample = 1;% large T short N prices
-% sample = 2;% short T large N prices
-% sample = 3;% large T short N vol
-% sample = 4;% short T large N vol
+sample = 1; % large T short N log prices
+% sample = 2;% short T large N log prices
+% sample = 3;% large T short N volatilities
+% sample = 4;% short T large N volatilities
 
 % horizon to compute the FEVD (connectedness)
 options.nethor        = 10;
@@ -167,7 +140,7 @@ elseif sample ==3 % volatility sample 1
     %dirname = '.\results\vols\largeTsmallN';
     selection = sel1;
 
-elseif sample ==4
+elseif sample ==4  % volatility  sample  2
 %     y = vol2;
     y = log(vol2);
     cryptonames_ = cryptonames(indx2);
@@ -182,7 +155,6 @@ mkdir(dirname)
 
 
 %% Estimate the VAR on the full sample
-
 % activate the Ridge estimator
 options.Ridge.est         = 1;
 % penalty parameter
@@ -214,7 +186,7 @@ options.connectedness  = 1; % Pesaran-Shin Identification
 % options.signs{2}     = 'y(7,1:3,1)<0'; % ETHEREUM down in period 1 to 3 
 
 lags          = 3;
-options.K     = 5000;
+options.K     = 1000;
 bvar1         = bvar_(y,lags,options);
 
 %% print the results for the full sample
@@ -248,6 +220,7 @@ disp([{'Crypto','BVAR-Minnesota','Ridge','Lasso','ElasticNet'}; [cryptonames_' n
 disp('')
 
 diary off
+
 
 %% Rolling Estimate of connectedness index
 

@@ -2,24 +2,25 @@
 % Author:   Filippo Ferroni and Fabio Canova
 % Date:     27/02/2020, revised 14/12/2020
 
-close all; clc
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  estimation of  a  M-Q mixed  frequency  VAR
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+close all; clc; clear ;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
-
  
 % load the mixed frequency data
 load DataMF
-
 y = [GDP IPI HICP CORE Euribor1Y UNRATE]; % variables  to  be  used
-lags = 6;              % numebr  of  lags of lags
+lags = 6;              % number  of  lags of lags
 
 % T aggregation: the quarterly variable  
 % xq(t) = 1/3( xm(t) + xm(t-1) + xm(t-2)) at least two lags are needed
 options.mf_varindex     = 1; 
-options.K               = 1000;    % # draws
+options.K               = 1000;   
 options.priors.name     = 'Minnesota';
-options.noprint         =1 ;
+options.noprint         = 1;
 bvarmf                  = bvar_(y,lags,options); % estimate the var model
 
 sorty = sort(bvarmf.yfill,3);   % sort the smoothed  state

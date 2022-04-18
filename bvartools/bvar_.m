@@ -1302,9 +1302,11 @@ end
 if heterosked_irf == 1
     BVAR.irheterosked_draws   = irheterosked_draws;
     BVAR.Omegah_draws         = Omegah_draws;
+    BVAR.Omegah               = BVAR.Omegah_draws; 
 else
     BVAR.irheterosked_draws   = [];
     BVAR.Omegah_draws         = [];
+    BVAR.Omegah               = [];
 end
 if proxy_irf == 1
     BVAR.irproxy_draws = irproxy_draws;

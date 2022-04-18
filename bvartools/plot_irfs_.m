@@ -20,7 +20,7 @@ ndraws  = size(irfs,4);
 nplots  = [ceil(sqrt(nvar)) ceil(sqrt(nvar))];
 savefig_yes = 0;
 conf_sig    = 0.68;
-normz       = 1;
+normz       = ones(nshocks,1);
 add_irfs_yes = 0;
 normz_yes   = 0;
 add_multiple_bands_yes = 0;
@@ -145,29 +145,41 @@ end
 % sims_shock_up_conf   = normz * sims_shock_sort(:, :, :,  sort_idx(2));
 % sims_shock_median    = normz * sims_shock_sort(:, :, :,  sort_idx(3));
 
+irf_Median  = nan(nvar,hor,nshocks);
+irf_low     = nan(nvar,hor,nshocks);
+irf_up      = nan(nvar,hor,nshocks);
+irf_low_low = nan(nvar,hor,nshocks);
+irf_up_up   = nan(nvar,hor,nshocks);
+
 if ndraws > 1
     sort_idx   = round((0.5 + [-conf_sig, conf_sig, 0]/2) * ndraws);
     irf_sort   = sort(irfs,4);
     if normz_yes == 1
         % normalize the IRF relative to a 100 bpt increase in the first
         % variable, first horizon, first shock
-        normz = 1/ irf_sort(1, 1, 1,  sort_idx(3) );
+        for ns = 1 : nshocks
+            normz(ns) = 1 ./ irf_sort(ns, 1, ns,  sort_idx(3) );
+        end
+        
     end
-    if sort_idx(1) == 0,
+    if sort_idx(1) == 0 
         sort_idx(1) = 1;
+    end    
+    for ns = 1 : nshocks
+        irf_Median(:,:,ns) = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(3) ));
+        irf_low(:,:,ns)    = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(1) ));
+        irf_up(:,:,ns)     = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(2) ));
+        if  add_multiple_bands_yes == 1
+            irf_low_low(:,:,ns)  = normz(ns) .* squeeze(irf_sort(:, :, ns,  sort_idx_2(1) ));
+            irf_up_up(:,:,ns)    = normz(ns) .* squeeze(irf_sort(:, :, ns,  sort_idx_2(2) ));
+        end
     end
-    irf_Median = normz * squeeze(irf_sort(:, :, :,  sort_idx(3) ));
-    irf_low    = normz * squeeze(irf_sort(:, :, :,  sort_idx(1) ));
-    irf_up     = normz * squeeze(irf_sort(:, :, :,  sort_idx(2) ));
-    if  add_multiple_bands_yes == 1
-        irf_low_low  = normz * squeeze(irf_sort(:, :, :,  sort_idx_2(1) ));
-        irf_up_up    = normz * squeeze(irf_sort(:, :, :,  sort_idx_2(2) ));
-    end
-    
 else
-    irf_Median = normz * irfs;
-    irf_low    = normz * irfs;
-    irf_up     = normz * irfs;
+    for ns = 1 : nshocks
+        irf_Median(:,:,ns) = normz(ns) .* irfs(:,:,ns,:);
+        irf_low(:,:,ns)    = normz(ns) .* irfs(:,:,ns,:);
+        irf_up(:,:,ns)     = normz(ns) .* irfs(:,:,ns,:);
+    end
 end
 
 jplot = 0;
