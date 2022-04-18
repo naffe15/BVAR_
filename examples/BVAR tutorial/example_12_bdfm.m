@@ -2,9 +2,10 @@
 % Author:   Filippo Ferroni and  Fabio Canova
 % Date:     09/14/2021
 
-clear all;
-close all; 
-clc;
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Estimation of a  static and  dynamic  factor  model
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear; close all;  clc;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
@@ -27,7 +28,7 @@ Lambda = [1 0;
           -1.1 -0.5;
           1.5 1.5;            
       5*randn(45,size(Phi,1))];  
-% persistence of idisyncratic terrors
+% persistence of idisyncratic errors
 rho    = 0; 
 % standard deviation of idisyncratic errors
 sig    = 1;
@@ -56,6 +57,7 @@ plot(f)
 
 % true IRFs
 hor = 24;
+ir_true=zeros(size(y,2), hor,size(f,2));
 true    = iresponse(Phi,eye(size(f,2)),hor,Q);
 Lam_    = repmat(Lambda,1,1,size(f,2));
 if exist('pagemtimes','builtin') == 5
@@ -65,7 +67,7 @@ else
         ir_true(:,:,ff) = Lambda * true(:,:,ff);
     end
 end
-
+pause;
 
 %% principal components
 
@@ -117,7 +119,10 @@ mkdir(dirname)
 STR_RECAP = [ dirname '/sfm'];
 saveas(gcf,STR_RECAP,'fig');
 savefigure_pdf([STR_RECAP '.pdf']);
+pause;
 
+
+ 
 
 %% dynamic factor model
 clear options

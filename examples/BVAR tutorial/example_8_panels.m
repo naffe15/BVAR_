@@ -180,23 +180,9 @@ plot_all_irfs_(irfs_to_plot2,options);
 return
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 %%=========================================================================
 %% Extra\ Countries
+clear options
 % load the data
 load DataPooling
 % Time:         1978m1 to 2012m8
@@ -226,7 +212,7 @@ end
 
 lags        = 4 ;
 options.hor = 36;
-bvar1       = bvar(ypooled,lags,options);
+bvar1       = bvar_(ypooled,lags,options);
 
 % Define the IRF of Interest
 % index of the shocks of interest (shock to str)
