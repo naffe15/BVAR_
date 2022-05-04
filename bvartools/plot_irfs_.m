@@ -106,15 +106,15 @@ else
     if isfield(options,'ylimits') ==1
         % adds limits
         ylimits = 1;
-        if length(options.ylimits) ~= 2
-            error('you have to specify a 2x1 vector with lower and upper bounds')
+        if size(options.ylimits,2) ~= [nvar  2]
+            error('you have to specify a nx2 vector with lower and upper bounds')
         end
         if options.ylimits(1) > options.ylimits(2)
-            b = options.ylimits(1);
-            a = options.ylimits(2);
+            b = options.ylimits(:,1);
+            a = options.ylimits(:,2);
         else
-            b = options.ylimits(2);
-            a = options.ylimits(1);
+            b = options.ylimits(:,2);
+            a = options.ylimits(:,1);
         end
             
     end
@@ -170,6 +170,7 @@ if ndraws > 1
         irf_low(:,:,ns)    = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(1) ));
         irf_up(:,:,ns)     = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(2) ));
         if  add_multiple_bands_yes == 1
+            if sort_idx_2(1) == 0, sort_idx_2(1) = 1; end
             irf_low_low(:,:,ns)  = normz(ns) .* squeeze(irf_sort(:, :, ns,  sort_idx_2(1) ));
             irf_up_up(:,:,ns)    = normz(ns) .* squeeze(irf_sort(:, :, ns,  sort_idx_2(2) ));
         end
@@ -233,8 +234,8 @@ for sho = 1 : nshocks
         hold on;
         hold on
         axis tight
-        if ylimits == 1
-            ylim([a b]);
+        if ylimits == 1 && ~isnan(a(var)+b(var))
+            ylim([a(var) b(var)]);
         end
         title(varnames{var},'FontSize',fontsize)
         set(gcf,'position' ,[50 50 800 650])

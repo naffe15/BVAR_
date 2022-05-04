@@ -63,7 +63,7 @@ options.proxy  = nan(length(y),1);
 % use the same instrument as GK 
 % instruments and data end in 2012m6
 
-% 1/ LS with controls:
+% 1: OLS with controls:
 % use the instrument/proxy shock directly in the LP
 options.proxy(length(T)- length(numi)+1:end) = numi(:,4);
 dm2 = directmethods(y,lags,options);
@@ -77,7 +77,7 @@ options0.varnames = {'IP','CPI','1 year rate','EBP'};
 norm = dm2.irproxy_lp(3,1,1,2)*4;
 plot_irfs_(dm2.irproxy_lp(:,:,1,:)/norm,options0)
 
-% 2/ 2SLS with controls: 
+% 2. 2SLS with controls: 
 % Regress first the policy varible on the instrument/proxy shock. Use the
 % fitted values of the first stage regression (portion of the policy
 % variable explained by the instrument/proxy) as the 
@@ -93,7 +93,7 @@ options0.saveas_strng  = 'IV2S';
 plot_irfs_(dm2s.irproxy_lp(:,:,1,:)/norm,options0)
 
 
-% 3/ no controls except for lags of the endogenous
+% 3. no controls except for lags of the endogenous
 options1 = options0;
 irf2plot = nan(size(dm2.irproxy_lp));
 for vv = 1 :size(y,2)
@@ -102,10 +102,10 @@ for vv = 1 :size(y,2)
 end
 % dm2 and  dm3  differ  in  the  conditioning  variables (lags of
 % all variables,  lags  of  only  own  variables.
-options1.saveas_strng  = ['IV_nocontrols'];
+options1.saveas_strng  = 'IV_nocontrols';
 options1.varnames = options0.varnames;
 % finally, the plotting command
-plot_all_irfs_(irf2plot,options1);
+plot_irfs_(irf2plot,options1);
 
 pause;
 

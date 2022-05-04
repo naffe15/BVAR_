@@ -65,6 +65,8 @@ options.saveas_strng  = 'VARX';         % name  of  the figure  to  save
 options.saveas_dir    = './VARX_plt';   % folder where  it  is  stored
 % the plotting command
 plot_all_irfs_(irfs_to_plot,options);
+pause;
+
 
 %% shock decomposition in terms of domestic shocks and exogenous varibles
 % yDecomp contains the decomosition of the observable variables in terms of
@@ -100,27 +102,31 @@ optnsplt.saveas_dir    = './VARX_plt';
 % limit the plot to a specific time window 
 % optnsplt.Tlim          = [2006 2012];
 plot_sdcmp_(yDecomp,bvar1,optnsplt)
+pause;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Extension with  2 exogenous variables lagged
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  WARNING : THIS  IS  SLOW
 
+ z = demean(100*diff(log ([cpi_us str_us] )));
+ options.controls = lagX(z,[0:1]);
+ options.K   = 1000;
+ % Sign restrictions
+ options.signs{1} = 'y(4,1:3,4)>0';
+ options.signs{2} = 'y(2,1:3,4)<0';
 
-
-% % 2 exogenous variables lagged
-% z = demean(100*diff(log ([cpi_us str_us] )));
-% options.controls = lagX(z,[0:1]);
-% % Sign restrictions
-% options.signs{1} = 'y(4,1:3,4)>0';
-% options.signs{2} = 'y(2,1:3,4)<0';
-
-% % estimate the VARX
-% bvar2 = bvar_(y,lags,options);
-% 
-% indx_sho = 4;
-% indx_var = [1, 2, 3, 4];
-% irfs_to_plot = bvar2.irsign_draws(:,:,indx_sho,:);
-% 
-% options.varnames      = {'UK IP','UK CPI', 'UK Long rate', 'UK Short rate'};  
-% 
-% plot_all_irfs_(irfs_to_plot,options);
+ % estimate the VARX
+ bvar2 = bvar_(y,lags,options);
+ 
+ indx_sho = 4;
+ indx_var = [1, 2, 3, 4];
+ irfs_to_plot = bvar2.irsign_draws(:,:,indx_sho,:);
+ 
+ options.varnames = {'UK IP','UK CPI', 'UK Long rate', 'UK Short rate'};  
+ options.shocksnames = {'MP_UK'};
+ options.nplots= [2 2];
+ plot_irfs_(irfs_to_plot,options);
 
 
 

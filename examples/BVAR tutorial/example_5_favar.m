@@ -57,11 +57,11 @@ pause;
 
 % sign restrictions on the uncompressed variables. 
 % agregate supply: GDP (+) GDP deflator (-). 
-% Assume that AD is the frist shock
+% Assume that AD is the first shock
 [~,indx_var] = ismember ({'GDPC96','GDPCTPI'},varnames_y2);
 
-signrestriction{1} = ['y(' num2str(indx_var(1)) ',2:3,1)>0;'];
-signrestriction{2} = ['y(' num2str(indx_var(2)) ',2:3,1)<0;'];
+signrestriction{1} = ['y(' num2str(indx_var(1)) ',1:3,1)>0;'];
+signrestriction{2} = ['y(' num2str(indx_var(2)) ',1:3,1)<0;'];
 
 for k = 1 : fabvar.ndraws % iterate on draws
       Phi       = fabvar.Phi_draws(:,:,k);

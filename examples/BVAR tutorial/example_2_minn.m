@@ -8,7 +8,7 @@
 % 2) optimally chosen  Minnesota prior.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-warning off; clear all; close all; clc;
+warning off; clear; close all; clc;
 
 addpath ../../cmintools/
 addpath ../../bvartools/
@@ -27,7 +27,6 @@ pause;
 
 
 %% Case 2: Estimation with calibrated/ estimated Minnesota Prior
-
 lags = 6; 
 options.max_minn_hyper  = 1;       % start the  optimization routine
 options.minn_prior_tau  = 10;      % set tau 
@@ -40,7 +39,6 @@ pause;
 
 %% Case 3:  Optimization of one dimension of the Minnesota Prior
 %           (without  posterior draws to speed up computations) 
-% proceed sequentially to estimate separately  blocks of hyperparameters
 %%  3.1 maximization of  tau
 clear options
 lags = 6;
@@ -59,8 +57,7 @@ options.ub             = 10;     % Upper bound
 pause;
 
 %% 3.2    Take  optimal value for hyperparameter(1) and compute optimal 
-%         values for tau, decay, lambda (without  posterior  draws)
-% 
+%%         values for tau, decay, lambda (without  posterior  draws) 
 hyperpara(1)            = postmode(1); % use as starting value previous mode
 options.index_est       = 1:3;         % set hyper-parameters over which maximize
 options.lb              = [0.1 0.1 0.1]; % Lower bounds
@@ -68,9 +65,8 @@ options.ub              = [10 10 10];    % Upper bounds
 [postmode1,log_dnsty,~] = bvar_max_hyper(hyperpara,y,lags,options);
 
 %% 3.3  Take  optimal value for hyperparameter(1:3) and compute optimal 
-%           values for tau, decay, lambda, mu (without  posterior  draws)
+%%           values for tau, decay, lambda, mu (without  posterior  draws)
 
-%hyperpara(1:3)          = postmode(1:3); % use as starting value previous mode
 hyperpara(1:3)          = postmode1(1:3); % use as starting value previous mode
 options.index_est       = 1:4;         % set hyper-parameters over which maximize
 options.lb              = [0.1 0.1 0.1 0.1]; % Lower bounds

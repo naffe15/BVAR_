@@ -141,7 +141,7 @@ irfs_to_plot = bvar4.irzerosign_draws(indx_var,:,indx_sho,:);
 
 % Customize the IRF plots
 options.saveas_strng    = 'zerossigns';
-options.shocksnames     = {'ADshck','ASshck','MPshck'}; % 
+options.shocksnames     = {'ADshock','ASshock','MPshock'}; % 
 % options.add_irfs        = bvar4.irzerosign_ols(indx_var,:,indx_sho,:);
 plot_all_irfs_(irfs_to_plot,options)
 pause
@@ -231,6 +231,7 @@ plot_irfs_(irfs_to_plot,options)
 % % Pick the argmax
 % [~,index] = max(crit);
 % Qbar      = Q(:,:,index);
+
 
 
 %% Extra part 1/: Forecast Error variance decomposition with Cholesky (bvar1)
@@ -361,6 +362,7 @@ options.add_irfs = squeeze(median(bvar1.ir_draws(indx_var,:,indx_sho,:),4));
 % finally, the plotting command
 plot_irfs_(irfs_to_plot,options)
 pause;
+
 
 
 %% EA MP: QE shocks - identification via heteroskedasticity

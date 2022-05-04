@@ -98,13 +98,14 @@ options.priors.F.Lambda.cov  = 6;
 % estimation command
 [BSFM] = bdfm_(y,lags,nfac,options);
 % consider a subset of draws
-index = 5000:20:size(BSFM.Phi_draws,3);
+%index = 5000:20:size(BSFM.Phi_draws,3);
+index = 1:1:size(BSFM.Phi_draws,3);
 % plot estimated and true factors
 figure,
 for gg=1:nfac
     subplot(nfac,1,gg)
     % draws of factors
-    plot([squeeze(BSFM.f_draws(:,gg,index))],'Color',[0.7 0.7 0.7])
+    plot(squeeze(BSFM.f_draws(:,gg,index)),'Color',[0.7 0.7 0.7])
     hold on
     % true factor
     f_mean = mean(BSFM.f_draws(:,gg,index),3);
@@ -150,12 +151,13 @@ options.signs{2} = 'y(5,1:3,1)>0'; %
 % estimation command
 [BDFM] = bdfm_(y,lags,nfac,options);
 % consider a subset of draws
-index = 5000:20:size(BDFM.Phi_draws,3);
+% index = 5000:20:size(BDFM.Phi_draws,3);
+index = 1:1:size(BDFM.Phi_draws,3);
 % plot estimated and true factors
 figure,
 for gg=1:nfac
     subplot(nfac,1,gg)
-    plot([squeeze(BDFM.f_draws(:,gg,index))],'Color',[0.7 0.7 0.7])
+    plot(squeeze(BDFM.f_draws(:,gg,index)),'Color',[0.7 0.7 0.7])
     hold on
     f_mean = mean(BDFM.f_draws(:,gg,index),3);
     sign_ = sign(corr(f_mean,f(:,gg)));
@@ -184,7 +186,6 @@ for gg=1:nfac
     plot(f_m(:,gg),'k','Linewidth',2)
 end
 
-index = 5000:20:size(BDFM.Phi_draws,3);
 Phi0 = Phi';
 jj = 0;
 figure('Name','Phi')

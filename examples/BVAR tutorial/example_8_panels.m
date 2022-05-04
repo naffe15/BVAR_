@@ -153,7 +153,6 @@ gam = 0.1;
 options.priors.Phi.cov  = gam * eye(size(options.priors.Phi.mean,1));
 options.K = 1000;
 i1        = 0;
-%irfs_to_plot2=zeros(2,24,2,options.K);
 irfs_to_plot2=zeros(2,24,2,NBanks-N1);
 
  % compute  responses  for  all  banks; plot the  responses of bank=NBanks
@@ -217,7 +216,7 @@ bvar1       = bvar_(ypooled,lags,options);
 
 % Define the IRF of Interest
 % index of the shocks of interest (shock to str)
-indx_sho              = [4];   
+indx_sho              = 4;   
 % IRF to PLOT
 irfs_to_plot           = bvar1.ir_draws(:,:,indx_sho,:);
 

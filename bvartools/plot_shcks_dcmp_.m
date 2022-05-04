@@ -250,7 +250,7 @@ for j = 1 : size(pplotvar,2)
         
         fprintf(fidTxt,['\n' ]);
         fprintf(fidTxt,['\n']);
-        close all
+        %close all
     end
     
 end

@@ -23,6 +23,8 @@ normz       = ones(nshocks,1);
 add_irfs_yes = 0;
 normz_yes   = 0;
 add_multiple_bands_yes = 0;
+fnam_dir    = '.';
+fnam_suffix = 'irfs_';
 fontsize    = 12;
 ylimits     = 0;
 
@@ -152,6 +154,7 @@ if ndraws > 1
         irf_low(:,:,ns)    = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(1) ));
         irf_up(:,:,ns)     = normz(ns) * squeeze(irf_sort(:, :, ns,  sort_idx(2) ));
         if  add_multiple_bands_yes == 1
+            if sort_idx_2(1) == 0, sort_idx_2(1) = 1; end
             irf_low_low(:,:,ns)  = normz(ns) .* squeeze(irf_sort(:, :, ns,  sort_idx_2(1) ));
             irf_up_up(:,:,ns)    = normz(ns) .* squeeze(irf_sort(:, :, ns,  sort_idx_2(2) ));
         end

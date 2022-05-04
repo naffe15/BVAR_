@@ -56,7 +56,7 @@ end
 %********************************************************
 %
 ilags               = 0;            % lag strucutre of the idiosyncratic component
-K                   = 20000;        % number of draws from the posterior
+K                   = 1000;        % number of draws from the posterior
 hor                 = 24;           % horizon for the IRF
 fhor                = 12;           % horizon for the forecasts
 noconstant          = 1;            % when 0, includes a constatn in the factor VAR
@@ -73,8 +73,8 @@ proxy_irf           = 0;
 do_the_demean       = 1;            % demean the data
 dummy               = 2;            % Conjugate MN-IW on the factors
 use_the_ss_kalman_gain = 0;
-
-
+burnin_             = 5000;
+skip_               = 20;
 % Default Prior Distributions 
 % Priors for parameters related to factors (F)
 % Lambda
@@ -115,6 +115,14 @@ if nargin > 3
     if isfield(options,'K')==1
         % number of draws from the posterior distribution
         K = options.K;
+    end
+    if isfield(options,'burnin')==1
+        % number of burnin draws from the posterior distribution
+        burnin_ = options.burnin;        
+    end
+    if isfield(options,'skip')==1
+        % keep one ecvery skip_ draws
+        skip_ = options.skip;        
     end
     if isfield(options,'noconstant')==1
         % when 0, includes a constatn in the factor VAR
@@ -552,8 +560,8 @@ do_pagemtimes = 0;
 if exist('pagemtimes','builtin') == 5
     do_pagemtimes = 1;
 end
-
-for d = 1 : K
+d = 0; 
+for d1 = 1 : skip_*K + burnin_
     %======================================================================
     % Inferece: Drawing from the posterior distribution
     % 1: draw factors 
@@ -598,81 +606,84 @@ for d = 1 : K
           sig2_G = draw_sigma(eG, f, Lambda_F_mat, priors.G);
     end
     % store the draws
-    f_draws(:,:,d)      = f;
-    f_filt_draws(:,:,d) = f_filt;
-    eg_draws(:,:,d)     = eG;
-    lambda_draws(:,:,d) = Lambda_F_mat;
-    Phi_draws(:,:,d)    = psi_F;
-    Sigma_draws(:,:,d)  = sig2_F;
-    phi_draws(:,d)      = psi_G;
-    sigma_draws(:,d)    = sig2_G;
-    [ff,FF]             = YXB_(f,lags,[nx timetrend]);
-    errors              = ff - FF * psi_F;
-    ef_draws(:,:,d)     = errors;
- 
-    if lags > 0
-        % IRF and Forecasts are computed only with dynamic factors
-        %======================================================================
-        % IRF
-        % Compute the impulse response functions
-        %C_       = rescaleFAVAR(STD,Lambda,size(y1,2),order_pc);
-        % with cholesky
-        tmp                    = iresponse(psi_F,sig2_F,hor,eye(nfac));
-        if do_pagemtimes == 1
-            Lam_                   = repmat(Lambda_F_mat,1,1,nfac);
-            ir_draws(:,:,:,d)      = pagemtimes(Lam_,tmp);
-        else
-            for ff = 1 : nfac
-                ir_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
-            end
-        end
-        % with long run restrictions
-        if long_run_irf == 1
-            [irlr,Omega]           = iresponse_longrun(psi_F,sig2_F,hor,lags);
+    if d1 > burnin_ && mod(d1,skip_) == 0 
+        d = d+1;
+        f_draws(:,:,d)      = f;
+        f_filt_draws(:,:,d) = f_filt;
+        eg_draws(:,:,d)     = eG;
+        lambda_draws(:,:,d) = Lambda_F_mat;
+        Phi_draws(:,:,d)    = psi_F;
+        Sigma_draws(:,:,d)  = sig2_F;
+        phi_draws(:,d)      = psi_G;
+        sigma_draws(:,d)    = sig2_G;
+        [ff,FF]             = YXB_(f,lags,[nx timetrend]);
+        errors              = ff - FF * psi_F;
+        ef_draws(:,:,d)     = errors;
+
+        if lags > 0
+            % IRF and Forecasts are computed only with dynamic factors
+            %======================================================================
+            % IRF
+            % Compute the impulse response functions
+            %C_       = rescaleFAVAR(STD,Lambda,size(y1,2),order_pc);
+            % with cholesky
+            tmp                    = iresponse(psi_F,sig2_F,hor,eye(nfac));
             if do_pagemtimes == 1
-                irlr_draws(:,:,:,d)    = pagemtimes(Lam_,irlr);
+                Lam_                   = repmat(Lambda_F_mat,1,1,nfac);
+                ir_draws(:,:,:,d)      = pagemtimes(Lam_,tmp);
             else
                 for ff = 1 : nfac
-                    irlr_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
+                    ir_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
                 end
             end
-            Qlr_draws(:,:,d)       = Omega;
-        end
-        % with sign restrictions
-        if signs_irf == 1
-            [irsign,Omega]         = iresponse_sign(psi_F,sig2_F,hor,signs,Lambda_F_mat);
-            irsign_draws(:,:,:,d)  = irsign;
-            Omega_draws(:,:,d)     = Omega;
-        end
-        % with narrative and sign restrictions
-        if narrative_signs_irf == 1
-            [irnarrsign,Omega]         = iresponse_sign_narrative(errors,psi_F,sig2_F,hor,signs,narrative,Lambda_F_mat);
-            irnarrsign_draws(:,:,:,d)  = irnarrsign;
-            Omegan_draws(:,:,d)        = Omega;
-        end
-        % with proxy
-        if proxy_irf == 1
-            in.Phi                  = psi_F;
-            in.Sigma                = sig2_F;
-            for nf = 1 : nfac
-                nfnot                   = setdiff(1 : nfac, nf);
-                in.res                  = ef_draws(:, [nf, nfnot], d);
-                in.vars                 = f;
-                tmp_                    = iresponse_proxy(in);
-                irproxy_draws(:,:,nf,d) = Lambda_F_mat * tmp_.irs';
-                clear tmp_
+            % with long run restrictions
+            if long_run_irf == 1
+                [irlr,Omega]           = iresponse_longrun(psi_F,sig2_F,hor,lags);
+                if do_pagemtimes == 1
+                    irlr_draws(:,:,:,d)    = pagemtimes(Lam_,irlr);
+                else
+                    for ff = 1 : nfac
+                        irlr_draws(:,:,ff,d) = Lambda_F_mat * tmp(:,:,ff);
+                    end
+                end
+                Qlr_draws(:,:,d)       = Omega;
             end
+            % with sign restrictions
+            if signs_irf == 1
+                [irsign,Omega]         = iresponse_sign(psi_F,sig2_F,hor,signs,Lambda_F_mat);
+                irsign_draws(:,:,:,d)  = irsign;
+                Omega_draws(:,:,d)     = Omega;
+            end
+            % with narrative and sign restrictions
+            if narrative_signs_irf == 1
+                [irnarrsign,Omega]         = iresponse_sign_narrative(errors,psi_F,sig2_F,hor,signs,narrative,Lambda_F_mat);
+                irnarrsign_draws(:,:,:,d)  = irnarrsign;
+                Omegan_draws(:,:,d)        = Omega;
+            end
+            % with proxy
+            if proxy_irf == 1
+                in.Phi                  = psi_F;
+                in.Sigma                = sig2_F;
+                for nf = 1 : nfac
+                    nfnot                   = setdiff(1 : nfac, nf);
+                    in.res                  = ef_draws(:, [nf, nfnot], d);
+                    in.vars                 = f;
+                    tmp_                    = iresponse_proxy(in);
+                    irproxy_draws(:,:,nf,d) = Lambda_F_mat * tmp_.irs';
+                    clear tmp_
+                end
+            end
+            
+            %======================================================================
+            % Forecasts
+            % compute the out of sample forecast (unconditional)
+            forecast_data.initval     = f(end-lags+1:end, :);
+            [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,psi_F,sig2_F,fhor,lags);
+            yhatfut_no_shocks(:,:,d)            = frcst_no_shock * Lambda_F_mat';
+            yhatfut_with_shocks(:,:,d)          = frcsts_with_shocks * Lambda_F_mat';
         end
-        
-        %======================================================================
-        % Forecasts
-        % compute the out of sample forecast (unconditional)
-        forecast_data.initval     = f(end-lags+1:end, :);
-        [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,psi_F,sig2_F,fhor,lags);
-        yhatfut_no_shocks(:,:,d)            = frcst_no_shock * Lambda_F_mat';
-        yhatfut_with_shocks(:,:,d)          = frcsts_with_shocks * Lambda_F_mat';
     end
-    if waitbar_yes, waitbar(d/K, wb); end
+    if waitbar_yes, waitbar(d1/(skip_*K  + burnin_), wb); end
 end
 if waitbar_yes, close(wb); end
 

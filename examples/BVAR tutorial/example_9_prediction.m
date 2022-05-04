@@ -84,6 +84,7 @@ varnames = {'IPI' 'HICP' 'CORE HICP' 'Euribor1Y' 'M3' 'EXRATE'};
 if tzero < KAPPA + 1
     tzero = KAPPA + 1;
 end
+yfor=zeros(size(PCOMM,1)-KAPPA,3);
 for jj= 1:length(varnames)
     figure('Name',varnames{jj})
     if ordering_transf(jj)

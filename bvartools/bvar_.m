@@ -274,7 +274,7 @@ if nargin > 2
             minn_prior_mu       = postmode(4);
             minn_prior_omega    = postmode(5);
             disp('                       ')
-            disp('Maximization Successful: I will use the the mode values.')
+            disp('Maximization Successful: I will use the mode values.')
 
         catch   
             warning('Maximization NOT Successful')

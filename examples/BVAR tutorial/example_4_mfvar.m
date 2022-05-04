@@ -13,7 +13,7 @@ addpath ../../bvartools/
 % load the mixed frequency data
 load DataMF
 y = [GDP IPI HICP CORE Euribor1Y UNRATE]; % variables  to  be  used
-lags = 6;              % number  of  lags of lags
+lags = 6;                                 % number  of  lags 
 
 % T aggregation: the quarterly variable  
 % xq(t) = 1/3( xm(t) + xm(t-1) + xm(t-2)) at least two lags are needed
