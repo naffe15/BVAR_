@@ -67,8 +67,8 @@ elseif robust_se_ == 5 % Matlab HAC function
     %-----------------------------------------------------------------------%
     if  exist('hac') ==2
         % find constant
-        index = find(sum(diff(X,2),1)~=0);
-        indexC = find(sum(diff(X,2),1)==0);
+        index = find(sum(diff(X,1,1),1)~=0);
+        indexC = find(sum(diff(X,1,1),1)==0);
         for vv = 1: ny
 %             [EstCoeffCov0,se0,~] = hac(X(:,index),Y(:,ny),'display','off','type','HC'); 
             [EstCoeffCov0,se0,~] = hac(X(:,index),Y(:,ny),'display','off','bandwidth','AR1OLS'); % remove the intercept

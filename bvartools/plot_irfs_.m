@@ -106,16 +106,16 @@ else
     if isfield(options,'ylimits') ==1
         % adds limits
         ylimits = 1;
-        if size(options.ylimits,2) ~= [nvar  2]
+        if size(options.ylimits,1) ~= nvar ||  size(options.ylimits,2) ~= 2
             error('you have to specify a nx2 vector with lower and upper bounds')
         end
-        if options.ylimits(1) > options.ylimits(2)
-            b = options.ylimits(:,1);
-            a = options.ylimits(:,2);
-        else
+%         if options.ylimits(1) > options.ylimits(2)
+%             b = options.ylimits(:,1);
+%             a = options.ylimits(:,2);
+%         else
             b = options.ylimits(:,2);
             a = options.ylimits(:,1);
-        end
+%         end
             
     end
 

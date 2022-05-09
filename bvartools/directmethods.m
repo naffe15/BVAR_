@@ -55,7 +55,7 @@ K            = 5000;
 max_prior_tau_ = 0;
 lb             = -1e10;
 ub             = 1e10;
-
+clags         = 0;
 
 %********************************************************
 %* CUSTOMIZED SETTINGS
@@ -84,6 +84,9 @@ if nargin>2
         controls   = options.controls;
         if T~=size(controls,1)
             error('Control variables and observables must have the same time length')
+        end
+        if isfield(options,'clags') ==1
+            clags = options.clags;            
         end
     end
     %======================================================================
@@ -228,11 +231,11 @@ fdata_initval(1:end-1,:) = [];
 % add controls if any
 if controls_ == 1
     a  = size(X1,2) + 1;
-    X1 = [X1 lagX(controls,1:lags)];
+    X1 = [X1 lagX(controls,0:clags)];
     b  = size(X1,2);
     position_controls = a:b;
     % forecast launching point
-    lastvalc = lagX(controls(end-lags+1:end, :),0:lags-1);
+    %lastvalc = lagX(controls(end-lags+1:end, :),0:lags-1);
     fdata_initval  = [fdata_initval, controls(end,:)];
     
 else
@@ -289,7 +292,7 @@ for hh = 0 : hor % iteration over horizon
     ytmp = lagX(y, -hh);
     % Reduced Form estimations
     if robust_se_ ~= 0 % Robust SE
-        %  options.robust_se_ = robust_se_;
+        options.robust_se_ = robust_se_;
         options.L     = lags + hh + 1;
         olsreg_(hh+1) = ols_reg(ytmp, X_, options);
     else
@@ -308,13 +311,22 @@ for hh = 0 : hor % iteration over horizon
     end
     % Choleski/Rotated identification
     if hh == 0
-        Omega = chol(olsreg_(hh+1).Serror,'Lower') * Q;
+        try
+            Omega = chol(olsreg_(hh+1).Serror,'Lower') * Q;
+        catch
+            warning('Covariance of the error term is almost singular')
+            Omega = chol(cov(olsreg_(hh+1).error),'Lower') * Q;
+        end
         % generate uncertainty on S (flat prior)
         Sbar = olsreg_(hh+1).error'*olsreg_(hh+1).error;
         df   = olsreg_(hh+1).N - olsreg_(hh+1).K;
+        if df > 0
         [~, Omegas] = generateOmegas(Sbar,df,K,Q);
-        Omegasort = sort(Omegas,3);
-        
+            Omegasort = sort(Omegas,3);
+        else 
+            warning('not enought degrees of freedom - too many regressors')
+            Omegasort = repmat(Omega,1,1,K);
+        end
         ir_lp(:, hh+1, :, 2) = Omega; % mean
         ir_lp(:, hh+1, :, 3) = Omegasort(:,:,sort_idx(2)); % UPPER
         ir_lp(:, hh+1, :, 1) = Omegasort(:,:,sort_idx(1)); % LOWER
