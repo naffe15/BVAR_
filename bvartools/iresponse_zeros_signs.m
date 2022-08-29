@@ -136,5 +136,6 @@ end
 
 if draws > 10, close(wb); end
 
-Omeg = W; 
+%Omeg = W; 
+Omeg = C1\W; 
 ir    = R;

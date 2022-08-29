@@ -285,8 +285,16 @@ bvar4             = bvar_(y,lags,options);
 
 
 
-% uses the zero-sign restrictions average rotation
-opts_.Omega         =  mean(bvar4.Omegaz,3); 
+% uses the first accepted rotation
+opts_.Omega         =  bvar4.Omegaz(:,:,1); 
+
+%% Note:
+% Ideally, the best thing is to create a loop across accepted rotation
+% matrices, and for each of them compute the historical decomposition, then
+% average across decompositions. This step is quite time consuming so for
+% the scope of this tutorial we only consider one accepted rotation.
+
+%%
 % by default it uses mean over posterior draws
 [yDecomp,ierror]  = histdecomp(bvar4,opts_); 
 
