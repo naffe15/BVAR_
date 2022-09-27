@@ -212,7 +212,7 @@ for sho = 1 : nshocks
             
         else
             h = area([irf_low(var,:,sho)',...
-                irf_up(var,:,sho)' - irf_low(var,:,sho)']);%,'FaceColor',[.85 .85 .85]);
+                irf_up(var,:,sho)' - irf_low(var,:,sho)'],'Visible','on');%,'FaceColor',[.85 .85 .85]);
             set(h(2),'FaceColor',[.85 .85 .85])
             set(h(1),'FaceColor',[1 1 1])
             set(h,'linestyle','none')

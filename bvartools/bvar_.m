@@ -2,7 +2,7 @@ function [BVAR] = bvar_(y,lags,options)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bvar' generates draws from the paramters of VAR model with error
+% 'bvar_' generates draws from the paramters of VAR model with error
 % distributed as a multivariate normal
 
 % Core Inputs:
@@ -36,7 +36,7 @@ function [BVAR] = bvar_(y,lags,options)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if nargin < 2
-    error('the BVAR funtion needs at least two inputs: data and number of lags');
+    error('the bvar_ funtion needs at least two inputs: data and number of lags');
 end
 if lags < 1
     error('lags cannot be zero or negative');
@@ -1339,7 +1339,7 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% end of bvar.m
+% end of bvar_.m
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %********************************************************

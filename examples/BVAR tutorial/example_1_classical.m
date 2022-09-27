@@ -111,3 +111,19 @@ disp(squeeze(bvar1.fevd.low(:,indx_sho))')
 disp('%                                                     %')
 disp('%=====================================================%')
 
+
+%% Classical Inference
+% bootstrapping the LS residuals with replacement
+
+options.bootstrap = 1;
+cvar1       = cvar_(y,lags,options);
+
+% name of the figure to save
+options.saveas_strng  = 'cvar_allshocks';
+indx_sho              = indx_var;   
+irfs_to_plot2         = cvar1.ir_boots(indx_var,:,indx_sho,:);
+options.conf_sig      = 0.68;
+options.conf_sig_2    = 0.90;   
+% the plotting command
+plot_all_irfs_(irfs_to_plot2,options)
+

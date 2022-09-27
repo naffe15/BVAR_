@@ -1,4 +1,4 @@
-function [frcst_no_shock,frcst_with_shocks]=forecasts(forecast_data,Phi,Sigma,fhor,lags,EPS)
+function [frcst_no_shock,frcst_with_shocks]=forecasts(forecast_data,Phi,Sigma,fhor,lags,EPS,skip_)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 'forecasts' computes out-of-sample forecasts
@@ -28,6 +28,9 @@ if nargin < 6
 else
     shock_given = 1;
 end
+if nargin < 7
+    skip_ = 0;
+end
 
 Sigma_lower_chol = chol(Sigma)';
 
@@ -36,21 +39,24 @@ frcst_no_shock     = nan(fhor,ny);
 frcst_with_shocks  = nan(fhor,ny);
 
 lags_data = forecast_data.initval;
-for t = 1 : fhor
-    X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];
-    y = X * Phi;
-    lags_data(1:end-1,:) = lags_data(2:end, :);
-    lags_data(end,:) = y;
-    frcst_no_shock(t, :) = y;
+if skip_ == 0 
+    for t = 1 : fhor
+        X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];
+        y = X * Phi;
+        lags_data(1:end-1,:) = lags_data(2:end, :);
+        lags_data(end,:) = y;
+        frcst_no_shock(t, :) = y;
+    end
 end
 
 % With shocks
-lags_data = forecast_data.initval;
+% lags_data = forecast_data.initval;
 for t = 1 : fhor
-    X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];
-    shock = (Sigma_lower_chol * randn(ny, 1))';
+    X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];    
     if shock_given == 1
         shock  = EPS(t,:);
+    else
+        shock = (Sigma_lower_chol * randn(ny, 1))';
     end
     y = X * Phi + shock;
     lags_data(1:end-1,:) = lags_data(2:end, :);
