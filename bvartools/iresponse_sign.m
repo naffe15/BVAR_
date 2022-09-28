@@ -48,13 +48,15 @@ do_pagemtimes = 0;
 if exist('pagemtimes','builtin') == 5
     do_pagemtimes = 1;
 end
-    
+hor0 = maxhorsign(signrestriction) ;
+
     
 while d==0 && tol < 30000
     % generate a random orthonormal matrix
     Omega = generateQ(m);
     % compute IRF
-    y = iresponse(Phi,Sigma,hor,Omega);
+%     y = iresponse(Phi,Sigma,hor,Omega);
+    y = iresponse(Phi,Sigma,hor0,Omega);
     % uncompress the factors (if favar)
     if favar == 1   
         if do_pagemtimes ==0
@@ -73,6 +75,7 @@ while d==0 && tol < 30000
     [d,fsign] = checkrestrictions2(signrestriction,y);
     if d==1
         Omeg  = fsign * Omega;
+        y     = iresponse(Phi,Sigma,hor,Omega);
         ir    = fsign * y;
     else
         tol = tol + 1;

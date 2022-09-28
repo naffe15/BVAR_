@@ -54,12 +54,15 @@ end
 
 A       = chol(Sigma,'lower');
 v       = zeros(size(errors));
+hor0    = maxhorsign(signrestriction) ;
 
 while d==0 && tol < 30000
     % generate a random orthonormal matrix
     Omega = generateQ(m);
     % compute IRF
-    y = iresponse(Phi,Sigma,hor,Omega);
+    %y = iresponse_(Phi,A,hor,Omega);
+    %y = iresponse(Phi,Sigma,hor,Omega);
+    y = iresponse(Phi,Sigma,hor0,Omega);
     % uncompress the factors (if favar)
     if favar == 1
         if do_pagemtimes == 0
@@ -83,6 +86,7 @@ while d==0 && tol < 30000
     end
     if d==1 % stop 
         Omeg  = Omega;
+        y = iresponse(Phi,Sigma,hor,Omega);
         ir    = y;
     else
         tol = tol + 1;
