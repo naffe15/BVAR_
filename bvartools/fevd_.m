@@ -7,6 +7,9 @@ zeros_signs_irf     = 0;
 heterosked_irf      = 0;
 % probability coverage
 conf_sig            = 0.9;
+% # variables and lags
+ny   = BVAR.N;
+lags = BVAR.lags;
 
 if nargin >2
     if isfield(options,'conf_sig') == 1
@@ -41,8 +44,8 @@ if BVAR.ndraws > 99
 end
 % loop across draws
 for nn = 1 : BVAR.ndraws
-    Phi   = BVAR.Phi_draws(:,:,nn);
-    Sigma = BVAR.Sigma_draws(:,:,nn);
+    Phi   = BVAR.Phi_draws(1 : ny*lags, 1 : ny,nn);
+    Sigma = BVAR.Sigma_draws( : , : ,nn);
     % cholesky
     fevdr(:,:,nn) = fevd(hor,Phi,Sigma);
     % sign
