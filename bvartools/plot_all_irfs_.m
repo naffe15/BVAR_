@@ -90,19 +90,21 @@ else
     if isfield(options,'ylimits') ==1
         % adds limits
         ylimits = 1;
-        if length(options.ylimits) ~= 2
-            error('you have to specify a 2x1 vector with lower and upper bounds')
+        if size(options.ylimits,1) ~= nvar ||  size(options.ylimits,2) ~= 2
+            error('you have to specify a nx2 vector with lower and upper bounds')
         end
-        if options.ylimits(1) > options.ylimits(2)
-            b = options.ylimits(1);
-            a = options.ylimits(2);
-        else
-            b = options.ylimits(2);
-            a = options.ylimits(1);
-        end
-            
+        %         if options.ylimits(1) > options.ylimits(2)
+        %             b = options.ylimits(1);
+        %             a = options.ylimits(2);
+        %         else
+        %             b = options.ylimits(2);
+        %             a = options.ylimits(1);
+        %         end
+        b = options.ylimits(:,2);
+        a = options.ylimits(:,1);
+        
     end
-
+    
 end
 
 
@@ -210,8 +212,8 @@ for sho = 1 : nshocks
         hold on;
         hold on
         axis tight
-        if ylimits == 1
-            ylim([a b]);
+        if ylimits == 1 && ~isnan(a(var)+b(var))
+            ylim([a(var) b(var)]);
         end
         if jplot <= nvar
             title(varnames{var},'FontSize',fontsize)

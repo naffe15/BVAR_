@@ -7,9 +7,9 @@ close all
 clc
 
 addpath ../../cmintools/
-addpath ../../v4.2/
-
+addpath ../../bvartools/
 pkg load statistics
+pkg load io
 
 %% %%=========================================================================
 %%% FAVAR %%%
@@ -27,8 +27,8 @@ nfac   = 3;         % number of PC
 % compressed slow moving variables first (PC) and append TBILL3M,
 y = [fhat y1];
 
-% 1. restrictions on the compressed variables, recursive identification 
-lags   = 2; 
+% 1. restrictions on the compressed variables, recursive identification
+lags   = 2;
 fabvar = bvar(y,lags);
 
 % Rescale the IRF from (PC+y1) back to (y2+y1)
@@ -38,7 +38,7 @@ C_       = rescaleFAVAR(STD,Lambda,size(y1,2),order_pc);
 
 % construct an IRF for each draw and shock of interest.
 % shocks of interest: MP (3 factor + interest rate)
-indx_sho     = nfac + 1;       
+indx_sho     = nfac + 1;
 for k = 1: fabvar.ndraws % iterate on draws
     fabvar.irX_draws(:,:,1,k) =  C_ * fabvar.ir_draws(:,:,indx_sho,k);
 end
@@ -52,12 +52,12 @@ irfs_to_plot = fabvar.irX_draws( indx_var, :, 1, :);
 % % variables names for the plots
 options.saveas_dir    = './irfs_plt';
 options.saveas_strng  = 'FaVAR';
-options.shocksnames   = {'MP'};  
-options.varnames      = {'GDP','CORE PCE'};  
+options.shocksnames   = {'MP'};
+options.varnames      = {'GDP','CORE PCE'};
 plot_irfs_(irfs_to_plot,options)
 
-%# sign restrictions on the uncompressed variables. 
-% agregate supply: GDP (+) GDP deflator (-). 
+%# sign restrictions on the uncompressed variables.
+% agregate supply: GDP (+) GDP deflator (-).
 % Assume that AD is the frist shock
 [~,indx_var] = ismember ({'GDPC96','GDPCTPI'},varnames_y2);
 
@@ -78,7 +78,7 @@ irfs_to_plot = fabvar.irXsign_draws(indx_var ,:,indx_sho,:);
 options.saveas_dir    = './irfs_plt';   % folder
 options.saveas_strng  = 'FaVAR';        % names of the figure to save
 options.shocksnames   = {'AS'};         % name of the shock
-options.varnames      = {'GDP','GDP Defl','CORE PCE'};  
+options.varnames      = {'GDP','GDP Defl','CORE PCE'};
 % finally, the plotting command
 plot_irfs_(irfs_to_plot,options)
 

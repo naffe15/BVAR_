@@ -88,6 +88,12 @@ while d==0 && tol < 30000
         Omeg  = Omega;
         y = iresponse(Phi,Sigma,hor,Omega);
         ir    = y;
+        if favar == 1
+            for jj  = 1 : size(y,3)
+                yy(:,1:hor,jj) = cont * ir(:,1:hor,jj);
+            end
+            clear ir; ir = yy;
+        end
     else
         tol = tol + 1;
     end

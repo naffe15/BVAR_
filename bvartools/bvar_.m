@@ -813,6 +813,7 @@ if zeros_signs_irf == 1
 end
 if proxy_irf == 1
     irproxy_draws = ir_draws;
+    Omegap_draws  = Sigma_draws;
 end
 if heterosked_irf == 1
    irheterosked_draws = ir_draws;
@@ -970,7 +971,18 @@ for  d =  1 : K
         in.Phi                  = Phi_draws(:,:,d)  ;
         in.Sigma                = Sigma;
         tmp_                    = iresponse_proxy(in);
-        irproxy_draws(:,:,1,d)  = tmp_.irs';
+        irproxy_draws(:,:,1,d)  = tmp_.irs';        
+        omega11 = tmp_.irs(1,1);
+        omega21 = tmp_.irs(1,2:end);
+        omega22 = chol(Sigma(2:end,2:end)-omega21'*omega21)' * generateQ(ny-1);
+        iomega22 = inv(omega22');
+        omega12o  = (Sigma(1,2:end)- omega11*omega21 )*iomega22;
+        norm     = sqrt(      omega12o*omega12o');
+        omega12 = omega12o/norm*sqrt(Sigma(1,1)-omega11^2); 
+        icholSig = inv(Sigma_lower_chol);
+        Omegap_draws(:,:,d) = icholSig*[[omega11; omega21'] , [omega12; omega22]];
+        %max(max(abs(Omegap_draws(:,:,d)*Omegap_draws(:,:,d)'-Sigma)))
+        % max(max(abs(Omegap_draws(:,:,d)*Omegap_draws(:,:,d)'-eye(ny))))
         clear tmp_
     end
     % with heteroskedasticity 
@@ -1310,8 +1322,10 @@ else
 end
 if proxy_irf == 1
     BVAR.irproxy_draws = irproxy_draws;
+    BVAR.Omegap        = Omegap_draws;
 else
     BVAR.irproxy_draws= [];
+    BVAR.Omegap = [];
 end
 if nexogenous > 0
     BVAR.irx_draws = irx_draws;

@@ -61,3 +61,4 @@ if favar == 1
     clear y; y = yy;
 end
 ir = y;
+Omeg = Omega;

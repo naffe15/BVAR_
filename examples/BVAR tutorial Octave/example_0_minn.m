@@ -6,8 +6,9 @@ clear all
 close all
 clc
 addpath ../../cmintools/
-addpath ../../v4.2/
+addpath ../../bvartools/
 pkg load statistics
+pkg load io
 
 %% %=========================================================================
 %%% INFERENCE %%%
@@ -19,11 +20,11 @@ y= [IPI HICP CORE Euribor1Y M3 EXRATE];% collect the variables used in the VAR
 
 %% Ex1/ Minnesota Prior
 
-lags = 6; 
+lags = 6;
 options.max_minn_hyper  = 1;
-options.minn_prior_tau  = 10;      % set tau 
+options.minn_prior_tau  = 10;      % set tau
 options.index_est       = [3 4];   % define the hyper-parameters over which to maximize
-options.lb              = [0 0];   % sets the lower bounds 
+options.lb              = [0 0];   % sets the lower bounds
 options.ub              = [20 20]; % sets the upper bounds
 options.max_compute     = 3;       % optimization  by Matlab Simplex
 BVAR                    = bvar(y,lags,options);
@@ -31,7 +32,7 @@ BVAR                    = bvar(y,lags,options);
 %% Ex2/ Minnesota Prior
 
 clear options
-lags = 6; 
+lags = 6;
 % setting the default values for the hyperparameters
 hyperpara(1)    = 3;		  % tau
 hyperpara(2)    = 0.5;		  % decay
@@ -42,7 +43,7 @@ hyperpara(5)    = 2;		  % omega
 options.index_est	   = 1:1;      % hyper-parameter over which maximize
 options.max_compute    = 3;      % maximize  using Matlab fmincon function
 options.lb             = [0.05]; % Lower bound
-[postmode,logmlike,HH] = bvar_max_hyper(hyperpara,y,lags,options); 
+[postmode,logmlike,HH] = bvar_max_hyper(hyperpara,y,lags,options);
 
 
 %% Ex3

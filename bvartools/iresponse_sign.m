@@ -61,7 +61,7 @@ while d==0 && tol < 30000
     if favar == 1   
         if do_pagemtimes ==0
             for jj  = 1 : size(y,3)
-                yy(:,:,jj) = cont * y(:,:,jj);
+                yy(:,1:hor0,jj) = cont * y(:,1:hor0,jj);
             end
         else
             lam  = repmat(cont,1,1,n);
@@ -77,6 +77,12 @@ while d==0 && tol < 30000
         Omeg  = fsign * Omega;
         y     = iresponse(Phi,Sigma,hor,Omega);
         ir    = fsign * y;
+        if favar == 1
+            for jj  = 1 : size(y,3)
+                yy(:,1:hor,jj) = cont * ir(:,1:hor,jj);
+            end
+            clear ir; ir = yy;
+        end
     else
         tol = tol + 1;
     end

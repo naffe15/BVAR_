@@ -7,8 +7,10 @@ close all
 clc
 
 addpath ../../cmintools/
-addpath ../../v4.2/
+addpath ../../bvartools/
 pkg load statistics
+pkg load io
+
 
 %% %=========================================================================
 %%% DIRECT METHODS %%%
@@ -26,23 +28,23 @@ dm1 = directmethods(y,lags,options);
 
 % Define the IRF of Interest
 % index of the shocks of interest (shock to gs1)
-indx_sho              = [3];   
+indx_sho              = [3];
 % Data order
 % 1. logip; 2. logcpi; 3. gs1; 4. ebp
-% Change the order of the variables for the plot 
+% Change the order of the variables for the plot
 % 1. gs1; 2. logcpi; 3. logip; 4. ebp
 indx_var              = [3, 2, 1, 4];
 
-% PLOT IRF 
+% PLOT IRF
 % Customize the IRF plot
 % variables names for the plots
-options.varnames      = {'1 year rate','CPI','IP','EBP'};  
+options.varnames      = {'1 year rate','CPI','IP','EBP'};
 % names of the directory where the figure is saved
 options.saveas_dir    = './dm_plt';
 % names of the figure to save
 options.saveas_strng  = 'Cholesky';
 % name of the shock
-options.shocksnames   = {'MP'};  
+options.shocksnames   = {'MP'};
 % Compare with BVAR estimates
 bvar_ = bvar(y,lags,options);
 var_irf_sort = sort(bvar_.ir_draws,4);
@@ -59,7 +61,7 @@ options =rmfield(options,'add_irfs');
 [numi,txti,rawi] = xlsread('../BVAR tutorial/factor_data.csv','factor_data');
 % instrument must have the same lenght as the observed data
 options.proxy  = nan(length(y),1);
-% use the same instrument as GK 
+% use the same instrument as GK
 % instruments and data end in 2012m6
 options.proxy(length(T)- length(numi)+1:end) = numi(:,4);
 
@@ -76,14 +78,14 @@ plot_irfs_(dm2.irproxy_lp(:,:,1,:)/norm,options0)
 
 options1 = options0;
 for vv = 1 :size(y,2)
-    dm3 = directmethods (y(:,vv),lags,options);    
+    dm3 = directmethods (y(:,vv),lags,options);
     options1.saveas_strng  = ['IV_var' num2str(vv)];
     options1.varnames = options0.varnames(vv);
     % finally, the plotting command
     plot_irfs_(dm3.irproxy_lp(:,:,1,:)/norm,options1)
 end
 
-%% 3/ Bayesian LP 
+%% 3/ Bayesian LP
 
 % run a VAR on presample data
 presample = 96; % 8 years of presample
@@ -96,10 +98,10 @@ options.priors.name        = 'Conjugate';
 options.priors.Phi.mean    = mean(bvar_.Phi_draws,3);
 % average variance of the AR coeff and constant
 options.priors.Phi.cov     = diag(mean(var(bvar_.Phi_draws,0,3),2));
-% posterior mean of the Covariance of the VAR residuals 
+% posterior mean of the Covariance of the VAR residuals
 options.priors.Sigma.scale = mean(bvar_.Sigma_draws,3);
 options.priors.Sigma.df    = size(bvar_.Phi_draws,1)-2;
-options.priors.tau         = 0.5*ones(options.hor); % 
+options.priors.tau         = 0.5*ones(options.hor); %
 
 options.proxy(1:presample,:) =[];
 
@@ -119,8 +121,8 @@ plot_irfs_(bdm.irproxy_blp(indx_var,:,1,:)/norm,options)
 
 %% 4/ Optimize Shrinkage
 
-options.priors.max_tau = 1; % 
-options.max_compute    = 1; % fmin search 
+options.priors.max_tau = 1; %
+options.max_compute    = 1; % fmin search
 bdm_opt                = directmethods(y(presample+1:end,:),lags,options);
 
 % the plotting command

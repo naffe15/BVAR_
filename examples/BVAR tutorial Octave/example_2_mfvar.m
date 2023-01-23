@@ -7,8 +7,9 @@ close all
 clc
 
 addpath ../../cmintools/
-addpath ../../v4.2/
+addpath ../../bvartools/
 pkg load statistics
+pkg load io
 
 %% %=========================================================================
 %%% MIXED FREQUENCY VAR %%%
@@ -18,17 +19,17 @@ load('../BVAR tutorial/DataMF')
 % select the variables of interest for the mixed freq exercise exercise
 y = [GDP IPI HICP CORE Euribor1Y UNRATE];
 % specify the # of lags
-lags = 6;              
+lags = 6;
 
-% T aggregation: the quarterly variable  
+% T aggregation: the quarterly variable
 % xq(t) = 1/3( xm(t) + xm(t-1) + xm(t-2)) at least two lags are needed
-options.mf_varindex     = 1; 
+options.mf_varindex     = 1;
 options.K               = 100;    % # draws
 options.priors.name     = 'Minnesota';
 % estimate the var model
 bvarmf                  = bvar(y,lags,options);
 
-% sort 
+% sort
 sorty = sort(bvarmf.yfill,3);
 
 tmp_str = 'mfvar_plt';
