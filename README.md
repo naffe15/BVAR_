@@ -10,7 +10,7 @@ The matlab 2020 release has a built in function called 'bvar' which causes a cra
 
 Link to the youtube tutorial: https://www.youtube.com/channel/UCDepPX4wbdkIqfg438J0h_g 
 
-Matlab toolbox requirements for each example
+Matlab toolbox requirements for each example <br />
 exercise_1_classical.m: statistics_toolbox; <br />
 exercise_2_minn.m:      statistics_toolbox; optimization_toolbox; <br />
 exercise_3_irf.m:       statistics_toolbox; optimization_toolbox; <br />
