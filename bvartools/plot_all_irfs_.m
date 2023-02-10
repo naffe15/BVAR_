@@ -40,6 +40,11 @@ if nargin <2
 else
     if isfield(options,'varnames') ==1
         varnames = options.varnames;
+    else
+        for v = 1 : nvar
+            eval(['varnames{'   num2str(v) '} =  ''Var  ' num2str(v) ''';'])
+        end
+        
     end
     if isfield(options,'shocksnames') == 1
         shocksnames = options.shocksnames;

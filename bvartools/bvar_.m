@@ -1072,8 +1072,12 @@ if waitbar_yes, close(wb); end
 BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
 BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
-[BVAR.InfoCrit.AIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(BVAR.Sigma_ols, BVAR.e_ols, nobs, nk);
 % the model with the lowest IC is preferred
+[BVAR.InfoCrit.AIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(BVAR.Sigma_ols, BVAR.e_ols, nobs, nk);
+% whiten the reduced form errors
+BVAR.Sigma_ols_chol = chol(BVAR.Sigma_ols,'lower');
+BVAR.iSigChol      = inv(BVAR.Sigma_ols_chol);
+BVAR.white_e_ols   = varols.u * BVAR.iSigChol';
 
 % OLS irf
 % with cholesky
@@ -1135,7 +1139,8 @@ end
 % test the normality of the ols VAR residuals (matlab stat toolbox needed)
 if  exist('kstest') ==2
     for gg = 1 : ny
-        [H,Pv] = kstest(BVAR.e_ols(:,gg)/sqrt(BVAR.Sigma_ols(gg,gg)));
+        %[H,Pv] = kstest(BVAR.e_ols(:,gg)/sqrt(BVAR.Sigma_ols(gg,gg)));
+        [H,Pv] = kstest(BVAR.white_e_ols(:,gg));
         BVAR.HP(gg,:) = [H,Pv];
         %      H = 0 => Do not reject the null hypothesis at the 5% significance
         %      level. 
