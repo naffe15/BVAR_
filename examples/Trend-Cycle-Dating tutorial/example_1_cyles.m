@@ -36,7 +36,7 @@ addpath ../../v4.2
 % LOAD DATA
 %=======================================================================
 % load the THE AWM DATABASE: Quarterly
-[a,b,~] = xlsread('awm19up18.csv');
+[a,b,~] = xlsread('awm19up18');
 % names of variables
 %varnames = b(1,2:end);
 
