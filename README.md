@@ -10,16 +10,5 @@ The matlab 2020 release has a built in function called 'bvar' which causes a cra
 
 Link to the youtube tutorial: https://www.youtube.com/channel/UCDepPX4wbdkIqfg438J0h_g 
 
-Matlab toolbox requirements for each example <br />
-exercise_1_classical.m: statistics_toolbox; <br />
-exercise_2_minn.m:      statistics_toolbox; optimization_toolbox; <br />
-exercise_3_irf.m:       statistics_toolbox; optimization_toolbox; <br />
-exercise_4_mfvar.m:     statistics_toolbox; optimization_toolbox; <br />
-exercise_5_favar.m:     statistics_toolbox; optimization_toolbox; <br />
-example_6_VARX.m:     statistics_toolbox; optimization_toolbox; <br />
-example_7_LP.m:     statistics_toolbox; optimization_toolbox; <br />
-example_8_panels.m:     statistics_toolbox; optimization_toolbox; <br />
-example_9_prediction.m:     statistics_toolbox; optimization_toolbox; <br /> 
-example_10_VAR_heterosked.m:     statistics_toolbox; optimization_toolbox; <br /> 
-example_11_connectedness.m :     statistics_toolbox; optimization_toolbox; <br />
-example_12_bdfm.m:     statistics_toolbox; optimization_toolbox; <br />      
+Matlab toolbox requirements BVAR tutorial: statistics_toolbox; optimization_toolbox; <br />
+Matlab toolbox requirements Trend-Cycle-Dating tutorial tutorial: statistics_toolbox; optimization_toolbox; signal_toolbox; <br />
