@@ -8,6 +8,8 @@ This repository contains MATLAB functions, routines and documentation to estimat
 
 The matlab 2020 release has a built in function called 'bvar' which causes a crash with previous versions of the toolbox. In current version, we create the function 'bvar_.m' and substitute 'bvar.m' with 'bvar_.m' in all the examples of the tutorial. Codes are backwarad compatible so that for matlab releases earlier than 2020 'bvar.m' still works. 
 
+With Matlab 2022b version, the toolbox crashes when it saves figures in 'eps' or 'pdf'. Until the problem is resolved, the tooolbox does not save figures in 'pdf' or 'eps' if uses the Matlab 2022b version.
+
 Link to the youtube tutorial: https://www.youtube.com/channel/UCDepPX4wbdkIqfg438J0h_g 
 
 Matlab toolbox requirements BVAR tutorial: statistics_toolbox; optimization_toolbox; <br />
