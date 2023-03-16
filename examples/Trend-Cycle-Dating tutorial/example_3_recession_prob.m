@@ -5,7 +5,7 @@
 close all; clc; clear all;
 
 addpath ../../cmintools/
-addpath ../../v4.2
+addpath ../../bvartools/
 
 % predicting  recession and the start of  a recession in the  euro  area. 
 % use recession indicator constructed with example_2_dating.m; regressors 
@@ -14,7 +14,7 @@ addpath ../../v4.2
 
  
 % Euro area AWM DATABASE: Quarterly
-    [a,b,~] = xlsread('awm19up18.csv');
+    [a,b,~] = xlsread('awm19up18.xlsx');
     % names of variables
     varnames = b(1,2:end);
 

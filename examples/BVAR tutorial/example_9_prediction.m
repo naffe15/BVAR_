@@ -126,9 +126,11 @@ for jj= 1:length(varnames)
     end
     set(    gcf,'position' ,[50 50 900 650])
     STR_RECAP = [tmp_str '/multiple_frscst_' varnames{jj}];
-    savefigure_pdf(STR_RECAP);
     saveas(gcf,STR_RECAP,'fig');
-    saveas(gcf,STR_RECAP,'eps');
+    if strcmp(version('-release'),'2022b') == 0
+        savefigure_pdf(STR_RECAP);
+        saveas(gcf,STR_RECAP,'eps');
+    end
 end
 pause;
 close all

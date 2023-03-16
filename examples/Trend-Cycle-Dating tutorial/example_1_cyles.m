@@ -6,7 +6,7 @@
 close all; clc; clear all;
 
 addpath ../../cmintools/
-addpath ../../v4.2
+addpath ../../bvartools/
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % this program illustrates the use of different filters to compute

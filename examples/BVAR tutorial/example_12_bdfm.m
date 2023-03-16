@@ -119,7 +119,9 @@ dirname  = 'factor_plt';
 mkdir(dirname)
 STR_RECAP = [ dirname '/sfm'];
 saveas(gcf,STR_RECAP,'fig');
-savefigure_pdf([STR_RECAP '.pdf']);
+if strcmp(version('-release'),'2022b') == 0
+	savefigure_pdf([STR_RECAP '.pdf']);
+end
 pause;
 
 
@@ -168,7 +170,9 @@ for gg=1:nfac
 end
 STR_RECAP = [ dirname '/dfm'];
 saveas(gcf,STR_RECAP,'fig');
-savefigure_pdf([STR_RECAP '.pdf']);
+if strcmp(version('-release'),'2022b') == 0
+	savefigure_pdf([STR_RECAP '.pdf']);
+end
 
 %%
 

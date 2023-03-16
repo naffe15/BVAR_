@@ -105,8 +105,8 @@ else
         %             b = options.ylimits(2);
         %             a = options.ylimits(1);
         %         end
-        b = options.ylimits(:,2);
-        a = options.ylimits(:,1);
+        b = squeeze(options.ylimits(:,2,:));
+        a = squeeze(options.ylimits(:,1,:));
         
     end
     
@@ -217,8 +217,8 @@ for sho = 1 : nshocks
         hold on;
         hold on
         axis tight
-        if ylimits == 1 && ~isnan(a(var)+b(var))
-            ylim([a(var) b(var)]);
+        if ylimits == 1 && ~isnan(a(var,sho)+b(var,sho))
+            ylim([a(var,sho) b(var,sho)]);
         end
         if jplot <= nvar
             title(varnames{var},'FontSize',fontsize)
@@ -232,6 +232,8 @@ end
 if savefig_yes == 1,
     STR_RECAP = [ fnam_dir '/' fnam_suffix ];
     saveas(gcf,STR_RECAP,'fig');
-    saveas(gcf,STR_RECAP,'eps');
-    savefigure_pdf([STR_RECAP '.pdf']);
+    if strcmp(version('-release'),'2022b') == 0
+        saveas(gcf,STR_RECAP,'eps');
+        savefigure_pdf([STR_RECAP '.pdf']);
+    end
 end

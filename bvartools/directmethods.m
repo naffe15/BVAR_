@@ -197,6 +197,7 @@ if nargin>2
     % options for the maximization
     if isfield(options,'max_compute') == 1
         max_compute    = options.max_compute;
+        max_prior_tau_ = 1;
     end
     if isfield(options,'ub') == 1
         ub    = options.ub;

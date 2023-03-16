@@ -274,8 +274,9 @@ for j = 1 : size(pplotvar,2)
     if savefig_yes == 1
         STR_RECAP = [ fnam_dir '/svar_' fnam_suffix '_' int2str(j)];
         saveas(gcf,STR_RECAP,'fig');
-        saveas(gcf,STR_RECAP,'pdf');
-        
+        if strcmp(version('-release'),'2022b') == 0
+            saveas(gcf,STR_RECAP,'pdf');
+        end
         fprintf(fidTxt,['The figure sdcmp_' fnam_suffix '_' int2str(j) ' contains the following variable:\n' ]);
         tmp = strrep(char(pplotvarname{j} ),'\',' ');
         fprintf(fidTxt,[tmp '; ']);

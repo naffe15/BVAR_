@@ -283,7 +283,9 @@ ylim([88 99])
 legend('Ridge','Lasso','ElasticNet')
 STR_RECAP = [ dirname '/RolllingIndex'];
 saveas(gcf,STR_RECAP,'fig');
-savefigure_pdf([STR_RECAP '.pdf']);
+if strcmp(version('-release'),'2022b') == 0
+    savefigure_pdf([STR_RECAP '.pdf']);
+end
 
 %%
 
@@ -322,7 +324,9 @@ for sel = 1 : length(selection)
 
     STR_RECAP = [ dirname '/RolllingIndex_' selection{sel}];
     saveas(gcf,STR_RECAP,'fig');
-    savefigure_pdf([STR_RECAP '.pdf']);
+    if strcmp(version('-release'),'2022b') == 0
+        savefigure_pdf([STR_RECAP '.pdf']);
+    end
 
     
 end

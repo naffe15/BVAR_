@@ -5,7 +5,7 @@
 close all; clc; clear all;
 
 addpath ../../cmintools/
-addpath ../../v4.2
+addpath ../../bvartools/
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % this program illustrates the use of BB program to  date  turning  points
@@ -26,7 +26,7 @@ lload=0; % =0 euro data, =1 US data
 
 if lload==0
     % Euro area AWM DATABASE: Quarterly
-    [a,b,~] = xlsread('awm19up18.csv');
+    [a,b,~] = xlsread('awm19up18');
     % names of variables
     varnames = b(1,2:end);
     

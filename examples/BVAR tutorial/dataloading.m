@@ -29,7 +29,7 @@ end
 %% MP shocks Database
 clear all
 %US: monthly GK dataset
-datafile = 'VAR_data.csv';
+datafile = 'VAR_data';
 sheet    = 'VAR_data';
 
 [num,txt,raw] = xlsread(datafile,sheet);

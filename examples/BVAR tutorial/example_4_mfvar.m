@@ -35,7 +35,9 @@ plot(T,y(:,1),'Linewidth',2,'marker','o','color','r'); hold on;
 plot(T,sorty(:,1,0.5*bvarmf.ndraws),'b','Linewidth',2)
 legend('Quarterly data','MXFREQ VAR flow (x^q_t = 1/3( x^m_t +  x^m_{t-1} +  x^m_{t-2}))','Interpolation','location','SouthOutside')
 set(    gcf,'position' ,[50 50 900 650])
-savefigure_pdf([tmp_str '\MonthlyGDP']);
+if strcmp(version('-release'),'2022b') == 0
+    savefigure_pdf([tmp_str '\MonthlyGDP']);
+end
 
 % plot: growth rates
 figure('Name','Monthly EA GDP growth')
@@ -48,6 +50,7 @@ hold on; plot(T(4:end),DY,'b','Linewidth',2)
 % hold on; plot(T(4:end),DiY,'k-.','Linewidth',1.5)
 legend('Quarterly data','MXFREQ VAR flow (x^q_t = 1/3( x^m_t +  x^m_{t-1} +  x^m_{t-2}))','Interpolation','location','SouthOutside')
 set(    gcf,'position' ,[50 50 900 650])
-savefigure_pdf([tmp_str '\MonthlyGDPgrowth']);
-
+if strcmp(version('-release'),'2022b') == 0
+    savefigure_pdf([tmp_str '\MonthlyGDPgrowth']);
+end
 
