@@ -201,7 +201,7 @@ for yy = 1999 : 2019
     end
 end
 
-datafile = 'dataEAm.csv';
+datafile = 'dataEAm';
 sheet    = 'dataEAm';
 [num0,~,~] = xlsread(datafile,sheet);
 HICP   = num0(:,1); CORE   = num0(:,2);	IPI    = num0(:,3); 
