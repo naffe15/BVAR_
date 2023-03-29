@@ -20,7 +20,8 @@ for qq=1:size(X,2)
 
     % 2-4  quarters cycles
     for  tt=2:length(y)
-    xx1(tt,1)=(1/2)*(y(tt)-(y(tt)-y(tt-1)));
+    %xx1(tt,1)=(1/2)*(y(tt)-(y(tt)-y(tt-1)));
+    xx1(tt,1)=(1/2)*(y(tt)-y(tt-1));
     end
     % 4-8  quarters cycles
     for  tt=4:length(y)
