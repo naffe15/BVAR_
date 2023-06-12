@@ -27,7 +27,7 @@ function [sims_with_endopath,EPSn] = cforecasts(endo_path,endo_index,forecast_da
 [fhor,Ncondvar] = size(endo_path);
 Nvar            = size(Sigma,2);
 
-if size(Ncondvar,2) ~= length(endo_index)
+if Ncondvar ~= length(endo_index)
     error('something went wrong: the number of path and the number of vars are not consistent.')
 end
 if size(endo_index,1) > size(endo_index,2)
@@ -46,7 +46,7 @@ Nres = size(endo_index,2)*fhor;
 % err                 = endo_path_deviation - sims_no_shock(:,endo_path_index);
 % err = zeros(Nvar*fhor);
 err = endo_path - sims_no_shock(:,endo_index);
-err = reshape(err',size(endo_index,1)*fhor,1);
+err = reshape(err',length(endo_index)*fhor,1);
 
 % 1 standard deviation increase (if unit = eye(N))
 [C] = chol(Sigma,'lower');
