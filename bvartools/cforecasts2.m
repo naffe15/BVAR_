@@ -41,7 +41,7 @@ if nargin < 9
     epslags_ = 0;
 end
 
-if size(Ncondvar,2) ~= length(endo_index)
+if Ncondvar ~= length(size(endo_index))
     error('something went wrong: the number of path and the number of vars are not consistent.')
 end
 if size(endo_index,1) > size(endo_index,2)
@@ -92,7 +92,7 @@ for t = 1 : fhor
     % unconditional forecasts with all shocks but 'exo_index'
     shock  = EPS(t,:);
     y = X * Phi + shock;
-    e(:,t) = inv(RR(endo_index,exo_index))*(endo_path(t,:) - y(endo_index));
+    e(:,t) = inv(RR(endo_index,exo_index))*(endo_path(t,:) - y(endo_index))';
     y = y + (RR(:,exo_index)*e(:,t))';
     lags_data(1:end-1,:) = lags_data(2:end, :);
     lags_data(end,:) = y;

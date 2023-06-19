@@ -50,6 +50,9 @@ options.minn_prior_mu       = b.var(3).prior.minn_prior_mu;
 options.endo_index          = 4;
 % impose a lower bound trajectory for the short term interest rate
 options.endo_path   = Euribor1Y(in_sample_end+1:end);
+% % impose a lower bound trajectory for the short term interest rate and M3
+% options.endo_index  = [4 5];
+% options.endo_path   = [Euribor1Y(in_sample_end+1:end) M3(in_sample_end+1:end)];
 c.var(1)            = bvar_(y,lags,options);
 
 %% 5) Forecasts conditional on the short run interest rate
