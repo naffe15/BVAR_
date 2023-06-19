@@ -41,7 +41,7 @@ if nargin < 9
     epslags_ = 0;
 end
 
-if Ncondvar ~= length(size(endo_index))
+if Ncondvar ~= length(endo_index)
     error('something went wrong: the number of path and the number of vars are not consistent.')
 end
 if size(endo_index,1) > size(endo_index,2)
