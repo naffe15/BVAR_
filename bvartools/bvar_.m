@@ -85,6 +85,9 @@ narrative_signs_irf = 0;
 zeros_signs_irf     = 0;
 proxy_irf           = 0;
 heterosked_irf      = 0;
+hmoments_signs_irf  = 0;
+hmoments_eig_irf    = 0;
+% fevd_irf            = 0;
 noprint             = 0;
 nexogenous          = 0;
 exogenous           = [];
@@ -93,6 +96,7 @@ Ridge_              = 0;
 Lasso_              = 0;
 ElasticNet_         = 0;
 set_irf             = 0;
+robust_bayes_       = 0;
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -170,6 +174,16 @@ if nargin > 2
     if isfield(options,'heterosked_weights')==1
         ww  = options.heterosked_weights;
         heterosked = 1;
+    end    
+    % compute the second and fourth moments robust to error distribution misspecification   
+    if isfield(options,'robust_bayes')==1
+        robust_bayes_  = options.robust_bayes;
+        % shrinkage towards a normal distribution K_shrinkage = infty
+        if isfield(options,'K_shrinkage') == 1 
+            K_shrinkage = options.K_shrinkage;
+        else
+            K_shrinkage = 1 * size(y, 1);
+        end
     end    
     %======================================================================
     % Exogenous Variables options
@@ -465,6 +479,34 @@ if nargin > 2
         end
         inols =in;
     end
+    if isfield(options,'hmoments')==1
+        if signs_irf  == 0
+            warning('You did not provide any sign restrictions.')
+            signs{1} = 'isempty(y(1,1,1))==0';
+        end
+        if signs_irf  == 1
+            signs_irf       = 0;  % disactivating signs
+        end
+        if robust_bayes_ == 0
+            robust_bayes_      = 1;
+            K_shrinkage        = 1 * size(y,2);
+        end
+        hmoments_signs_irf = 1;
+        hmoments           = options.hmoments;
+        [f]                = hmoments2matrix(hmoments,ny);
+    end
+    if isfield(options,'hmoments_eig')==1
+        moment = options.hmoments_eig;
+%         if moment ~= 3 ||  moment ~= 4
+%             warning('You can decompose third (3) or fourth (4) moments. I set as default 4')
+%             moment = 4;
+%         end
+        if robust_bayes_ == 0
+            robust_bayes_      = 1;
+            K_shrinkage        = 1 * size(y,2);
+        end
+        hmoments_eig_irf = 1;
+    end
     if isfield(options,'irf_1STD')==1
         % Activating of unitary IRF, i.e. a unitary increase in the shocks
         % (instead of 1 STD)
@@ -751,6 +793,47 @@ end
 % specify the posterior (the varols agin on actual+dummy)
 [posterior,var] = posterior_(y);
 
+% compute the second and fourth moments robust to error distribution misspecification  
+if robust_bayes_ > 0 
+    
+    
+    %% Kurtosis
+    %var.u
+    Dpl       = duplicationmatrix(ny);
+    Dplus     = pinv(Dpl);
+    I_ny      = vech(eye(ny));
+    %I__ny     = reshape(eye(ny),ny^2,1); 
+    Sig_      = 1/nobs * varols.u' * varols.u;
+    vech_Sig_ = vech(Sig_);
+
+    % whithen the reduced form errors
+    SigChol   = chol(Sig_,'lower');
+    iSigChol  = inv(SigChol);
+    white_u   = varols.u * iSigChol';     
+    % compute fourth centered moments
+    Khat_     = fourthmom(white_u);
+    % shrink towards the normal multivariate fourth mom
+    % equation (17) at page 161
+    K1_       = nobs/(nobs+K_shrinkage) * (Khat_ - I_ny * I_ny') ; 
+    K2_       = K_shrinkage/(nobs+K_shrinkage) * ...
+        Dplus *(eye(ny^2) + commutationmatrix(ny)) * Dplus'; 
+        %Dplus *(eye(ny^2) + commutationmatrix(ny) + I__ny*I__ny') * Dplus'; 
+    Kstar_     = K1_ + K2_;
+    % equation (8) of remark 3 at page 158
+    Left  = Dplus * kron(SigChol,SigChol) * Dpl;
+    Rigth = Left';
+    
+    vech_Sig_cov_            = 1/nobs * Left * (Kstar_) * Rigth;   
+    vech_Sig_cov_lower_chol  = chol(vech_Sig_cov_,'lower');
+    
+    if robust_bayes_ > 1 
+        %% Skewness
+        ivech_Sig_cov_ = pinv(vech_Sig_cov_);
+        Sstar_         = nobs /(nobs+K_shrinkage) * thirdmom(varols.u);
+        mu_cov_        = 1/nobs * Sstar_ * ivech_Sig_cov_ * Sstar_';
+        mu_cov_chol    = chol(Sig_ - mu_cov_,'lower');
+    end
+end
 
 %*********************************************************
 %* Compute the log marginal data density for the VAR model
@@ -819,7 +902,14 @@ if heterosked_irf == 1
    irheterosked_draws = ir_draws;
    Omegah_draws       = Sigma_draws;
 end
-    
+if hmoments_signs_irf == 1
+    irhmomsign_draws = ir_draws;
+    Omegam_draws     = Sigma_draws;
+end
+if hmoments_eig_irf == 1
+    irhmomeig_draws = ir_draws;
+    Omegae_draws     = Sigma_draws;
+end
 if mixed_freq_on
     yfill = nan(size(y,1),ny,K);
     yfilt = nan(size(y,1),ny,K);    
@@ -886,14 +976,36 @@ for  d =  1 : K
         %======================================================================
         % Inferece: Drawing from the posterior distribution
         % Step 1: draw from the Covariance
-        Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
-        
-        % Step 2: given the Covariance Matrix, draw from the AR parameters
-        Sigma_lower_chol = chol(Sigma)';
+        if robust_bayes_ > 0 % robust to kurtosis 
+            tec = 0;
+            while tec == 0
+                Sig0  = randn((ny+1)*ny/2, 1);
+                Sig1  = vech_Sig_cov_lower_chol * Sig0;
+                Sig2  = vech_Sig_ + Sig1;
+                Sigma = ivech(Sig2);
+                %vech_Sig_ = vech(Sig_);
+                %vech_Sig_cov_lower_chol  = 1/nobs * (Kstar_ - vech_Sig_ * vech_Sig_');
+                [Sigma_lower_chol,flag] = chol(Sigma,'lower');
+                if flag == 0
+                    tec = 1;
+                end
+            end
+        else    
+            Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
+            Sigma_lower_chol = chol(Sigma)';
+        end
+
         Phi1 = randn(nk * ny, 1);
         Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
         Phi3 = reshape(Phi2, nk, ny);
         Phi  = Phi3 + posterior.PhiHat;
+        
+        if robust_bayes_ > 1 % robust to kurtosis and skewness
+            mu_rob           = posterior.PhiHat(ny*lags+1,:) + (Sstar_* ivech_Sig_cov_ * (Sig2  - vech_Sig_))';
+            % as if assuming no lags (only costant) (X'X) = T
+            % mu_cov_chol      = chol(Sigma - mu_cov_,'lower');            
+            Phi(ny*lags+1,:) = mu_rob + (mu_cov_chol*randn(ny, 1))';
+        end
         
         Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
         test = (abs(eig(Companion_matrix)));
@@ -990,6 +1102,22 @@ for  d =  1 : K
         [irheterosked,Omegah]       = iresponse_heterosked(Phi(1 : ny*lags, 1 : ny),errors,hor,heterosked_regimes);
         irheterosked_draws(:,:,:,d) = irheterosked;
         Omegah_draws(:,:,d)         = Omegah;
+    end
+    % with higher-moments and sign restrictions
+    if hmoments_signs_irf == 1
+        [irhmomsign,Omega]         = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);
+        irhmomsign_draws(:,:,:,d)  = irhmomsign;
+        Omegam_draws(:,:,d)        = Omega;
+%         if isnan(Omega)
+%             nan_count = nan_count + 1;
+%             disp([nan_count nan_count/d])
+%         end
+    end
+    % with higher-moments eigenvalue decomposition
+    if hmoments_eig_irf == 1
+        [irhmomeig,Omega]         = iresponse_sign_hmoments_eig(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,moment);
+        irhmomeig_draws(:,:,:,d)  = irhmomeig;
+        Omegae_draws(:,:,d)        = Omega;
     end
     
     %======================================================================
@@ -1290,7 +1418,12 @@ if cfrcst_yes ~= 0
     BVAR.forecasts.EPScond        = EPS;                       % shocks of forecasts
 end
 BVAR.forecast_data            = forecast_data;
-
+if robust_bayes_ > 0
+    BVAR.Kstar_  = Kstar_;
+    if robust_bayes_ > 1
+        BVAR.Sstar_  = Sstar_;
+    end
+end
 %
 BVAR.varnames     = varnames;
 BVAR.ndraws       = K;
@@ -1331,6 +1464,20 @@ if proxy_irf == 1
 else
     BVAR.irproxy_draws= [];
     BVAR.Omegap = [];
+end
+if hmoments_signs_irf == 1
+    BVAR.irhmomsign_draws = irhmomsign_draws;
+    BVAR.Omegam           = Omegam_draws;
+else
+    BVAR.irhmomsign_draws = [];
+    BVAR.Omegam           = [];
+end
+if hmoments_eig_irf == 1
+    BVAR.irhmomeig_draws = irhmomeig_draws;
+    BVAR.Omegae           = Omegae_draws;
+else
+    BVAR.irhmomeig_draws = [];
+    BVAR.Omegae          = [];
 end
 if nexogenous > 0
     BVAR.irx_draws = irx_draws;

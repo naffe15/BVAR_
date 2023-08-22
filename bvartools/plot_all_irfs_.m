@@ -27,6 +27,8 @@ fnam_dir    = '.';
 fnam_suffix = 'irfs_';
 fontsize    = 12;
 ylimits     = 0;
+SizePositionFigure = [50 50 800 650];
+plot_median = 1;
 
 if nargin <2
     disp('You did not provided names for shocks nor variables.')
@@ -56,16 +58,19 @@ else
             eval(['shocksnames{' num2str(v) '} =  ''Shck ' varnames{v} ''';'])
         end
     end
-    if isfield(options,'normz') ==1 && options.normz==1,
+    if isfield(options,'normz') ==1 && options.normz==1
         normz_yes = 1;
     end
-    if isfield(options,'conf_sig') ==1;
+    if isfield(options,'conf_sig') ==1
         conf_sig = options.conf_sig;
     end
-    if isfield(options,'nplots') ==1;
+    if isfield(options,'nplots') ==1
         nplots = options.nplots;
     end
-    if isfield(options,'saveas_strng') ==1;
+    if isfield(options,'SizePositionFigure') ==1
+        SizePositionFigure = options.SizePositionFigure;
+    end    
+    if isfield(options,'saveas_strng') ==1
         savefig_yes = 1;
         % setting the names of the figure to save
         fnam_suffix = [ 'irfs_' options.saveas_strng ];
@@ -91,6 +96,10 @@ else
     if isfield(options,'fontsize') ==1
         % title font size
         fontsize = options.fontsize;
+    end
+    if isfield(options,'plot_median') ==1
+        % title font size
+        plot_median  = options.plot_median;
     end
     if isfield(options,'ylimits') ==1
         % adds limits
@@ -204,8 +213,9 @@ for sho = 1 : nshocks
             set(h,'linestyle','none')
             hold on;
         end
-        
-        plot(irf_Median(var,:,sho),'k');
+        if plot_median == 1
+           plot(irf_Median(var,:,sho),'k');
+        end
         hold on;
         if add_irfs_yes == 1
             for hh = 1: size(add_irfs,4)
@@ -226,9 +236,9 @@ for sho = 1 : nshocks
         if jplot == nvar*(sho-1) + 1
             ylabel(shocksnames{sho},'FontSize',fontsize)
         end
-        set(gcf,'position' ,[50 50 800 650])
     end
 end
+set(gcf,'position' ,SizePositionFigure)
 if savefig_yes == 1,
     STR_RECAP = [ fnam_dir '/' fnam_suffix ];
     saveas(gcf,STR_RECAP,'fig');

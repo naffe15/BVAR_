@@ -28,7 +28,10 @@ for ii = 1 : size(varordering,2)
          end             
     end
     if check == 1
-        assignin('base', [newstrng 'index_' varordering{ii} ], ii);
+        %assignin('base', [newstrng 'index_' varordering{ii} ], ii);
+        String = varordering{ii};
+        iString = String(find(~isspace(String)));
+        assignin('base', [newstrng 'i' iString ], ii);
     else
         warning(['I did not find ' varordering{ii} ' in varnames']) 
     end
