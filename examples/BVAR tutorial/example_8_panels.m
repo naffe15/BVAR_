@@ -29,7 +29,7 @@ load DataBanks
 
 irfs_to_plot=zeros(2,24,2,NBanks);
 lags              =  4;
-opt.K             = 1;    % Draws from the posterior not needed
+opt.K             =  1;    % Draws from the posterior not needed
 for i  = 1 : NBanks
     % construct the banks i database 
     yi   = [LendingRate(:,i) DepositRate(:,i)];    
@@ -66,10 +66,11 @@ pause;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % NOTE: IF THE DATA  HAS DYNAMIC HETEROGENEITY THE  ESTIMATOR COMPUTED HERE
 % IS INCONSISTENT
-LendingRate_ = reshape(demean(LendingRate),T*NBanks,1);
-DepositRate_ = reshape(demean(DepositRate),T*NBanks,1);
 
-ypooled  = [LendingRate_ , DepositRate_];
+ypooled = zeros(T,2,NBanks);
+for i  =  1 : NBanks
+    ypooled(:,:,i)  = [demean(LendingRate(:,i)) , demean(DepositRate(:,i))];
+end
 
 lags        = 2;
 bvar1       = bvar_(ypooled,lags);

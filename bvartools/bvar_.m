@@ -43,6 +43,8 @@ if lags < 1
 end
 % number of observable variables
 ny                  = size(y, 2);
+% number of units (for panels)
+nunits              = size(y, 3);
 
 %********************************************************
 %* DEFAULT SETTINGS
@@ -87,7 +89,6 @@ proxy_irf           = 0;
 heterosked_irf      = 0;
 hmoments_signs_irf  = 0;
 hmoments_eig_irf    = 0;
-% fevd_irf            = 0;
 noprint             = 0;
 nexogenous          = 0;
 exogenous           = [];
@@ -126,6 +127,9 @@ end
 if mixed_freq_on == 1 && nargin < 3
     warning('You did not specified the aggregation of the mixed freq. Variables will be treated as stocks.');
     index = zeros(size(y,2),1);
+end
+if mixed_freq_on == 1 && nunits > 1
+    error('The toolbox does not estimate a pooled VAR with missing observations.');
 end
 
 % Priors declaration: default Jeffrey prior
@@ -521,7 +525,7 @@ if nargin > 2
             error('Forecast horizon must be positive')
         end
     end
-    if isfield(options,'endo_index')==1
+    if isfield(options,'endo_index')==1        
         % Forecast conditional on the path of an endogenous var
         cfrcst_yes      = 1; 
         if isfield(options,'endo_path')== 0
@@ -547,8 +551,11 @@ if nargin > 2
                 error('the # of conditioned endogenous and # exogenous shocks used must coincide');
             end
         end
-
-    end    
+        if nunits > 1
+            cfrcst_yes = 0;
+            warning('Conditional forecasts are not supported with pooled VARs.')
+        end
+    end
     %======================================================================
     % Missing Values options
     %======================================================================
@@ -690,7 +697,16 @@ if noconstant
 end
 
 % organize data as  yy = XX B + E
-[yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
+if nunits == 1
+    [yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
+else % pooled units
+    yy = []; XX = [];
+    for nunit = 1 : nunits
+        [yy,XX] = YXB_(y(idx, :, nunit),lags,[nx timetrend]);
+        XX = [XX; XX];
+        yy = [yy; yy];
+    end
+end
 
 ydum    = [];
 xdum    = [];
@@ -698,7 +714,7 @@ pbreaks = 0;
 lambda  = 0;
 mu      = 0;
 
-ydata   = y(idx, :);
+ydata   = y(idx, :, :);
 T       = size(ydata, 1);
 if T-lags < lags*ny + nx %+ flat*(ny+1)
     error('Less observations than regressors: increase the # of obs or decrease the # of lags.')
@@ -714,10 +730,21 @@ if nexogenous > 0
 end
 
 % OLS estimate [NO DUMMY]:
-if heterosked == 0
-    varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0);    
-else
-    varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0, ww);
+if nunits == 1
+    if heterosked == 0
+        varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0);
+    else
+        varols  = rfvar3(ydata, lags, xdata, [T; T], 0, 0, ww);
+    end
+else % pooled units
+    varols.y = []; varols.X = [];
+    for nunit = 1 : nunits
+        tmp_varols = rfvar3(ydata(:,:,nunit), lags, xdata, [T; T], 0, 0);
+        varols.X = [varols.X; tmp_varols.X];
+        varols.y = [varols.y; tmp_varols.y];
+    end
+    % Compute OLS regression and residuals of the pooled estimator
+    varols = fast_ols(varols.y,varols.X);
 end
 
 if Ridge_ == 1
@@ -734,12 +761,12 @@ if Lasso_ == 1
     varLasso.u = varLasso.y - varLasso.X*varLasso.B;
 end
 if ElasticNet_ == 1
-     varElasticNet   = varols;
-     for vv = 1 : ny
-         varElasticNet.B(:,vv) = ...
-             lasso(varElasticNet.X,varElasticNet.y(:,vv),'Lambda',ElasticNet_lambda,'Alpha',ElasticNet_alpha);
-     end     
-     varElasticNet.u = varElasticNet.y - varElasticNet.X*varElasticNet.B;
+    varElasticNet   = varols;
+    for vv = 1 : ny
+        varElasticNet.B(:,vv) = ...
+            lasso(varElasticNet.X,varElasticNet.y(:,vv),'Lambda',ElasticNet_lambda,'Alpha',ElasticNet_alpha);
+    end
+    varElasticNet.u = varElasticNet.y - varElasticNet.X*varElasticNet.B;
 end
 
 
@@ -874,9 +901,9 @@ ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock a
 irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
 Qlr_draws     = zeros(ny,ny,K);                     % long run impact matrix
 e_draws       = zeros(size(yy,1), ny,K);                  % residuals
-yhatfut_no_shocks         = NaN(fhor, ny, K);   % forecasts with shocks
-yhatfut_with_shocks       = NaN(fhor, ny, K);   % forecast without the shocks
-yhatfut_cfrcst            = NaN(fhor, ny, K);   % forecast conditional on endogenous path
+yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts with shocks
+yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecast without the shocks
+yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional on endogenous path
 logL                      = NaN(K,1);
 if signs_irf == 1
     irsign_draws = ir_draws;
@@ -929,8 +956,8 @@ if timetrend
 end
 if nexogenous>0
     forecast_data.xdata = [forecast_data.xdata exogenous(T-lags+1 : T-lags+fhor,:)];
-end    
-forecast_data.initval     = ydata(end-lags+1:end, :);
+end
+forecast_data.initval     = ydata(end-lags+1:end, :, :);
 
 % Settings for the MFVAR
 if mixed_freq_on == 1
@@ -1124,9 +1151,9 @@ for  d =  1 : K
     % Forecasts
     % compute the out of sample forecast (unconditional)
     [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,Phi,Sigma,fhor,lags);
-    yhatfut_no_shocks(:,:,d)            = frcst_no_shock;
-    yhatfut_with_shocks(:,:,d)          = frcsts_with_shocks;
-    
+    yhatfut_no_shocks(:,:,d,:)            = frcst_no_shock;
+    yhatfut_with_shocks(:,:,d,:)          = frcsts_with_shocks;
+
     if cfrcst_yes == 1
         % Forecast conditional on the path of an endo var using all shocks
         [sims_with_endopath,EPS(:,:,d)] = ...
@@ -1409,12 +1436,12 @@ BVAR.yy           = yy;                 % dependent  (no dummy)
 % prediction
 BVAR.fhor         = fhor;               % forecast horizon
 BVAR.hor          = hor;                % IRF horizon
-BVAR.forecasts.no_shocks      = yhatfut_no_shocks;         % trajectories of forecasts without shocks
-BVAR.forecasts.with_shocks    = yhatfut_with_shocks;       % trajectories of forecasts with shocks
-BVAR.forecasts.conditional    = [];            % trajectories of conditional forecasts
-BVAR.forecasts.EPScond        = [];            % shocks of conditional forecasts
+BVAR.forecasts.no_shocks      = squeeze(yhatfut_no_shocks);         % trajectories of forecasts without shocks
+BVAR.forecasts.with_shocks    = squeeze(yhatfut_with_shocks);       % trajectories of forecasts with shocks
+BVAR.forecasts.conditional    = [];                                 % trajectories of conditional forecasts
+BVAR.forecasts.EPScond        = [];                                 % shocks of conditional forecasts
 if cfrcst_yes ~= 0
-    BVAR.forecasts.conditional    = yhatfut_cfrcst;            % trajectories of forecasts
+    BVAR.forecasts.conditional    = squeeze(yhatfut_cfrcst);   % trajectories of forecasts
     BVAR.forecasts.EPScond        = EPS;                       % shocks of forecasts
 end
 BVAR.forecast_data            = forecast_data;
@@ -1516,7 +1543,7 @@ end
         % needs to be revaluated given a new value of the Kalman smoothed
         % observables
         %===========================================
-        ydata = y(idx, :);
+        ydata = y(idx, :, :);
         %===========================================
         T     =  size(ydata, 1);
         xdata = ones(T,nx);
@@ -1528,10 +1555,21 @@ end
             xdata = [xdata exogenous(idx,:)];
         end
         % posterior density
-        if heterosked == 0
-            var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
-        else
-            var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+        if nunits == 1
+            if heterosked == 0
+                var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+            else
+                var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+            end
+        else  % pooled units
+            var.y = []; var.X = [];
+            for nunt = 1 : nunits
+                tmp_var = rfvar3(ydata(:,:,nunt), lags, xdata, [T; T], 0, 0);
+                var.X = [var.X; tmp_var.X];
+                var.y = [var.y; tmp_var.y];
+            end
+            % Compute OLS regression and residuals of the pooled estimator
+            var = fast_ols(var.y,var.X);
         end
         Tu = size(var.u, 1);
                 
@@ -1597,7 +1635,24 @@ end
     function [priors] = priors_( )
         
         priors.name  = 'N/A';
-        
+
+    end
+%********************************************************
+%********************************************************
+    function out = fast_ols(y,X)
+        % Compute OLS regression and residuals
+        [vl,d_,vr] = svd(X,0);
+        di = 1./diag(d_);
+        B = (vr.*repmat(di',ny*lags+nx,1))*vl'*y;
+        u = y-X*B;
+        xxi = vr.*repmat(di',ny*lags+nx,1);
+        xxi = xxi*xxi';
+
+        out.B = B;
+        out.u = u;
+        out.xxi = xxi;
+        out.y   = y;
+        out.X   = X;
     end
 %********************************************************
 %********************************************************
