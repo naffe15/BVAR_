@@ -54,7 +54,7 @@ for uu  = 1 : nunits
     end
 
     % With shocks
-    lags_data = forecast_data.initval;
+    lags_data = forecast_data.initval(:,:,uu);
     for t = 1 : fhor
         X = [ reshape(flip(lags_data, 1)', 1, ny*lags) forecast_data.xdata(t, :) ];
         if shock_given == 1
