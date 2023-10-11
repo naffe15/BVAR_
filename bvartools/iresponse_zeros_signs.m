@@ -1,4 +1,4 @@
-function [ir,Omeg] = iresponse_zeros_signs(Phi,Sigma,hor,lag,var_pos,f,sr,draws,toler)
+function [ir,Omeg] = iresponse_zeros_signs(Phi,Sigma,hor,lag,var_pos,f,sr,draws,toler,normalization_)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 'iresponse_zeros_sign' computes the impulse response functions using zero
@@ -31,13 +31,15 @@ function [ir,Omeg] = iresponse_zeros_signs(Phi,Sigma,hor,lag,var_pos,f,sr,draws,
 % Revised, 9/11/2019
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-if nargin< 8
+if nargin < 8
     draws = 1; % Number of draws
 end
-if nargin< 9
+if nargin < 9
     toler = 10000; % Number of rotation attempt
 end
-
+if nargin < 10
+    normalization_ = 0; % sign normalization on rotations
+end
 p         = lag;
 k         = size(Sigma,1);
 endo_numb = p*k;
@@ -78,6 +80,7 @@ Btilde = Phi(1:endo_numb,:)';
 % Btilde = B(2:end,:)';
 % Btilde = Phi(1:end-1,:)';
 alpha = [Btilde;eye(k*(p-1)),zeros(k*(p-1),k)]; % Build companion form matrix
+WW    = nan(k);
 if draws > 10
     wb = waitbar(0, 'Generating Rotations');
 end
@@ -94,13 +97,16 @@ while counter < draws+1
     W = C*P;
 
     for jj = 1:length(shocks)
-        
-        if W(var_pos(jj),jj) < 0
-            shock = -shocks(:,jj);
-        else
-            shock = shocks(:,jj);
+                
+        shock = shocks(:,jj);
+        if normalization_ == 1
+            if W(var_pos(jj),jj) < 0
+                shock = -shocks(:,jj);
+            end
         end
         
+        WW(:,jj) = W*shock;
+
         V = zeros(k*p,T);
         
         V(1:k,1) = W*shock;
@@ -137,5 +143,5 @@ end
 if draws > 10, close(wb); end
 
 %Omeg = W; 
-Omeg = C1\W; 
+Omeg = C1\WW; 
 ir    = R;
