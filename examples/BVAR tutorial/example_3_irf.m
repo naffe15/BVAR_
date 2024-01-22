@@ -234,7 +234,7 @@ plot_irfs_(irfs_to_plot,options)
 
 
 
-%% Extra part 1/: Forecast Error variance decomposition with Cholesky (bvar1)
+%% Extra part 1): Forecast Error variance decomposition with Cholesky (bvar1)
 % compute the contribution of MP to the H-step ahead forecast error  of
 % observables
 
@@ -455,4 +455,97 @@ tt = T(timespan(:,end)');
 surf(tt,1:options.hor,squeeze(rollIRF(2,:,:)))
 axis tight
 
-return
+
+%% Sign restrictions with Robust Credible sets (Giacomini-Kitagawa)
+clear; close all; clc;
+
+% load the Gertler and Karadi data
+load DataGK
+y = [logip logcpi gs1 ebp];
+lags = 12;
+
+% sign restrictions
+options.signs{1} = 'y(3,1:6,1)>0'; % 1Y rate up for 6 months
+options.signs{2} = 'y(2,1:6,1)<0'; % CPI down for 6 months
+options.K   = 1000;
+options.hor = 24;
+% This options activate the Kitagawa-Giacomini robust confidence set
+options.robust_credible_regions.KG = 1;
+% Number of draws to approximate the identified set for each posterior draw
+options.robust_credible_regions.L = 100; %[default = 1000]
+% The credibility level is set to .68
+% options.robust_credible_regions.aalpha < 1; [default = 0.68]
+% number of points on discrete grid to compute credible regions
+% options.robust_credible_regions.gridLength = integer; [default = 1000]
+bvar2r             = bvar_(y,lags,options);
+
+% Define the IRF of Interest
+% Change the order of the variables for the plot 
+% 1. gs1; 2. logcpi; 3. logip; 4. ebp
+indx_var              = [3, 2, 1, 4];
+% index of the shocks of interest (shock to gs1)
+indx_sho         = 1;  
+% IRF  (notice that we change the order of the variables for the plot)
+% with standard confidence set (a single prior)
+irfs_to_plot     = bvar2r.irsign_draws(indx_var,:,indx_sho,:);
+% 68% robust credible set 
+options.add_irfs(:,:,1,1)  = bvar2r.irsign_robust_credible_lb(indx_var,:,indx_sho);
+options.add_irfs(:,:,1,2)  = bvar2r.irsign_robust_credible_ub(indx_var,:,indx_sho);
+
+
+% Customize the IRF plot
+options.varnames      = {'1 year rate','CPI','IP','EBP'};  
+% names of the directory where the figure is saved
+options.saveas_dir    = './irfs_plt';
+% names of the figure to save
+options.saveas_strng  = 'signs-rob';
+% name of the shock
+options.shocksnames   = {'MPtightening'}; % 
+plot_irfs_(irfs_to_plot,options)
+
+
+%% Zero-Sign restrictions with Robust Credible sets (Giacomini-Kitagawa)
+
+% Housekeeping: remove previous identification settings
+options = rmfield(options,'signs');
+options = rmfield(options,'add_irfs');
+
+% specify the restrictions
+% 1) ad = aggregate demand disturbance [sign restrictions]
+options.zeros_signs{1}     = 'y(1,1)=1;';
+options.zeros_signs{end+1} = 'y(2,1)=1;'; 
+options.zeros_signs{end+1} = 'y(3,1)=1;';
+% 2) as = aggregate supply shock [sign restrictions]
+options.zeros_signs{end+1} = 'y(1,2)=1;';
+options.zeros_signs{end+1} = 'y(2,2)=-1;';
+% 3) mp = monetary policy shock, no cont response of prices and quantities 
+% [zero restrictions]
+options.zeros_signs{end+1} = 'ys(1,3)= 0;';
+options.zeros_signs{end+1} = 'ys(2,3)=0;';
+% 3) mp = rate and bond premium go up [sign restrictions]
+options.zeros_signs{end+1} = 'y(3,3)=1;';
+options.zeros_signs{end+1} = 'y(4,3)=1;';
+
+% This options activate the Kitagawa-Giacomini robust confidence set
+options.robust_credible_regions.KG = 1;
+% Number of draws to approximate the identified set for each posterior draw
+options.robust_credible_regions.L = 100; %[default = 1000]
+% The credibility level is set to .68
+% options.robust_credible_regions.aalpha < 1; [default = 0.68]
+% number of points on discrete grid to compute credible regions
+% options.robust_credible_regions.gridLength = integer; [default = 1000]
+% run the BVAR
+bvar4r             = bvar_(y,lags,options);
+
+% IRFs of Interest
+indx_sho     = 1:3;
+irfs_to_plot = bvar4r.irzerosign_draws(indx_var,:,indx_sho,:);
+% 68% robust credible set 
+options.add_irfs(:,:,:,1)  = bvar4r.irzerosign_robust_credible_lb(indx_var,:,indx_sho);
+options.add_irfs(:,:,:,2)  = bvar4r.irzerosign_robust_credible_ub(indx_var,:,indx_sho);
+
+% Customize the IRF plots
+options.saveas_strng    = 'zerossigns-robust';
+options.shocksnames     = {'ADshock','ASshock','MPshock'}; % 
+% options.add_irfs        = bvar4.irzerosign_ols(indx_var,:,indx_sho,:);
+plot_all_irfs_(irfs_to_plot,options)

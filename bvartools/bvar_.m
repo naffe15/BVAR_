@@ -98,6 +98,7 @@ Lasso_              = 0;
 ElasticNet_         = 0;
 set_irf             = 0;
 robust_bayes_       = 0;
+robust_credible_regions_  = 0;
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -400,6 +401,26 @@ if nargin > 2
         % Phi and Sigma are point estimates (e.g. OLS, Ridge, Lasso or
         % Elastic Nets); default 0
         set_irf = options.set_irf;
+    end
+    if isfield(options,'robust_credible_regions') ==1 
+        % computing the robust bayesian credible regions of
+        % Giacomini-Kitagawa ECMA 2021
+        robust_credible_regions_ = 1;
+        if isfield(options.robust_credible_regions,'KG') == 1 && options.robust_credible_regions.KG == 0 % to disactivate
+            robust_credible_regions_ = 0;
+        end
+        L                        = 1000;
+        opt_GiacomoniKitagawa.aalpha    = 0.68; % Credibility level
+        opt_GiacomoniKitagawa.gridLength = 1000; 
+        if isfield(options.robust_credible_regions,'L') == 1         
+            L = options.robust_credible_regions.L;
+        end
+        if isfield(options.robust_credible_regions,'aalpha') == 1         
+            opt_GiacomoniKitagawa.aalpha = options.robust_credible_regions.aalpha;
+        end
+        if isfield(options.robust_credible_regions,'gridLength') == 1         
+            opt_GiacomoniKitagawa.gridLength = options.robust_credible_regions.gridLength;
+        end
     end
     if isfield(options,'long_run_irf')==1
         % Activating Long run IRF
@@ -907,7 +928,12 @@ yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional o
 logL                      = NaN(K,1);
 if signs_irf == 1
     irsign_draws = ir_draws;
-    Omega_draws    = Sigma_draws;
+    Omega_draws  = Sigma_draws;
+    OmegaEmpty   = zeros(K, 1);
+    if robust_credible_regions_
+        irsign_lower_draws = ir_draws;
+        irsign_upper_draws = ir_draws;
+    end
 end
 if nexogenous > 0 
     irx_draws = zeros(ny,hor,nexogenous,K);  
@@ -916,10 +942,20 @@ end
 if narrative_signs_irf == 1
     irnarrsign_draws = ir_draws;
     Omegan_draws     = Sigma_draws;
+    OmegaEmpty       = zeros(K, 1);
+    if robust_credible_regions_
+        irnarrsign_lower_draws = ir_draws;
+        irnarrsign_upper_draws = ir_draws;
+    end
 end
 if zeros_signs_irf == 1
     irzerosign_draws   = ir_draws;
     Omegaz_draws       = Sigma_draws;
+    OmegaEmpty         = zeros(K, 1);
+    if robust_credible_regions_
+        irzerosign_lower_draws = ir_draws;
+        irzerosign_upper_draws = ir_draws;
+    end
 end
 if proxy_irf == 1
     irproxy_draws = ir_draws;
@@ -973,8 +1009,8 @@ catch
     try
         warning('I will try with the LDL decomposition')
         iS               = inv(posterior.S);
-        [L, D, P]        = ldl(iS);
-        S_inv_upper_chol = sqrt(D) * L' * P';%chol()
+        [Left, D, Right]        = ldl(iS);
+        S_inv_upper_chol = sqrt(D) * Left' * Right';%chol()
     catch
         warning('I will add +1e-05 to the diagonal')
         S_inv_upper_chol    = chol(inv(posterior.S + 1e-05*eye(ny)));
@@ -1091,18 +1127,62 @@ for  d =  1 : K
         [irsign,Omega]         = iresponse_sign(Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs);
         irsign_draws(:,:,:,d)  = irsign;
         Omega_draws(:,:,d)     = Omega;
+        OmegaEmpty(d)          = any(any(isnan(Omega)));
+        % Approximating Giacomini-Kitagawa robust credible sets
+        if robust_credible_regions_            
+            if OmegaEmpty(d) == 0          
+                irsign0 = nan(ny,hor,ny,L);
+                for ell = 1 : L
+                    [irsign0(:,:,:,ell), ~] = iresponse_sign(Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs);
+                    %waitbar(ell/L, wb1);
+                end
+                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
+                irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
+                irsign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
+            end
+        end
     end
     % with narrative and sign restrictions
     if narrative_signs_irf == 1
         [irnarrsign,Omega]         = iresponse_sign_narrative(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,narrative);
         irnarrsign_draws(:,:,:,d)  = irnarrsign;
         Omegan_draws(:,:,d)        = Omega;
+        OmegaEmpty(d)          = any(any(isnan(Omega)));
+        % Approximating Giacomini-Kitagawa robust credible sets
+        if robust_credible_regions_
+            if OmegaEmpty(d) == 0
+                irsign0 = nan(ny,hor,ny,L);
+                for ell = 1 : L
+                    [irsign0(:,:,:,ell), ~] = iresponse_sign(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,narrative);
+                    %waitbar(ell/L, wb1);
+                end
+                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
+                irnarrsign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
+                irnarrsign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
+            end
+        end
+
     end
     % with zeros and sign restrictions
     if zeros_signs_irf == 1         %= iresponse_zeros_signs( Phi,Sigma,bvar1.hor,lags,var_pos,f,sr);
         [irzerosign,Omega]          = iresponse_zeros_signs(Phi,Sigma,hor,lags,var_pos,f,sr);
         irzerosign_draws(:,:,:,d)   = irzerosign;
         Omegaz_draws(:,:,d)         = Omega;
+        OmegaEmpty(d)          = any(any(isnan(Omega)));
+        % Approximating Giacomini-Kitagawa robust credible sets
+        if robust_credible_regions_
+            if OmegaEmpty(d) == 0
+                irsign0 = nan(ny,hor,ny,L);
+                for ell = 1 : L
+                    [irsign0(:,:,:,ell), ~] = iresponse_zeros_signs(Phi,Sigma,hor,lags,var_pos,f,sr);
+                    %waitbar(ell/L, wb1);
+                end
+                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
+                irzerosign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
+                irzerosign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
+            end
+        end
+
     end
     % with proxy
     if proxy_irf == 1
@@ -1458,6 +1538,34 @@ BVAR.ndraws       = K;
 if signs_irf == 1 && narrative_signs_irf == 0
     BVAR.irsign_draws = irsign_draws;
     BVAR.Omegas       = Omega_draws;
+    BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
+    %fprintf('\nPosterior plausibility of identifying restrictions: %0.4g.\n',BVAR.postPlaus)
+    if robust_credible_regions_
+        BVAR.robust_credible_regions_ = robust_credible_regions_;
+        BVAR.irsign_lower_draws = irsign_lower_draws;
+        BVAR.irsign_upper_draws = irsign_upper_draws;
+        for ss = 1 : ny
+            % flip the order
+            % from: variable, horizon, [shock], draw 
+            % to:   draw    , horizon, [shock], variable
+            rMinPost = permute(squeeze(irsign_lower_draws(:,:,ss,:)), [3 2 1] );
+            rMaxPost = permute(squeeze(irsign_upper_draws(:,:,ss,:)), [3 2 1] );
+            % Compute robustified credible region for IS. 
+            % [integrate out draws]
+            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
+            BVAR.irsign_robust_credible_ub(:,:,ss) = credub';
+            BVAR.irsign_robust_credible_lb(:,:,ss) = credlb';
+
+            % % Compute highest posterior density (HPD) interval under single prior.
+            % [hpdlb,hpdub] = highestPosteriorDensity(rSinglePriorPost,opt);
+            % 
+            % postMeanBoundWidth = meanub - meanlb; % Width of posterior mean bounds.
+            % hpdWidth = hpdub - hpdlb; % Width of highest posterior density regions
+            % credWidth = credub - credlb; % Width of robustified credible region
+            % 
+            % priorInformativeness = 1 - hpdWidth./credWidth; % Informativeness of prior
+        end
+    end
 else
     BVAR.irsign_draws = [];
     BVAR.Omegas       = [];
@@ -1465,6 +1573,25 @@ end
 if narrative_signs_irf == 1
     BVAR.irnarrsign_draws = irnarrsign_draws;
     BVAR.Omegan           = Omegan_draws;
+    BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
+    %fprintf('\nPosterior plausibility of identifying restrictions: %0.4g.\n',BVAR.postPlaus)
+    if robust_credible_regions_
+        BVAR.robust_credible_regions_ = robust_credible_regions_;
+        BVAR.irnarrsign_lower_draws = irnarrsign_lower_draws;
+        BVAR.irnarrsign_upper_draws = irnarrsign_upper_draws;
+        for ss = 1 : ny
+            % flip the order
+            % from: variable, horizon, [shock], draw 
+            % to:   draw    , horizon, [shock], variable
+            rMinPost = permute(squeeze(irzerosign_lower_draws(:,:,ss,:)), [3 2 1] );
+            rMaxPost = permute(squeeze(irzerosign_upper_draws(:,:,ss,:)), [3 2 1] );
+            % Compute robustified credible region for IS. 
+            % [integrate out draws]
+            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
+            BVAR.irnarrsign_robust_credible_ub(:,:,ss) = credub';
+            BVAR.irnarrsign_robust_credible_lb(:,:,ss) = credlb';
+        end
+    end    
 else
     BVAR.irnarrsign_draws = [];
     BVAR.Omegan           = [];
@@ -1472,6 +1599,25 @@ end
 if zeros_signs_irf == 1
     BVAR.irzerosign_draws   = irzerosign_draws;
     BVAR.Omegaz             = Omegaz_draws;
+    BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
+    %fprintf('\nPosterior plausibility of identifying restrictions: %0.4g.\n',BVAR.postPlaus)
+    if robust_credible_regions_
+        BVAR.robust_credible_regions_ = robust_credible_regions_;
+        BVAR.irzerosign_lower_draws = irzerosign_lower_draws;
+        BVAR.irzerosign_upper_draws = irzerosign_upper_draws;
+        for ss = 1 : ny
+            % flip the order
+            % from: variable, horizon, [shock], draw 
+            % to:   draw    , horizon, [shock], variable
+            rMinPost = permute(squeeze(irzerosign_lower_draws(:,:,ss,:)), [3 2 1] );
+            rMaxPost = permute(squeeze(irzerosign_upper_draws(:,:,ss,:)), [3 2 1] );
+            % Compute robustified credible region for IS. 
+            % [integrate out draws]
+            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
+            BVAR.irzerosign_robust_credible_ub(:,:,ss) = credub';
+            BVAR.irzerosign_robust_credible_lb(:,:,ss) = credlb';
+        end
+    end
 else
     BVAR.irzerosign_draws = [];
     BVAR.Omegaz           = [];

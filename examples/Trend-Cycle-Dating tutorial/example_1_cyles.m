@@ -89,7 +89,7 @@ ddd=ddata(:,[1 11]);
 
 disp('----------------------------------------------------')
 disp(' 1) Polynomial filter')
-disp('---------------------------------------------------')
+disp('----------------------------------------------------')
 % parameters
 ord=3; % order of the polynomial (up to  4)
 gg=1;  % if 1 plot  data, trend and cycle
@@ -104,9 +104,9 @@ pause;
 close all;
 
 
-disp(' ----------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 2) HP filter')
-disp(' ----------------------------------------------------')
+disp('----------------------------------------------------')
 % three  options : lambda=1600, lambda=4, lambda=51200
 llam1 = 1600;   % standard  cycles
 llam2 = 4;      % short cycles
@@ -180,9 +180,9 @@ pause;
 close all;
 
 
-disp('------------------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 3) differencing')
-disp(' -----------------------------------------------------------')
+disp('----------------------------------------------------')
 % dy6-dy8 have  the cyclical componentsl dt6-dt8 have  the  trends
 % dy6  loose  one  observation; dy7 4  observations, dy8 20 observations
 dy6=zeros(endd,size(ddd,2));dy7=zeros(endd,size(ddd,2));
@@ -222,9 +222,9 @@ end
 close all;
 
 
-disp('-------------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 4) BP filter ')
-disp(' ------------------------------------------------------')
+disp('----------------------------------------------------')
 % dy9-dy10 have  the cyclical components; dt8-dt9 the  trends
 bp1  = 8;  bp2  = 32;   % band pass filter parameters
 % Baxter and King
@@ -245,9 +245,9 @@ for qq=1:size(ddd,2)
 end
 dt10=ddd-dy10;
 
-disp(' ----------------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 5) wavelet  filter')
-disp(' ----------------------------------------------------------')
+disp('----------------------------------------------------')
 % dy11  has  the cycle; dy12  has  the  cycle+low; dt11-dt12 the  trends
 % loose 32  observations
 gg=0; % if  1,  plot  business cycle ( business cycle + low frequency)
@@ -303,9 +303,9 @@ end
 
 close all;
 
-disp(' -----------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 6) Hamilton filter')
-disp(' -----------------------------------------------')
+disp('----------------------------------------------------')
 % model  y(t+h)= a*y(t)+b*y(t-1)+...+ q*y(t-q)+e(t+h)
 % e(t+h) is  the  cyclical
 % loose  h+d  observations
@@ -318,9 +318,9 @@ ff=1;  % include  constant in  the regression
 pause;
 close all;
 
-disp(' ------------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 7) univariate UC  RW filter')
-disp(' ------------------------------------------------------')
+disp('----------------------------------------------------')
 % model  y(t)= yT(t)+yc(T)
 %        yT(t)=mu+YT(t-1)+ e(t)
 %        yC(t)= phi_1*yC(t-1)+phi_2*yC(t-2)+ u(t)
@@ -367,9 +367,9 @@ close all;
 
 
 
-disp(' ------------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 7b) univariate UC Local linear filter')
-disp(' ------------------------------------------------------')
+disp('----------------------------------------------------')
 % model  
 % from the UC of the form 
 % a(t)  = ph1 a(t-1) + ... + phip a(t-p) + ea(t ) [transition 1]
@@ -413,9 +413,9 @@ pause;
 
 close all;
 
-disp('-------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 8) univariate BN filter')
-disp('-------------------------------------------------')
+disp('----------------------------------------------------')
 % loose  1+nlags  observations
 % parameters
 lags= 2;  % number  of  lags  in  the  autoregression (keep  it  small
@@ -427,9 +427,9 @@ mm=1;     % =1 use estimate  mean;  =0 use  long run mean
 pause
 close all;
 
-disp('------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 9) Butterworth filters')
-disp('------------------------------------------------')
+disp('----------------------------------------------------')
 
 disp('low  pass  filter')
 n1=4;   % order  of  the  polynomial
@@ -446,7 +446,7 @@ cutoff2=[0.07,0.30];   % cutoff frequency
 dy17=filtfilt(a2,b2,ddd);  % ARMA filter  with weghts given by  a  and  b
 
 
-disp(' high  pass filter')
+disp('high  pass filter')
 n3=1;   % order  of  the  polynomial
 cutoff3=0.07;   % cutoff frequency  % above  0.05  it  becomes  as BP
 [a3,b3]=butter(n3,cutoff3,'high');
@@ -475,9 +475,9 @@ for qq=1:size(ddd,2)
 end
 
 
-disp('------------------------------------------------')
+disp('----------------------------------------------------')
 disp(' 10) bivariate  BN and  BQ filters')
-disp('------------------------------------------------')
+disp('----------------------------------------------------')
 % loose  1+nlags  observations
 % parameters
 % nlags=6; % number  of  lags  in  var
@@ -627,7 +627,58 @@ xlabel('Frequency')
 pause
 close all;
 
+%% Power Cohesion 
+% The part and the PCoh function were prepared and kindly shared by Rob Wlodarski.
 
+disp('----------------------------------------------------')
+disp(' 11) Power Cohesion')
+disp('----------------------------------------------------')
+
+load financial_variables.mat
+
+qlow   = 5;     % lower bound for spectral density (e.g., 5)
+qhigh  = 100;   % upper bound for spectral density (e.g., 200)
+factor = 8;     % precision of spectral density estimates (e.g., 8)
+
+[f_hat_save,f_hat_save_separate, grid, step] = pw_cohesion(dY_f,qlow, qhigh, factor);
+
+%------------------------------------------------------------------------
+% PLOT
+%------------------------------------------------------------------------
+
+%INPUT
+%*variables produced by pw_cohesion
+
+%Step 1: Parameters
+size_plot = [8/2 8/2];
+freq_low = 2*pi/(2*4);					%lowest frequency
+freq_high= 2*pi/(8*4);					%highest frequency
+freq = (grid <= freq_low) & (grid >= freq_high); 	%frequencies of interest
+grid_s = (grid <= grid(end)) & (grid>= grid(1)); 	%window size
+
+%Step 2: Plotting the graph.
+figure('Name','Power Cohesion')
+hold on
+%2.1. Include the window plot.
+area(grid(grid_s),freq(grid_s)*max(f_hat_save(grid_s)))
+%2.2. Coloring scheme of Schuller et al. (2020)
+colormap([0.69 0.7686 0.87]) 
+%2.3. Plot of interest
+a1=plot(grid(grid_s),f_hat_save(grid_s,1),'-','Color', [0 0 0],'LineWidth',3); 
+%2.4. Graph features.
+lab_x = [grid(18)  grid(56) grid(248)];
+set(gca, 'XTick', lab_x , 'XTickLabel', {'20'; '8'; '2'},'FontSize',10)
+title("United States",'FontSize', 11);
+%2.5. Legend
+l=   legend([a1],'Power of common financial cycle');
+%2.6. Further personalization.
+set(l,'FontSize',10)
+legend('boxoff')
+ylabel('PCoh','FontSize',11)
+xlabel('Years')
+set(gcf,'PaperPositionMode','manual')
+set(gcf,'PaperUnits','inches');
+set(gcf,'PaperPosition',[0 0 size_plot]);  
 
 return
 
