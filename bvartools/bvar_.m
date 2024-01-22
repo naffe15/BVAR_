@@ -1553,8 +1553,8 @@ if signs_irf == 1 && narrative_signs_irf == 0
             % Compute robustified credible region for IS. 
             % [integrate out draws]
             [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irsign_robust_credible_ub(:,:,ss) = credub';
-            BVAR.irsign_robust_credible_lb(:,:,ss) = credlb';
+            BVAR.irsign_robust_credible_bands.u(:,:,ss) = credub';
+            BVAR.irsign_robust_credible_bands.l(:,:,ss) = credlb';
 
             % % Compute highest posterior density (HPD) interval under single prior.
             % [hpdlb,hpdub] = highestPosteriorDensity(rSinglePriorPost,opt);
@@ -1588,8 +1588,8 @@ if narrative_signs_irf == 1
             % Compute robustified credible region for IS. 
             % [integrate out draws]
             [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irnarrsign_robust_credible_ub(:,:,ss) = credub';
-            BVAR.irnarrsign_robust_credible_lb(:,:,ss) = credlb';
+            BVAR.irnarrsign_robust_credible_bands.u(:,:,ss) = credub';
+            BVAR.irnarrsign_robust_credible_bands.l(:,:,ss) = credlb';
         end
     end    
 else
@@ -1614,8 +1614,8 @@ if zeros_signs_irf == 1
             % Compute robustified credible region for IS. 
             % [integrate out draws]
             [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irzerosign_robust_credible_ub(:,:,ss) = credub';
-            BVAR.irzerosign_robust_credible_lb(:,:,ss) = credlb';
+            BVAR.irzerosign_robust_credible_bands.u(:,:,ss) = credub';
+            BVAR.irzerosign_robust_credible_bands.l(:,:,ss) = credlb';
         end
     end
 else

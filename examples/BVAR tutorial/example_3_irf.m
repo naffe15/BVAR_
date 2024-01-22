@@ -489,8 +489,8 @@ indx_sho         = 1;
 % with standard confidence set (a single prior)
 irfs_to_plot     = bvar2r.irsign_draws(indx_var,:,indx_sho,:);
 % 68% robust credible set 
-options.add_irfs(:,:,1,1)  = bvar2r.irsign_robust_credible_lb(indx_var,:,indx_sho);
-options.add_irfs(:,:,1,2)  = bvar2r.irsign_robust_credible_ub(indx_var,:,indx_sho);
+options.add_irfs(:,:,1,1)  = bvar2r.irsign_robust_credible_bands.l(indx_var,:,indx_sho);
+options.add_irfs(:,:,1,2)  = bvar2r.irsign_robust_credible_bands.u(indx_var,:,indx_sho);
 
 
 % Customize the IRF plot
@@ -541,8 +541,8 @@ bvar4r             = bvar_(y,lags,options);
 indx_sho     = 1:3;
 irfs_to_plot = bvar4r.irzerosign_draws(indx_var,:,indx_sho,:);
 % 68% robust credible set 
-options.add_irfs(:,:,:,1)  = bvar4r.irzerosign_robust_credible_lb(indx_var,:,indx_sho);
-options.add_irfs(:,:,:,2)  = bvar4r.irzerosign_robust_credible_ub(indx_var,:,indx_sho);
+options.add_irfs(:,:,:,1)  = bvar4r.irzerosign_robust_credible_bands.l(indx_var,:,indx_sho);
+options.add_irfs(:,:,:,2)  = bvar4r.irzerosign_robust_credible_bands.u(indx_var,:,indx_sho);
 
 % Customize the IRF plots
 options.saveas_strng    = 'zerossigns-robust';
