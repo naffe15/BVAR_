@@ -12,7 +12,7 @@ ny   = size(AR,2);
 lags = size(AR,1)/ny;
 MA        = nan(ny,ny,p);
 MA(:,:,1) = eye(size(AR,2));
-MA(:,:,2) = AR(1:ny, 1:ny);
+MA(:,:,2) = AR(1:ny, 1:ny)';
 
 for jj = 3 : p
     tmp = 0;    
@@ -24,7 +24,7 @@ for jj = 3 : p
     for ll = 2 : Kstp
         spanma = jj - ll + 1;
         spanar = (ll-2)*ny+1 : (ll-2)*ny + ny;
-        tmp    = tmp + MA(:, :, spanma) * AR(spanar, :) ;
+        tmp    = tmp + MA(:, :, spanma) * AR(spanar, :)' ;
     end
     MA(:,:,jj) = tmp;
 end
