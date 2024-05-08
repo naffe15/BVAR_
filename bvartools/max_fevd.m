@@ -13,7 +13,7 @@ for k = 1 : Kappa
     Q(:,:,k) = generateQ(N);                % generate an orthonormal matrix
     FEVD     = fevd(h,Phi,Sigma,Q(:,:,k));  % compute the FEVD
     % Calculate the contribution of shock j, to variable i forecast error volatility, at horizon h
-    crit(k,1) = FEVD(i, h, j);
+    crit(k,1) = FEVD(i, j);
 end
 % Pick the maximum
 [~,index] = max(crit);
