@@ -121,7 +121,7 @@ if nargin>2
         if isfield(options.priors,'Phi') == 1
             % mean
             if isfield(options.priors.Phi,'mean') == 1
-                prior.Phi.mean  = options.priors.Phi.mean;
+                prior.Phi.mean  = options.priors.Phi.mean(1:ny*lags+(1-noconstant),:);
                 if size(prior.Phi.mean) ~= [ny*lags+(1-noconstant)    ny]
                     error('Size mismatch')
                 end
@@ -132,9 +132,9 @@ if nargin>2
             end
             % variance
             if isfield(options.priors.Phi,'cov') == 1
-                prior.Phi.cov   = options.priors.Phi.cov;
-                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
-                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)x')
+                prior.Phi.cov   = options.priors.Phi.cov(1:ny*lags+(1-noconstant),1:ny*lags+(1-noconstant));
+                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant)) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
+                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)')
                 end
             else
                 warning(['You did not provide a Covariance for the AR coeff. ' ...
