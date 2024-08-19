@@ -922,6 +922,7 @@ ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock a
 irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
 Qlr_draws     = zeros(ny,ny,K);                     % long run impact matrix
 e_draws       = zeros(size(yy,1), ny,K);                  % residuals
+fe_draws      = zeros(size(yy,1), ny,fhor,K);                  % residuals
 yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts with shocks
 yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecast without the shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional on endogenous path
@@ -968,6 +969,11 @@ end
 if hmoments_signs_irf == 1
     irhmomsign_draws = ir_draws;
     Omegam_draws     = Sigma_draws;
+    OmegaEmpty         = zeros(K, 1);
+    if robust_credible_regions_
+        irhmomsign_lower_draws = ir_draws;
+        irhmomsign_upper_draws = ir_draws;
+    end
 end
 if hmoments_eig_irf == 1
     irhmomeig_draws = ir_draws;
@@ -1090,6 +1096,7 @@ for  d =  1 : K
     Sigma_draws(:,:,d) = Sigma;
     errors             = yy - XX * Phi;
     e_draws(:,:,d)     = errors;
+    fe_draws(:,:,:,d)  = fe_(fhor,errors,Phi(1 : ny*lags, 1 : ny));
     
     
     %======================================================================
@@ -1215,10 +1222,23 @@ for  d =  1 : K
         [irhmomsign,Omega]         = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);
         irhmomsign_draws(:,:,:,d)  = irhmomsign;
         Omegam_draws(:,:,d)        = Omega;
-%         if isnan(Omega)
-%             nan_count = nan_count + 1;
-%             disp([nan_count nan_count/d])
-%         end
+        if isnan(Omega)
+            nan_count = nan_count + 1;
+            disp([nan_count nan_count/d])
+        end
+        OmegaEmpty(d)          = any(any(isnan(Omega)));
+        if robust_credible_regions_            
+            if OmegaEmpty(d) == 0          
+                irsign0 = nan(ny,hor,ny,L);
+                parfor ell = 1 : L
+                    [irsign0(:,:,:,ell), ~] = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);%iresponse_sign(Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs);
+                    %waitbar(ell/L, wb1);
+                end
+                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
+                irhmomsign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
+                irhmomsign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
+            end
+        end
     end
     % with higher-moments eigenvalue decomposition
     if hmoments_eig_irf == 1
@@ -1306,6 +1326,7 @@ if waitbar_yes, close(wb); end
 % classical inference: OLS estimator
 BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
+BVAR.fe_ols     = fe_(fhor,BVAR.e_ols,BVAR.Phi_ols(1 : ny*lags, 1 : ny));
 BVAR.Sigma_ols  = 1/(nobs-nk)*varols.u'*varols.u;
 % the model with the lowest IC is preferred
 [BVAR.InfoCrit.AIC, BVAR.InfoCrit.HQIC, BVAR.InfoCrit.BIC] = IC(BVAR.Sigma_ols, BVAR.e_ols, nobs, nk);
@@ -1504,6 +1525,7 @@ BVAR.lags         = lags;               % lags
 BVAR.N            = ny;                 % number of variables
 BVAR.e_draws      = e_draws;            % residuals
 BVAR.e            = e_draws;            % backward compatible with earlier versions
+BVAR.fe_draws     = fe_draws;            % backward compatible with earlier versions
 
 BVAR.posterior    = posterior;
 BVAR.prior        = prior;             % priors used
@@ -1530,6 +1552,7 @@ if robust_bayes_ > 0
     if robust_bayes_ > 1
         BVAR.Sstar_  = Sstar_;
     end
+    BVAR.hom_shrinkage = K_shrinkage/(nobs+K_shrinkage);
 end
 %
 BVAR.varnames     = varnames;
@@ -1641,6 +1664,24 @@ end
 if hmoments_signs_irf == 1
     BVAR.irhmomsign_draws = irhmomsign_draws;
     BVAR.Omegam           = Omegam_draws;
+    if robust_credible_regions_
+        BVAR.robust_credible_regions_ = robust_credible_regions_;
+        BVAR.irhmomsign_lower_draws = irhmomsign_lower_draws;
+        BVAR.irhmomsign_upper_draws = irhmomsign_upper_draws;
+        for ss = 1 : ny
+            % flip the order
+            % from: variable, horizon, [shock], draw
+            % to:   draw    , horizon, [shock], variable
+            rMinPost = permute(squeeze(irhmomsign_lower_draws(:,:,ss,:)), [3 2 1] );
+            rMaxPost = permute(squeeze(irhmomsign_upper_draws(:,:,ss,:)), [3 2 1] );
+            % Compute robustified credible region for IS.
+            % [integrate out draws]
+            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
+            BVAR.irhmomsign_robust_credible_bands.u(:,:,ss) = credub';
+            BVAR.irhmomsign_robust_credible_bands.l(:,:,ss) = credlb';
+        end
+    end
+
 else
     BVAR.irhmomsign_draws = [];
     BVAR.Omegam           = [];

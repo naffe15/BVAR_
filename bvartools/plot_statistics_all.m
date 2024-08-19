@@ -10,6 +10,7 @@ step_plot   = 20;
 typek = 4;
 types = 4;
 save_figure = 0;
+nplots  = [ceil(sqrt(size(y,2))) ceil(sqrt(size(y,2)))];
 
 % declaring the names for the observable variables
 for v = 1 : ny
@@ -56,33 +57,37 @@ if nargin > 1
             error('wrong number of varnames')
         end
     end
+    if isfield(options,'nplots') ==1
+        nplots = options.nplots;
+    end
 end
+nr = nplots(1); nc = nplots(2);
 
 figure,
 for ss = 1 : ny
     
-    %figure('Name',varnames{ss})
-    subplot(2,ny,ss)
-    plot(TT,y(:,ss))
-    axis tight
-    grid on
+    % figure('Name',varnames{ss})
+    subplot(nr,nc,ss)
+    % plot(TT,y(:,ss))
+    % axis tight
+    % grid on
+    % hold on
+    % if set_x_ticks == 1
+    %     set(gca,'Xtick',TT(1:step_plot:end))
+    %     tmp_str= time(1:step_plot:end,:);
+    %     set(gca,'Xticklabel',tmp_str)
+    % end
+    % subplot(2,ny,ny + ss)
+    probplot(y(:,ss))    
     hold on
-    title(varnames{ss})
-    if set_x_ticks == 1
-        set(gca,'Xtick',TT(1:step_plot:end))
-        tmp_str= time(1:step_plot:end,:);
-        set(gca,'Xticklabel',tmp_str)
-    end
-    subplot(2,ny,ny + ss)
-    probplot(y(:,ss))
-    hold on
-    axis tight
-    title('')
+    axis tight    
     [krt,krt_normal]  = kurtosis_(y(:,ss));
     [skw,skw_normal]  = skewness_(y(:,ss));
     ki = krt(typek) - krt_normal(typek);
     si = skw(types) - skw_normal(types);
     xlabel(['ex k = ' num2str(ki,'%.1f') '; sk = ' num2str(si,'%.1f') ';'])
+    title(varnames{ss})
+
 end
 set(gcf,'position' ,[50 50 1100 550])
 if save_figure

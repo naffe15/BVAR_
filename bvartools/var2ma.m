@@ -1,7 +1,7 @@
 function MA = var2ma(AR,p)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% var2ma coverts the VAR into a MA
+% var2ma coverts the VAR into a MA of order p (which could be larger than the VAR lags)
 % AR only contains the AR coefficients and does not contain constant, time
 % trends or exogenous variables. 
 % Filippo Ferroni, 5/1/2021

@@ -1,4 +1,4 @@
-function plot_irfs_(irfs,options)
+function [irf_] = plot_irfs_(irfs,options)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Filippo Ferroni, 6/1/2015
@@ -255,3 +255,13 @@ for sho = 1 : nshocks
     end
     jfig = 0;
 end
+
+
+if nargout > 0
+    irf_.Median  = irf_Median  ;
+    irf_.low     = irf_low     ;
+    irf_.up      = irf_up      ;
+    irf_.low_low = irf_low_low ;
+    irf_.up_up   = irf_up_up   ;
+end
+   
