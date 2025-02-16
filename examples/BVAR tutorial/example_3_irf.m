@@ -601,5 +601,3 @@ indxf = find(isnan(squeeze(bvarHOM.irhmomsign_draws(1,5,indx_sho,:)))==0);
 irfs_to_plot2           = bvarHOM.irhmomsign_draws(:,:,indx_sho,indxf);
 optionsHOM. nplots = [2 3];
 plot_irfs_(irfs_to_plot2,optionsHOM)
-toc;
-
