@@ -549,3 +549,57 @@ options.saveas_strng    = 'zerossigns-robust';
 options.shocksnames     = {'ADshock','ASshock','MPshock'}; % 
 % options.add_irfs        = bvar4.irzerosign_ols(indx_var,:,indx_sho,:);
 plot_all_irfs_(irfs_to_plot,options)
+
+
+%% Retrictions with signs and Higher-order moment (HOM) restriction
+%--------------------------------------------------------------------------
+% WARNING: this part is relatively time consuming 
+% It takes about 22 minutes with a personal computer with an Intel(R)
+% Core(TM) Ultra 7 155H 1.40 GHz processor and with 32.0 GB of RAM installed. 
+%--------------------------------------------------------------------------
+clear all
+% identify a spread shock in the EA.
+load Data
+% select the variables of interest for the forecast exercise
+y = [IPI CORE UNR NFCRATE Euribor1Y IT_DE_SPREAD];
+optionsHOM.varnames = {'IP','Core','UNR','NFC Spread','Euribor 1y','It-De 5y'};
+
+lags = 6;
+optionsHOM.K   = 500;
+optionsHOM.hor = 48;
+
+% index of the shocks of interest (spread shock)
+indx_sho              = 6;
+
+% sign restrictions
+optionsHOM.signs{1} = ['y(6,1:2,'  num2str(indx_sho) ')>0']; % IT-DE spread goes up
+optionsHOM.signs{2} = ['y(4,1:2,'  num2str(indx_sho) ')>0']; % EBP goes up
+
+% HOM restrictions, order of declaration of the setting: 
+% 1. dimension: Shocks index, 
+% 2. dimension: Estimator type: 
+% sample mom = 1, 
+% robust estimator = 2, 3, 4 (various types see skewness_.m and kurtosis_m
+% for more details).
+% 3. dimension: Moment order: skewness = 1; kurtosis = 2
+% impose moderate skewness and kurtosis to the shock.
+optionsHOM.hmoments{1} = ['hm('  num2str(indx_sho) ',4,2)> 0.5']; % kurtosis
+optionsHOM.hmoments{2} = ['hm('  num2str(indx_sho) ',4,1)> 0.18']; % skewness - 
+% Pearson's Coefficient of Skewness #2: 3*(mean-med)/s > 3*0.2
+% A value between -1 and -0.5 or between 0.5 and 1 indicates a moderately
+% skewed distribution. A value between -1.5 and -1 or between 1 and 1.5
+% indicates a highly skewed distribution. A value less than -1.5 or greater
+% than 1.5 indicates an extremely skewed distribution.    
+optionsHOM.robust_bayes = 2;
+bvarHOM       = bvar_(y,lags,optionsHOM);
+
+optionsHOM.shocksnames   = {'Spread-KrtSkwn'};
+optionsHOM.saveas_strng  = 'KrtSkwn';
+optionsHOM.saveas_dir    = './irfs_plt';
+
+indxf = find(isnan(squeeze(bvarHOM.irhmomsign_draws(1,5,indx_sho,:)))==0);
+irfs_to_plot2           = bvarHOM.irhmomsign_draws(:,:,indx_sho,indxf);
+optionsHOM. nplots = [2 3];
+plot_irfs_(irfs_to_plot2,optionsHOM)
+toc;
+

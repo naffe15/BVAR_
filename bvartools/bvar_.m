@@ -1032,7 +1032,7 @@ nk                  = ny*lags+nx+timetrend + nexogenous;
 Companion_matrix = diag(ones(ny*(lags-1),1),-ny);
 p  = 0;
 dd = 0;
-
+nan_count = 0;
 waitbar_yes = 0;
 if K > 99
     waitbar_yes = 1;
@@ -1222,10 +1222,10 @@ for  d =  1 : K
         [irhmomsign,Omega]         = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);
         irhmomsign_draws(:,:,:,d)  = irhmomsign;
         Omegam_draws(:,:,d)        = Omega;
-        if isnan(Omega)
-            nan_count = nan_count + 1;
-            disp([nan_count nan_count/d])
-        end
+        % if isnan(Omega)
+        %     nan_count = nan_count + 1;
+        %     disp([nan_count nan_count/d])
+        % end
         OmegaEmpty(d)          = any(any(isnan(Omega)));
         if robust_credible_regions_            
             if OmegaEmpty(d) == 0          
