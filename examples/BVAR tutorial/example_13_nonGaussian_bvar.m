@@ -19,14 +19,17 @@ lags        = 12;
 bvar0       = bvar_(y,lags);
 
 %% plot statistics of the OLS orthogonalized residuals
-
+% plotting the empirical distribution of the residuals against the normal
+% distribution (--- line). Departures from the dotted lines indicate
+% departures from normality. The figure also reports the estimated skewness
+% and kurtosis.
 opts.varnames      = {'IP','CPI','1 year rate','EBP'};  
 plot_statistics_all(bvar0.white_e_ols,opts)
 
 
 %% run the BVAR with fat-tails (kurtosis)
 options.hor = 24;
-options.robust_bayes = 1; % only kurtosis
+% options.robust_bayes = 1; % only kurtosis
 options.robust_bayes = 2; % skewness and kurtosis
 bvar1       = bvar_(y,lags,options);
 
@@ -46,12 +49,35 @@ options.saveas_dir    = './nonguassian_bvar_plt';
 % names of the figure to save
 options.saveas_strng  = 'cholesky-robust';
 % name of the shock
-options.shocksnames   = {'MP'};  
+options.shocksnames   = {'EB'};  
 % additional 90% HPD set
 options.conf_sig_2    = 0.9;   
+% add the 90 HPD sets with Normal errors
+var_irf_sort = sort(bvar1.ir_draws,4);
+options.add_irfs(:,:,:,1) = var_irf_sort(indx_var,:,indx_sho,round(bvar1.ndraws*0.95));
+options.add_irfs(:,:,:,2) = var_irf_sort(indx_var,:,indx_sho,round(bvar1.ndraws*0.05));
+options.normz = 0;
+
 % finally, the plotting command
 plot_irfs_(irfs_to_plot,options)
 
-%% 2) identification using higher-order moments
+%%
+% For the same identification scheme (choleski), differences across the IRFs
+% distributions are small. The posterior distribution of the AR matrices
+% does not depend on the distribution of the error term. Only the posterior
+% distribution of Sigma does.      
 
-% TBA
+for hh = 1 : bvar1.ndraws
+    sig1(:,hh) = vech(bvar1.Sigma_lower_chol_draw(:,:,hh));
+    sig0(:,hh) = vech(bvar0.Sigma_lower_chol_draw(:,:,hh));
+end
+
+figure('Name','Posterior Distribution of the elements of chol(Sigma)')
+for ii = 1 : size(sig0,1)
+    subplot(3,4,ii)
+    histogram(sig0(ii,:));
+    hold on
+    histogram(sig1(ii,:));
+end    
+
+%%

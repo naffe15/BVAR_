@@ -1,13 +1,13 @@
-% Example_6_VARX.m 
+% BVAR Tutorial: estimation of  VARX model
 % Author:   Filippo Ferroni and  Fabio Canova
-% Date:     01/05/2020, revision 14/12/2020
+% Date:     01/05/2020, revision 20/02/2025
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Estimate a  VAR for  the  UK with US and DE interest  rate  as exogenous
 % variable. Bayesian estimation. 
-% Plot responses to  US IR shocks.
+% Plot responses to  US IR shocks. Do an  historical decomposition
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 close all; clc; clear;
-
+warning off;
 addpath ../../cmintools/
 addpath ../../bvartools/
 

@@ -1,6 +1,6 @@
 %% BVAR tutorial: Panels of  VARs
 % Author:   Filippo Ferroni and  Fabio Canova
-% Date:     01/05/2020, revision 14/12/2020
+% Date:     01/05/2020, revision 20/02/2025
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 1) calculation of  average  response averaging  individual  responses
@@ -157,7 +157,8 @@ i1        = 0;
 irfs_to_plot2=zeros(2,24,2,NBanks-N1);
 
  % compute  responses  for  all  banks; plot the  responses of bank=NBanks
-for i  = N1 + 1:  NBanks    
+ % WARNING: IT  IS  DOING  50  MCMC HERE
+ for i  = N1 + 1:  NBanks    
     i1 = i1 + 1;
    % i
     % construct the banks i database 

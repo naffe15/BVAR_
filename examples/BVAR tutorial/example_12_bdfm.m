@@ -128,6 +128,7 @@ pause;
  
 
 %% dynamic factor model
+%% WARNING  IT  TAKES  SOME  TIMES  TO  ESTIMATE  THIS
 clear options
 nfac   = size(f,2);
 lags   = round(size(Phi,2)/nfac);

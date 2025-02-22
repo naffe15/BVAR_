@@ -1,6 +1,6 @@
-%% BVAR tutorial: FORECASTS
+%% BVAR tutorial: Out  of sample  predictions
 % Author:   Filippo Ferroni and  Fabio Canova
-% Date:     27/02/2020, revised  14/12/2020
+% Date:     27/02/2020, revised  20/02/2025
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 1) Calculation of  unconditional  forecasts  with  different  priors

@@ -1,11 +1,11 @@
-% Example_1_classical.m Inference with a  Flat  Prior
-% Author:   Filippo Ferroni
-% Date:     27/02/2020; revision 22/04/2022
+% BVAR tutorial: Estimation of a VAR with a Flat  Prior/ bootstrap.
+% Author:   Filippo Ferroni and Fabio Canova
+% Date:     27/02/2020; revision 19/02/2025
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 1) Estimation of the optimal  lag  lengh of   a VAR
-% 2) Computation of responses and  variance  decomposition  due  to  
-%    monetary policy  shocks
+% 1) Estimation of the optimal lag lengh of a VAR
+% 2) Computation of IRFs and variance decomposition due to MP shocks
+% 3) Comparison of IRFs with flat prior (bvar_) and bootstrapped LS (cvar_)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 close all; clear; clc
@@ -34,7 +34,6 @@ pause;
 lags        = 12;       % number  of  lags
 options.hor = 48;       % number  of  horizons
 bvar1       = bvar_(y,lags,options);
-
 % Define the IRF of Interest
 % Change the order of the variables for the plot 
 % 1. gs1; 2. logcpi; 3. logip; 4. ebp
@@ -71,7 +70,6 @@ Sigma1 = median(bvar1.Sigma_draws,3);
 
 % index of the shocks of interest (shock to gs1)
 indx_sho              = 3;   
-
 % 1/2/4 years ahead FEVD
 cc=1;
 FEVD=zeros(size(y,2), size(y,2),3); FEVD1=FEVD;
@@ -112,9 +110,7 @@ disp('%                                                     %')
 disp('%=====================================================%')
 
 
-%% Classical Inference
-% bootstrapping the LS residuals with replacement
-
+%% Classical Inference using bootstrapped LS residuals with replacement
 options.bootstrap = 1;
 cvar1       = cvar_(y,lags,options);
 
@@ -124,6 +120,11 @@ indx_sho              = indx_var;
 irfs_to_plot2         = cvar1.ir_boots(indx_var,:,indx_sho,:);
 options.conf_sig      = 0.68;
 options.conf_sig_2    = 0.90;   
+% add the 90 HPD sets with flat priors (blue lines)
+var_irf_sort = sort(bvar1.ir_draws,4);
+options.add_irfs(:,:,:,1) = var_irf_sort(indx_var,:,indx_sho,round(bvar1.ndraws*0.95));
+options.add_irfs(:,:,:,2) = var_irf_sort(indx_var,:,indx_sho,round(bvar1.ndraws*0.05));
+options.normz = 0;
 % the plotting command
 plot_all_irfs_(irfs_to_plot2,options)
 

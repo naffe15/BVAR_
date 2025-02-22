@@ -1,6 +1,6 @@
 %% BVAR tutorial: LOCAL PROJECTIONS
 % Author:   Filippo Ferroni and  Fabio Canova
-% Date:     27/02/2020, revised  14/10/2020
+% Date:     27/02/2020, revised  20/02/2025
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 1) classical  LP with  OLS and  IV
@@ -54,7 +54,17 @@ options =rmfield(options,'add_irfs');
 
 %% 2) Classical IV
 % load the instruments
-[numi,txti,rawi] = xlsread('factor_data.xlsx','factor_data');
+datafile = 'factor_data.xlsx';
+sheet    = 'factor_data';
+if isMATLABReleaseOlderThan("R2024a")
+    [numi,txti,rawi] = xlsread(datafile,sheet);
+    % use the same instrument as GK
+    options.proxy  = numi(:,4);
+else
+    Tbl = readtable(datafile,Sheet=sheet);
+    % use the same instrument as GK
+    options.proxy  = Tbl.ff4_tc;
+end
 % csv is  not read  in  many  matlab stations.
 % depends on the country.  transform  csv  into  xls.
 
@@ -76,6 +86,7 @@ options0.varnames = {'IP','CPI','1 year rate','EBP'};
 % finally, the plotting command
 norm = dm2.irproxy_lp(3,1,1,2)*4;
 plot_irfs_(dm2.irproxy_lp(:,:,1,:)/norm,options0)
+pause;
 
 % 2. 2SLS with controls: 
 % Regress first the policy varible on the instrument/proxy shock. Use the
@@ -91,7 +102,7 @@ dm2s = directmethods(y,lags,options2s);
 norm = dm2s.irproxy_lp(3,1,1,2)*4;
 options0.saveas_strng  = 'IV2S';
 plot_irfs_(dm2s.irproxy_lp(:,:,1,:)/norm,options0)
-
+pause;
 
 % 3. no controls except for lags of the endogenous
 options1 = options0;
@@ -106,7 +117,6 @@ options1.saveas_strng  = 'IV_nocontrols';
 options1.varnames = options0.varnames;
 % finally, the plotting command
 plot_irfs_(irf2plot,options1);
-
 pause;
 
 

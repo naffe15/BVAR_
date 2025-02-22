@@ -918,6 +918,7 @@ end
 % Last dimension corresponds to a specific draw
 Phi_draws     = zeros(ny*lags+nx+timetrend + nexogenous, ny, K);   % Autoregressive Parameters
 Sigma_draws   = zeros(ny,ny,K);                     % Shocks Covariance
+Sigma_lower_chol_draw = zeros(ny,ny,K);             % Shocks Covariance Cholesksi 
 ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Cholesky IRF
 irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
 Qlr_draws     = zeros(ny,ny,K);                     % long run impact matrix
@@ -1097,7 +1098,8 @@ for  d =  1 : K
     errors             = yy - XX * Phi;
     e_draws(:,:,d)     = errors;
     fe_draws(:,:,:,d)  = fe_(fhor,errors,Phi(1 : ny*lags, 1 : ny));
-    
+    Sigma_lower_chol_draw(:,:,d) = Sigma_lower_chol;
+        
     
     %======================================================================
     % IRF
@@ -1517,7 +1519,7 @@ BVAR.Phi_draws    = Phi_draws;          % draws from the autoregressive part
 BVAR.Sigma_draws  = Sigma_draws;        % draws from the covarance matrix
 BVAR.alpha_draws  = Phi_draws;          % Older name: draws from the autoregressive part
 BVAR.sigma_draws  = Sigma_draws;        % Older name: draws from the covarance matrix
-
+BVAR.Sigma_lower_chol_draw = Sigma_lower_chol_draw;
 BVAR.ir_draws     = ir_draws;           % draws from the IRF with cholesky
 BVAR.irlr_draws   = irlr_draws;         % draws from the IRF with Long Run
 BVAR.Qlr_draws    = Qlr_draws;          % Long Run Rotation matrix

@@ -1,10 +1,10 @@
 %% BVAR tutorial: Connectedness in the crypto currency market
 % Author:   Filippo Ferroni and Fabio Canova
-% Date:     4/6/2021
+% Date:     20/02/2025
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % estimation of  connectedness  and  vulnerability of  cryptocurrency
-% market. Exercise  done  on  log  prices  or  volatilities
+% market. Use log  prices  or  price volatilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 close all; clc;  clear;
 
@@ -12,37 +12,62 @@ addpath ../../cmintools/
 addpath ../../bvartools/
 
 %% Load the data
-[a,b,c] = xlsread('./crypto_all','price');
-[high,~,~] = xlsread('./crypto_all','high');
-[low,~,~] = xlsread('./crypto_all','low');
+if isMATLABReleaseOlderThan("R2024a")
+    [a,b,c] = xlsread('./crypto_all','price');
+    [high,~,~] = xlsread('./crypto_all','high');
+    [low,~,~] = xlsread('./crypto_all','low');
+    % define time span
+    time = (1: size(b,1)-1)';
+    timestr = b(2:end,1);
+    % crypto names
+    cryptonames = b(1,2:end);
+    % 1. medium cross-section
+    % 12 cryptocurrencies starting in 2018/01/01
+    sel1 = {'Binance Coin','Bitcoin Cash','Bitcoin','Cardano','Dash',...
+        'EOS','Ethereum','Ethereum Classic','IOTA','Litecoin',...
+        'Monero','NEM','Neo','Qtum','Stellar','TRON','VeChain','XRP','Zcash'};
+    % 2. larger cross-section starting in 2020/01/01
+    sel2 = {'Binance Coin',    'Bitcoin Cash',    'Bitcoin', ...
+        'Bitcoin SV',    'BitTorrent',  'Cardano', ...
+        'Chainlink', 'Cosmos','Dai', 'Dash', 'Decred',...
+        'Dogecoin',    'EOS','Ethereum Classic',  'Ethereum',...
+        'FTX Token',    'Huobi Token',    'IOTA', 'Litecoin',...
+        'Maker',    'Monero',    'NEM',    'Neo', 'Polygon',...
+        'Qtum',    'Stellar','THETA',    'TRON',  'UNUS SED LEO',...
+        'USD Coin', 'VeChain','XRP',    'Zcash'};
+else
+    TblPrice = readtable('crypto_all',Sheet='price');
+    a =  table2array(TblPrice(:,2:end));
+    % define time span
+    time = (1:length(a))';
+    timestr = datestr(TblPrice.Var1,'mm/dd/yyyy');
+    % crypto names
+    cryptonames = TblPrice.Properties.VariableNames;
+    cryptonames(:,1) = [];
+    
+    TblH = readtable('crypto_all',Sheet='high');
+    high =  table2array(TblH(:,2:end));
+    TblL = readtable('crypto_all',Sheet='low');
+    low =  table2array(TblL(:,2:end));
 
-% define time span
-time = (1: size(b,1)-1)';
-% time    = [datenum(b(2,1)):1:datenum(b(end,1))]';
-% timestr = datestr(time);
+    % 1. medium cross-section
+    % 12 cryptocurrencies starting in 2018/01/01
+    sel1 = {'BinanceCoin','BitcoinCash','Bitcoin','Cardano','Dash',...
+        'EOS','Ethereum','EthereumClassic','IOTA','Litecoin',...
+        'Monero','NEM','Neo','Qtum','Stellar','TRON','VeChain','XRP','Zcash'};
+    % 2. larger cross-section starting in 2020/01/01
+    sel2 = {'BinanceCoin',    'BitcoinCash',    'Bitcoin', ...
+        'BitcoinSV','BitTorrent',  'Cardano', ...
+        'Chainlink', 'Cosmos','Dai', 'Dash', 'Decred',...
+        'Dogecoin',    'EOS','EthereumClassic',  'Ethereum',...
+        'FTXToken',    'HuobiToken',    'IOTA', 'Litecoin',...
+        'Maker',    'Monero',    'NEM',    'Neo', 'Polygon',...
+        'Qtum',    'Stellar','THETA',    'TRON',  'UNUSSEDLEO',...
+        'USDCoin', 'VeChain','XRP',    'Zcash'};
+end
+
 T       = size(time,1);
-timestr = b(2:end,1);
-
-% crypto names
-cryptonames = b(1,2:end);
-
-% 1. medium cross-section
-% 12 cryptocurrencies starting in 2018/01/01 
-sel1 = {'Binance Coin','Bitcoin Cash','Bitcoin','Cardano','Dash',...
-'EOS','Ethereum','Ethereum Classic','IOTA','Litecoin',...
-    'Monero','NEM','Neo','Qtum','Stellar','TRON','VeChain','XRP','Zcash'};
 [~, indx1] = ismember(sel1,cryptonames);
-
-% 2. larger cross-section starting in 2020/01/01
-sel2 = {'Binance Coin',    'Bitcoin Cash',    'Bitcoin', ...
-    'Bitcoin SV',    'BitTorrent',  'Cardano', ...
-    'Chainlink', 'Cosmos','Dai', 'Dash', 'Decred',...
-    'Dogecoin',    'EOS','Ethereum Classic',  'Ethereum',...
-    'FTX Token',    'Huobi Token',    'IOTA', 'Litecoin',...
-    'Maker',    'Monero',    'NEM',    'Neo', 'Polygon',...
-    'Qtum',    'Stellar','THETA',    'TRON',  'UNUS SED LEO',...
-    'USD Coin', 'VeChain','XRP',    'Zcash'};
-
 [~, indx2] = ismember(sel2,cryptonames);
 % t1 = strmatch('20-Jan-2020',timestr);
 t1 = find(strcmp('1/20/2020',timestr));
@@ -74,7 +99,8 @@ end
 
 %% plot data
 step_plot = 300;
-tmp_str= b(2:step_plot:end,1);
+% tmp_str= b(2:step_plot:end,1);
+tmp_str= timestr(1:step_plot:end,:);
 % log  price
 figure,
 plot(time,log(a(:,indx2)))
@@ -271,7 +297,8 @@ close(wb)
 
 
 step_plot = 200;
-tmp_str = b(tstart:step_plot:end,1);
+% tmp_str = b(tstart:step_plot:end,1);
+tmp_str = timestr(tstart:step_plot:end,:);
 
 figure('Name','Rolling Connectedness Index')
 plot(time(tstart:end), inx(:,1:3))
@@ -290,7 +317,8 @@ end
 %%
 
 step_plot = 300;
-tmp_str = b(tstart:step_plot:end,1);
+% tmp_str = b(tstart:step_plot:end,1);
+tmp_str = timestr(tstart:step_plot:end,:);
 
 for sel = 1 : length(selection)
     

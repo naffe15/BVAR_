@@ -1,10 +1,10 @@
-% example_3_irf.m Impulse  responses, variance  decomp, historical decomp
+%% BVAR tutorial: Impulse  responses, variance  decomp, historical decomp
 %                 plus  time varying  IRFs
 % Authors:   Filippo Ferroni and  Fabio Canova
 % Date:     27/02/2020, revised  14/12/2020
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 1) Computation of IRFs using various  identification schemes
+% 1) Computation of IRFs using various identification schemes
 % 2) Calculation of  variance and  historical decompositions
 % 3) Rolling window estimation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -189,9 +189,17 @@ pause;
 y = [gs1 logip logcpi ebp];
 
 % load the instruments
-[numi,txti,rawi] = xlsread('factor_data.xlsx','factor_data');
-% use the same instrument as GK
-options.proxy  = numi(:,4);
+datafile = 'factor_data.xlsx';
+sheet    = 'factor_data';
+if isMATLABReleaseOlderThan("R2024a")
+    [numi,txti,rawi] = xlsread(datafile,sheet);
+    % use the same instrument as GK
+    options.proxy  = numi(:,4);
+else
+    Tbl = readtable(datafile,Sheet=sheet);
+    % use the same instrument as GK
+    options.proxy  = Tbl.ff4_tc;
+end
 
 % run the BVAR
 bvar6        = bvar_(y,lags,options);
@@ -281,29 +289,32 @@ options.zeros_signs{end+1} = 'ys(2,3)=0;';
 options.zeros_signs{end+1} = 'y(3,3)=1;';
 options.zeros_signs{end+1} = 'y(4,3)=1;';
 % run the BVAR
+option.k=1000;
 bvar4             = bvar_(y,lags,options);
 
 
 
-% uses the first accepted rotation
+% uses the first accepted rotation for  illustration
 opts_.Omega         =  bvar4.Omegaz(:,:,1); 
-
-%% Note:
-% Ideally, the best thing is to create a loop across accepted rotation
-% matrices, and for each of them compute the historical decomposition, then
-% average across decompositions. This step is quite time consuming so for
-% the scope of this tutorial we only consider one accepted rotation.
-
-%%
-% by default it uses mean over posterior draws
 [yDecomp,ierror]  = histdecomp(bvar4,opts_); 
-
 % yDecomp = historical decomposition
 % time, variable, shocks (& exogenous variables if any) and initial
 % condition (last)
 % ierror = structural innovation
 
-%plot_sdcmp_(yDecomp,bvar4)
+% loop over accepted rotations
+%{
+    for  ii=1:1000
+        opts_.Omega         =  bvar4.Omegaz(:,:,ii);      
+        [yDecompl,ierror]  = histdecomp(bvar4,opts_);         
+        % yDecomp = historical decomposition
+        % time, variable, shocks (& exogenous variables if any) and initial
+        % condition (last)
+        % ierror = structural innovation        
+        yDecompb(:,:,:,:,ii)=yDecomp(:,:,::);
+    end
+    yDecomp=median(yDecompb,4);
+%}
 
 % Declare the names of the variables in the order they appear in the VAR
 bvar4.varnames      = {'IP','CPI','Interest Rate','EBP'};
@@ -314,11 +325,11 @@ optnsplt.snames_ = { {'Shck1','Shck2'};...    Combine Supply and Demand
     {'Shck3'};...              MP    
     {'Shck4'} ...              Other shock not identified in the VAR
     };
-% declare the name of the shocks
-optnsplt.stag_       = {'Supply+Demand';
-            'MP';
+% declare the name of the shocks for the legend
+optnsplt.stag_       = {'Supply+Demand shocks';
+            'MP shocks';
             'Other Shocks';
-            'Initial Condition'};
+            'Deterministic component'};
 % name of the file to save
 optnsplt.save_strng    = 'y0';
 % define the time for the plot
@@ -420,9 +431,10 @@ options.nplots        = [2 3];
 %options.add_irfs =  0.25*XXX/XXX(1,1,1);
 % finally, the plotting command
 plot_irfs_(irfs_to_plot,options)
+pause;
 
-
-%% Rolling window estimation
+%% Rolling window estimation 
+%%
 % housekeeping
 clear
 % load Qaurterly data
@@ -454,9 +466,14 @@ figure('name','UNR')
 tt = T(timespan(:,end)');
 surf(tt,1:options.hor,squeeze(rollIRF(2,:,:)))
 axis tight
+pause;
 
 
-%% Sign restrictions with Robust Credible sets (Giacomini-Kitagawa)
+
+%%% CREDIBLE SET a-la Giacomini-Kitagawa
+%%% IT TAKES A  FEW  MINUTES  TO  RUN
+
+%% Sign restrictions with Robust Credible sets 
 clear; close all; clc;
 
 % load the Gertler and Karadi data
@@ -502,9 +519,9 @@ options.saveas_strng  = 'signs-rob';
 % name of the shock
 options.shocksnames   = {'MPtightening'}; % 
 plot_irfs_(irfs_to_plot,options)
+pause;
 
-
-%% Zero-Sign restrictions with Robust Credible sets (Giacomini-Kitagawa)
+%% Zero-Sign restrictions with Robust Credible sets
 
 % Housekeeping: remove previous identification settings
 options = rmfield(options,'signs');
@@ -550,17 +567,18 @@ options.shocksnames     = {'ADshock','ASshock','MPshock'}; %
 % options.add_irfs        = bvar4.irzerosign_ols(indx_var,:,indx_sho,:);
 plot_all_irfs_(irfs_to_plot,options)
 
+return
 
-%% Retrictions with signs and Higher-order moment (HOM) restriction
+%% IRFs with signs and higher-order moment (HOM) restriction
 %--------------------------------------------------------------------------
-% WARNING: this part is relatively time consuming 
+% WARNING: THIS PART IS TIME  CONSUMING
 % It takes about 22 minutes with a personal computer with an Intel(R)
 % Core(TM) Ultra 7 155H 1.40 GHz processor and with 32.0 GB of RAM installed. 
 %--------------------------------------------------------------------------
-clear all
-% identify a spread shock in the EA.
+clear
+
 load Data
-% select the variables of interest for the forecast exercise
+% select the Euro area variables of interest 
 y = [IPI CORE UNR NFCRATE Euribor1Y IT_DE_SPREAD];
 optionsHOM.varnames = {'IP','Core','UNR','NFC Spread','Euribor 1y','It-De 5y'};
 
@@ -568,7 +586,8 @@ lags = 6;
 optionsHOM.K   = 500;
 optionsHOM.hor = 48;
 
-% index of the shocks of interest (spread shock)
+% identify a spread shock in the EA:
+% index of the shocks of interest
 indx_sho              = 6;
 
 % sign restrictions
