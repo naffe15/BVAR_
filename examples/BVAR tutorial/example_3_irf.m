@@ -302,19 +302,7 @@ opts_.Omega         =  bvar4.Omegaz(:,:,1);
 % condition (last)
 % ierror = structural innovation
 
-% loop over accepted rotations
-%{
-    for  ii=1:1000
-        opts_.Omega         =  bvar4.Omegaz(:,:,ii);      
-        [yDecompl,ierror]  = histdecomp(bvar4,opts_);         
-        % yDecomp = historical decomposition
-        % time, variable, shocks (& exogenous variables if any) and initial
-        % condition (last)
-        % ierror = structural innovation        
-        yDecompb(:,:,:,:,ii)=yDecomp(:,:,::);
-    end
-    yDecomp=median(yDecompb,4);
-%}
+
 
 % Declare the names of the variables in the order they appear in the VAR
 bvar4.varnames      = {'IP','CPI','Interest Rate','EBP'};
@@ -340,6 +328,47 @@ optnsplt.saveas_dir    = './sdcmp_plt';
 optnsplt.Tlim          = [2006 2012];
 plot_sdcmp_(yDecomp,bvar4,optnsplt)
 pause;
+
+
+% loop over accepted rotations
+% WARNING:  IT  TAKES  A  SEVERAL  MINUTES TO RUN
+%{
+    for  ii=1:100
+        opts_.Omega         =  bvar4.Omegaz(:,:,ii);      
+        [yDecompl,ierror]  = histdecomp(bvar4,opts_);         
+        % yDecomp = historical decomposition
+        % time, variable, shocks (& exogenous variables if any) and initial
+        % condition (last)
+        % ierror = structural innovation        
+        yDecompb(:,:,:,:,ii)=yDecompl(:,:,:,:);
+    end
+    yDecomp=median(yDecompb,4);
+
+% Declare the names of the variables in the order they appear in the VAR
+bvar41.varnames      = {'IP','CPI','Interest Rate','EBP'};
+% select the variables for the plot of the historical decomposition
+optnsplt.plotvar_    = {'Interest Rate','EBP'};
+% select the shocks combination to report
+optnsplt.snames_ = { {'Shck1','Shck2'};...    Combine Supply and Demand
+    {'Shck3'};...              MP    
+    {'Shck4'} ...              Other shock not identified in the VAR
+    };
+% declare the name of the shocks for the legend
+optnsplt.stag_       = {'Supply+Demand shocks';
+            'MP shocks';
+            'Other Shocks';
+            'Deterministic component'};
+% name of the file to save
+optnsplt.save_strng    = 'y0';
+% define the time for the plot
+optnsplt.time          = T(1+lags:end);
+% define the directory where the plot is saved 
+optnsplt.saveas_dir    = './sdcmp_plt';
+% limit the plot to a specific time window 
+optnsplt.Tlim          = [2006 2012];
+plot_sdcmp_(yDecomp,bvar41,optnsplt)
+pause;
+%}
 
 
 %% Extra part 3): Minnesota Priors IRF 
