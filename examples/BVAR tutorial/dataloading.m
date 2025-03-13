@@ -3,6 +3,7 @@ clear all
 %EA: monthly database with various macro variables
 datafile = 'data_macro.xlsx';
 sheet    = 'logs';
+% xlsread not reccomended for recent versions of matlab
 if isMATLABReleaseOlderThan("R2024a")
     [num,txt,raw] = xlsread(datafile,sheet);
     % generate a column vector with the T span
@@ -181,7 +182,7 @@ clear all
 close all
 clc
 % EA MP events database
-% Altavilla et al. / Journal of Monetary Economics 108 (2019) 162–179
+% Altavilla et al. / Journal of Monetary Economics 108 (2019) 162â€“179
 datafile = 'Dataset_EA-MPD.xlsx';
 sheet    = 'Monetary Event Window';
 if isMATLABReleaseOlderThan("R2024a")
