@@ -101,3 +101,25 @@ plot_all_irfs_(mltple_irfs_to_plot_all,options)
 
 %% ESSENCE: OPTIMALLY CHOSEN  AND  CHERRY  PICKED  CHOSEN  
 %% HYPER-PARAMETER VALUES MAKE  LITTLE  DIFFERENCE  FOR  SHAPE  OF  IRFS.
+
+%% 3.4 Use a presample as prior
+clear options;
+% run a VAR on presample data
+presample = 50; % 8 years of presample
+lags      = 6;
+bvar1     = bvar_(y(1:presample,:),lags);
+  
+
+% use the VAR estimates to set the priors for the LP
+options.priors.name        = 'Conjugate';
+% posterior mean of the VAR AR coeff and constant
+options.priors.Phi.mean    = mean(bvar1.Phi_draws,3);
+% average variance of the AR coeff and constant
+options.priors.Phi.cov     = diag(mean(var(bvar1.Phi_draws,0,3),2));
+% posterior mean of the Covariance of the VAR residuals 
+options.priors.Sigma.scale = mean(bvar1.Sigma_draws,3);
+options.priors.Sigma.df    = size(bvar1.Phi_draws,1)-2;
+options.K                  = 1000;
+
+bvar2 = bvar_(y(presample+1:end,:),lags,options);
+
