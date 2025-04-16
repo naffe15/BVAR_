@@ -723,9 +723,9 @@ if nunits == 1
 else % pooled units
     yy = []; XX = [];
     for nunit = 1 : nunits
-        [yy,XX] = YXB_(y(idx, :, nunit),lags,[nx timetrend]);
-        XX = [XX; XX];
-        yy = [yy; yy];
+        [yy_p,XX_p] = YXB_(y(idx, :, nunit),lags,[nx timetrend]);
+        XX = [XX; XX_p];
+        yy = [yy; yy_p];
     end
 end
 
