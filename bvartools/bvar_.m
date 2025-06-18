@@ -1517,8 +1517,8 @@ end
 % inference and IRFs
 BVAR.Phi_draws    = Phi_draws;          % draws from the autoregressive part
 BVAR.Sigma_draws  = Sigma_draws;        % draws from the covarance matrix
-BVAR.alpha_draws  = Phi_draws;          % Older name: draws from the autoregressive part
-BVAR.sigma_draws  = Sigma_draws;        % Older name: draws from the covarance matrix
+% BVAR.alpha_draws  = Phi_draws;          % Older name: draws from the autoregressive part
+% BVAR.sigma_draws  = Sigma_draws;        % Older name: draws from the covarance matrix
 BVAR.Sigma_lower_chol_draw = Sigma_lower_chol_draw;
 BVAR.ir_draws     = ir_draws;           % draws from the IRF with cholesky
 BVAR.irlr_draws   = irlr_draws;         % draws from the IRF with Long Run
@@ -1526,8 +1526,8 @@ BVAR.Qlr_draws    = Qlr_draws;          % Long Run Rotation matrix
 BVAR.lags         = lags;               % lags
 BVAR.N            = ny;                 % number of variables
 BVAR.e_draws      = e_draws;            % residuals
-BVAR.e            = e_draws;            % backward compatible with earlier versions
-BVAR.fe_draws     = fe_draws;            % backward compatible with earlier versions
+% BVAR.e            = e_draws;            % backward compatible with earlier versions
+BVAR.fe_draws     = fe_draws;           % insample forecast errors
 
 BVAR.posterior    = posterior;
 BVAR.prior        = prior;             % priors used
