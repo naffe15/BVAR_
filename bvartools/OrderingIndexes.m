@@ -30,6 +30,7 @@ for ii = 1 : size(varordering,2)
     if check == 1
         %assignin('base', [newstrng 'index_' varordering{ii} ], ii);
         String = varordering{ii};
+        String = replace(String,'-','');
         iString = String(find(~isspace(String)));
         assignin('base', [newstrng 'i' iString ], ii);
     else
