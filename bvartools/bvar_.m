@@ -1795,7 +1795,7 @@ end
             % Conjugate Prior
             %********************************************************
             Ai              = inv(prior.Phi.cov);
-            posterior.df    = Tu - ny*lags - nx - nexogenous - prior.Sigma.df;
+            posterior.df    = Tu + prior.Sigma.df;
             posterior.XXi   = inv(var.X'*var.X + Ai);
             posterior.PhiHat = posterior.XXi * (var.X' * var.y + Ai * prior.Phi.mean);
             %posterior.S     = var.u' * var.u + prior.Sigma.scale ;
