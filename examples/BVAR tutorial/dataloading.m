@@ -27,7 +27,7 @@ T   = timev(1,1) + (timev(1,2)-1)/12 : 1/12 : timev(end,1) + (timev(end,2)-1)/12
 save Data T num varnames
 for jj = 1 : length(varnames)
     eval([varnames{jj} '=num(:,' num2str(jj) ');'])
-    eval([ 'save Data2 ' varnames{jj} ' -append'])
+    eval([ 'save Data ' varnames{jj} ' -append'])
 end
 
 %% MP shocks Database
@@ -58,7 +58,7 @@ T   = timev(1,1) + (timev(1,2)-1)/12 : 1/12 : timev(end,1) + (timev(end,2)-1)/12
 save DataGK T num varnames
 for jj = 1 : length(varnames)
     eval([varnames{jj} '=num(:,' num2str(jj) ');'])
-    eval([ 'save DataGK2 ' varnames{jj} ' -append'])
+    eval([ 'save DataGK ' varnames{jj} ' -append'])
 end
 
 %% Mixed Freq Database
@@ -110,7 +110,7 @@ end
 save DataMF T num varnames
 for jj = 1 : length(varnames)
     eval([varnames{jj} '=num(:,' num2str(jj) ');'])
-    eval([ 'save DataMF2 ' varnames{jj} ' -append'])
+    eval([ 'save DataMF ' varnames{jj} ' -append'])
 end
 
 
@@ -138,7 +138,7 @@ T   = timev(1,1) + (timev(1,2)-1)/12 : 1/4 : timev(end,1) + (timev(end,2)-1)/12;
 save DataQ T num varnames
 for jj = 1 : length(varnames)
     eval([varnames{jj} '=num(:,' num2str(jj) ');'])
-    eval([ 'save DataQ2 ' varnames{jj} ' -append'])
+    eval([ 'save DataQ ' varnames{jj} ' -append'])
 end
 
 %% FAVAR Database (Stock_Watson type database)
