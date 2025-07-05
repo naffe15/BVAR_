@@ -16,7 +16,7 @@ load Data
 % select the variables of interest for the forecast exercise
 yactual = [IPI HICP CORE Euribor1Y M3 EXRATE];
 % stop at August 2014 for estimation
-in_sample_end = find(T==2014 + 7/12);
+in_sample_end = find(T==2023 + 11/12);
 y             = yactual(1:in_sample_end,:);
 TT            = T(1:in_sample_end);
 
@@ -81,13 +81,13 @@ ordering_transf = [1, 1, 1, 0, 1, 0, 0];
 col= char('b','r','g');
 tmp_str = 'frcsts_plt';
 mkdir(tmp_str);
-tzero = find(T == 2014);
+tzero = find(T == 2023 + 6/12);
 varnames = {'IPI' 'HICP' 'CORE HICP' 'Euribor1Y' 'M3' 'EXRATE'};
 
 if tzero < KAPPA + 1
     tzero = KAPPA + 1;
 end
-yfor=zeros(size(PCOMM,1)-KAPPA,3);
+yfor=zeros(size(CORE,1)-KAPPA,3);
 for jj= 1:length(varnames)
     figure('Name',varnames{jj})
     if ordering_transf(jj)
@@ -147,7 +147,7 @@ options.saveas_dir        = '/frcsts_plt';
 % appearence of subplots 
 options.nplots            = [3 2];                           
 % start of the forecast plot - default first date in-sample data
-options.time_start        = 2013;
+options.time_start        = 2023 + 6/12;
 % Transformations
 % 12 = Year over Year percentage change with monthly data for IPI and HICP 
 options.order_transform  = [12 12 12 0 12 0]; 
