@@ -15,7 +15,7 @@ addpath ../../bvartools/
 load Data
 % select the variables of interest for the forecast exercise
 yactual = [IPI HICP CORE Euribor1Y M3 EXRATE];
-% stop at August 2014 for estimation
+% stop at August 2024 for estimation
 in_sample_end = find(T==2023 + 11/12);
 y             = yactual(1:in_sample_end,:);
 TT            = T(1:in_sample_end);

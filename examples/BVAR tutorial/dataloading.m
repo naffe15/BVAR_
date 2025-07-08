@@ -2,7 +2,7 @@
 clear all
 %EA: monthly database with various macro variables
 datafile = 'data_macro.xlsx';
-sheet    = 'logs';
+sheet    = 'logs_new';
 % xlsread not reccomended for recent versions of matlab
 if isMATLABReleaseOlderThan("R2024a")
     [num,txt,raw] = xlsread(datafile,sheet);
@@ -24,6 +24,12 @@ end
 % this is MONTHLY data
 % convention 2012m1 = 2012.00 and 2012m12 = 2012+11/12
 T   = timev(1,1) + (timev(1,2)-1)/12 : 1/12 : timev(end,1) + (timev(end,2)-1)/12;
+
+% limit observations to 2024m12
+last_idx = find(T <= 2024 + 11/12);
+T   = T(last_idx);
+num = num(last_idx, :);
+
 save Data T num varnames
 for jj = 1 : length(varnames)
     eval([varnames{jj} '=num(:,' num2str(jj) ');'])
