@@ -1,5 +1,6 @@
 %% Forecast Databse
 clear all
+
 %EA: monthly database with various macro variables
 datafile = 'data_macro.xlsx';
 sheet    = 'logs_new';
