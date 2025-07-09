@@ -3,7 +3,7 @@ clear all
 
 %EA: monthly database with various macro variables
 datafile = 'data_macro.xlsx';
-sheet    = 'logs_new';
+sheet    = 'logs';
 % xlsread not reccomended for recent versions of matlab
 if isMATLABReleaseOlderThan("R2024a")
     [num,txt,raw] = xlsread(datafile,sheet);
