@@ -15,7 +15,7 @@ addpath ../../bvartools/
 load Data
 % select the variables of interest for the forecast exercise
 yactual = [IPI HICP CORE Euribor1Y M3 EXRATE];
-% stop at August 2024 for estimation
+% stop at December 2024 for estimation - convention 0 = January, ...
 in_sample_end = find(T==2023 + 11/12);
 y             = yactual(1:in_sample_end,:);
 TT            = T(1:in_sample_end);
@@ -76,7 +76,7 @@ cfrcsts2_plot       = [y; tmp];
 
 
 KAPPA = 12;
-ordering_transf = [1, 1, 1, 0, 1, 0, 0];
+ordering_transf = [0, 1, 1, 0, 1, 0, 0];
 %col= strvcat('b','r','g');
 col= char('b','r','g');
 tmp_str = 'frcsts_plt';
@@ -150,7 +150,7 @@ options.nplots            = [3 2];
 options.time_start        = 2023 + 6/12;
 % Transformations
 % 12 = Year over Year percentage change with monthly data for IPI and HICP 
-options.order_transform  = [12 12 12 0 12 0]; 
+options.order_transform  = [0 12 12 0 12 0]; 
 % Titles for subplot
 options.varnames         = ...
               {'Industrial Production','HICP','CORE','Euribor 1Y','M3','EXRATE'};
