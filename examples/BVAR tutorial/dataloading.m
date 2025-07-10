@@ -1,6 +1,9 @@
 %% Forecast Databse
 clear all
 
+addpath ../../cmintools/
+addpath ../../bvartools/
+
 %EA: monthly database with various macro variables
 datafile = 'data_macro.xlsx';
 sheet    = 'logs';
