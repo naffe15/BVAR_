@@ -1,5 +1,7 @@
 %% Forecast Databse
 clear all
+close all
+clc
 
 addpath ../../cmintools/
 addpath ../../bvartools/
