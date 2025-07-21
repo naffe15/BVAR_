@@ -82,7 +82,7 @@ bvarmf                  = bvar_(y(1:LastDataPoint,:),lags,options);
 
 % Construct the nowcast dataset
 Tstart = 1;
-YNowCast = nan(LastDataPoint  -Tstart+1 +3, size(y,2));
+YNowCast = nan(LastDataPoint -Tstart+1 +3, size(y,2));
 YNowCast(1:LastDataPoint,:) = y(Tstart:LastDataPoint,:);
 yNowCast = repmat(YNowCast,1,1,3*5);
 jj = 0; tmp = YNowCast;
