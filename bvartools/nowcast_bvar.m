@@ -69,3 +69,4 @@ end
 close(wb);
 
 out.NowCast = NowCast;
+out.options = options; 

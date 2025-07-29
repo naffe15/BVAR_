@@ -74,6 +74,7 @@ lags = 6;                                 % number  of  lags
 
 % Estimate the MFVAR model last full data arraw December 2024
 LastDataPoint           = find(T==2025)-1; % december 2024
+
 options.mf_varindex     = 1;
 options.K               = 1000;
 options.priors.name     = 'Minnesota';
@@ -102,13 +103,8 @@ end
 NowOptions.fast_kf = 1;
 NowOptions.noprint = 1;
 out = nowcast_bvar(yNowCast, bvarmf, NowOptions);
-% fast_kf=1
-% Elapsed time is 26.411855 seconds.
-% fast_kf=0
-% Elapsed time is 353.161598 seconds.
 
 % plot nowcast against actual
-
 true = y(LastDataPoint + 3,1);
 for dd = 1: size(yNowCast,3)
     GDP_now(:,dd) = squeeze(out.NowCast(LastDataPoint+3,:,dd));
@@ -117,10 +113,7 @@ GDP_dn = prctile(GDP_now,5,1);
 GDP_up = prctile(GDP_now,95,1);
 GDP_md = prctile(GDP_now,50,1);
 
-tmp_str = 'mfvar_plt';
-mkdir(tmp_str);
 x = 1:dd;
-
 for xx = 1 : dd
     figure(1),
     set(    gcf,'position' ,[50 50 900 650])
@@ -129,7 +122,7 @@ for xx = 1 : dd
     hold on;
     plot(x(1:xx),GDP_md(1:xx),'Color',[0 0 0],'LineWidth',1.5);
     fill([x(1:xx) fliplr(x(1:xx))], [GDP_up(1:xx) fliplr(GDP_dn(1:xx))], [0.6 0.8 1], 'EdgeColor', 'none', 'FaceAlpha', 0.1);
-    title('GDP - 2025Q1')
+    title(['GDP log levels - 2025Q1'])
     xlim([1 dd+0.1])
     xlabel('data releases (#)');
     ylabel('log levels');
@@ -141,7 +134,7 @@ for xx = 1 : dd
     hold on;
     plot(x(1:xx),100*(GDP_md(1:xx)-y(LastDataPoint+3-12,1)),'Color',[0 0 0],'LineWidth',1.5);
     fill([x(1:xx) fliplr(x(1:xx))], [100*(GDP_up(1:xx)-y(LastDataPoint+3-12,1)) fliplr(100*(GDP_dn(1:xx)-y(LastDataPoint+3-12,1)))], [0.8 1 0.6], 'EdgeColor', 'none', 'FaceAlpha', 0.1);
-    title('GDP annual growth rates - 2025Q1')
+    title(['GDP annual growth rates - 2025Q1'])
     xlim([1 dd+0.1])
     xlabel('data releases (#)');
     ylabel('percent');
@@ -153,7 +146,7 @@ for xx = 1 : dd
     hold on;
     plot(x(1:xx),100*(GDP_md(1:xx)-y(LastDataPoint+3-3,1)),'Color',[0 0 0],'LineWidth',1.5);
     fill([x(1:xx) fliplr(x(1:xx))], [100*(GDP_up(1:xx)-y(LastDataPoint+3-3,1)) fliplr(100*(GDP_dn(1:xx)-y(LastDataPoint+3-3,1)))], [1 0.6 0.6], 'EdgeColor', 'none', 'FaceAlpha', 0.1);
-    title('GDP quarterly growth rates - 2025Q1')
+    title(['GDP quarterly growth rates - 2025Q1'])
     xlim([1 dd+0.1])
     xlabel('data releases (#)');
     ylabel('percent');
@@ -163,5 +156,5 @@ for xx = 1 : dd
 
 end
 if strcmp(version('-release'),'2022b') == 0
-    savefigure_pdf([tmp_str '\GDP_Now']);
+    savefigure_pdf([tmp_str '\GDP_Now_' tag_]);
 end
