@@ -1708,6 +1708,8 @@ if mixed_freq_on
     BVAR.yfilt = yfilt;
     BVAR.yinterpol = yinterpol;
     BVAR.logL  = logL;
+    KFoptions.mf_varindex = options.mf_varindex;
+    BVAR.KFoptions        =  KFoptions;
 end
 
 % bvar connetedness

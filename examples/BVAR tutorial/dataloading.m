@@ -100,7 +100,7 @@ else
     num = Tbl{:,3:end};
 end
 % this is MONTHLY data change for Q data
-T   = timev(1,1) + timev(1,2)/12 : 1/12 : timev(end,1) + timev(end,2)/12;
+T   = timev(1,1) + (timev(1,2)-1)/12 : 1/12 : timev(end,1) + (timev(end,2)-1)/12;
 ordering = {'GDP','IPI','HICP','CORE','Euribor1Y','UNRATE'};
 % ordering = {'GDP','IPI'};
 % this function extract the index of ordering in the original database and
