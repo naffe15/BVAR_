@@ -99,6 +99,7 @@ ElasticNet_         = 0;
 set_irf             = 0;
 robust_bayes_       = 0;
 robust_credible_regions_  = 0;
+exogenous_block = 0;
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -205,6 +206,21 @@ if nargin > 2
         end
         if any(isnan(exogenous(lags+1:end,:)))
             error('Exogenous variables cannnot be ''nan'' from lags+1 onward.');
+        end
+    end
+    %======================================================================
+    % Exogenous Block options
+    %======================================================================
+    if isfield(options,'exogenous_block')==1
+        exogenous_block = 1;
+        exogenous = options.exogenous_block; 
+
+        nz = size(exogenous,2);
+        if size(exogenous,1) ~= size(y,1)+ fhor && size(exogenous,1) ~= size(y,1)
+            error('Size Mismatch between endogenous and exogenos variables; exo must be either T or T+fhor');
+        end
+        if any(isnan(exogenous(lags+1:end,:)))
+            error('Exogenous variables cannot be ''nan'' from lags+1 onward.');
         end
     end
     %======================================================================
@@ -718,8 +734,15 @@ if noconstant
 end
 
 % organize data as  yy = XX B + E
+% organize data as  yy = XX B + E
 if nunits == 1
-    [yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
+    if exogenous_block == 1
+       [yy1,XX1] = YXB_(y(idx, :),lags,[nx timetrend]);
+       [yy2,XX2] = YXB_(exogenous(idx, :),lags,[nx timetrend]);
+       yy = [yy1, yy2]; XX = [XX1, XX2];
+    else 
+       [yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
+    end
 else % pooled units
     yy = []; XX = [];
     for nunit = 1 : nunits
@@ -749,6 +772,9 @@ if nexogenous > 0
     xdata = [xdata exogenous(idx,:)]; 
     XX    = [XX exogenous(idx(1)+lags : idx(end),:)];
 end
+if exogenous_block == 1
+    xdata = [xdata XX2];
+end
 
 % OLS estimate [NO DUMMY]:
 if nunits == 1
@@ -767,6 +793,11 @@ else % pooled units
     % Compute OLS regression and residuals of the pooled estimator
     varols = fast_ols(varols.y,varols.X);
 end
+if exogenous_block == 1
+    zdata   = exogenous(idx, :);
+    zxdata   = ones(T,nx);
+    zvarols  = rfvar3(zdata, lags, zxdata, [T; T], 0, 0);
+end 
 
 if Ridge_ == 1
     varRidge   = varols;
@@ -840,6 +871,15 @@ end
 
 % specify the posterior (the varols agin on actual+dummy)
 [posterior,var] = posterior_(y);
+
+if exogenous_block == 1
+    exogenous_block = 0;
+    ny0 = ny;
+    ny = nz;
+    [zposterior, zvar] = posterior_(exogenous);
+    exogenous_block = 1;
+    ny = ny0;
+end
 
 % compute the second and fourth moments robust to error distribution misspecification  
 if robust_bayes_ > 0 
@@ -928,6 +968,18 @@ yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts with shocks
 yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecast without the shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional on endogenous path
 logL                      = NaN(K,1);
+if exogenous_block == 1
+    Phi_draws     = zeros((ny+nz)*lags+nx, (ny+nz), K);
+    Sigma_draws   = zeros((ny+nz),(ny+nz),K);
+    ir_draws      = zeros((ny+nz),hor,(ny+nz),K);
+    irlr_draws    = zeros((ny+nz),hor,(ny+nz),K);
+    Qlr_draws     = zeros((ny+nz),(ny+nz),K);
+    e_draws       = zeros(size(yy,1),(ny+nz),K);
+    fe_draws      = zeros(size(yy,1),(ny+nz),fhor,K);
+    yhatfut_no_shocks         = NaN(fhor, (ny+nz), K, nunits);
+    yhatfut_with_shocks       = NaN(fhor, (ny+nz), K, nunits);
+    yhatfut_cfrcst            = NaN(fhor, (ny+nz), K, nunits);
+end 
 if signs_irf == 1
     irsign_draws = ir_draws;
     Omega_draws  = Sigma_draws;
@@ -1000,7 +1052,12 @@ end
 if nexogenous>0
     forecast_data.xdata = [forecast_data.xdata exogenous(T-lags+1 : T-lags+fhor,:)];
 end
-forecast_data.initval     = ydata(end-lags+1:end, :, :);
+
+if exogenous_block == 1
+    forecast_data.initval     = [ydata(end-lags+1:end, :), zdata(end-lags+1:end, :)];
+else
+    forecast_data.initval     = ydata(end-lags+1:end, :, :);
+end
 
 % Settings for the MFVAR
 if mixed_freq_on == 1
@@ -1026,8 +1083,16 @@ end
 
 
 XXi_lower_chol      = chol(posterior.XXi)';
+if exogenous_block == 1
+    ZZi_lower_chol      = chol(zposterior.XXi)';
+    zS_inv_upper_chol    = chol(inv(zposterior.S));
+end
 
-nk                  = ny*lags+nx+timetrend + nexogenous;
+if exogenous_block == 1
+    nk = (ny+nz)*lags+nx+timetrend;
+else
+    nk = ny*lags+nx+timetrend + nexogenous;
+end
 
 % Declaration of the companion matrix
 Companion_matrix = diag(ones(ny*(lags-1),1),-ny);
@@ -1060,15 +1125,46 @@ for  d =  1 : K
                     tec = 1;
                 end
             end
-        else    
-            Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
-            Sigma_lower_chol = chol(Sigma)';
-        end
+        else  
+            if exogenous_block == 1
+                 ySigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);  
+                 zSigma = rand_inverse_wishart(nz, zposterior.df, zS_inv_upper_chol);
+                 Sigma = [ySigma, zeros(ny,nz); zeros(nz,ny), zSigma];
+                 Sigma_lower_chol = chol(Sigma)';
+                 ySigma_lower_chol = chol(ySigma)';
+                 zSigma_lower_chol = chol(zSigma)';
+            else
+                Sigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);
+                Sigma_lower_chol = chol(Sigma)';
+            end
+        end 
 
-        Phi1 = randn(nk * ny, 1);
-        Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
-        Phi3 = reshape(Phi2, nk, ny);
-        Phi  = Phi3 + posterior.PhiHat;
+        if exogenous_block == 1
+            Phi1 = randn(nk * ny, 1);
+            Phi2 = kron(ySigma_lower_chol , XXi_lower_chol) * Phi1;
+            Phi3 = reshape(Phi2, nk, ny);
+            yPhi  = Phi3 + posterior.PhiHat;
+            zPhi1 = randn( (nz*lags+nx+timetrend) * nz, 1);
+            zPhi2 = kron(zSigma_lower_chol , ZZi_lower_chol) * zPhi1;
+            zPhi3 = reshape(zPhi2,(nz*lags+nx+timetrend), nz);
+            zPhi  = zPhi3 + posterior.PhiHat;
+
+            yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
+            yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:); % coefficient of lag exogenous on endogenous
+            yPhic = yPhi(ny*lags+1 : ny*lags+nx+timetrend, :); % constant and time trend of endogenous
+            zPhiz = zPhi(1:nz*lags,:); % coefficient of lag exogenous on exogenous
+            zPhiy = zeros(nz*lags, ny); % coefficient of lag endogenous on exogenous
+            zPhic = yPhi(nz*lags+1 : nz*lags+nx+timetrend, :);% constant and time trend of exogenous
+            % 
+            Phi = [yPhiy, yPhiz;
+                    zPhiy, zPhiz;
+                    yPhic, zPhic];
+        else
+            Phi1 = randn(nk * ny, 1);
+            Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
+            Phi3 = reshape(Phi2, nk, ny);
+            Phi  = Phi3 + posterior.PhiHat;
+        end
         
         if robust_bayes_ > 1 % robust to kurtosis and skewness
             mu_rob           = posterior.PhiHat(ny*lags+1,:) + (Sstar_* ivech_Sig_cov_ * (Sig2  - vech_Sig_))';
@@ -1097,9 +1193,12 @@ for  d =  1 : K
     Sigma_draws(:,:,d) = Sigma;
     errors             = yy - XX * Phi;
     e_draws(:,:,d)     = errors;
-    fe_draws(:,:,:,d)  = fe_(fhor,errors,Phi(1 : ny*lags, 1 : ny));
     Sigma_lower_chol_draw(:,:,d) = Sigma_lower_chol;
-        
+    if exogenous_block == 1
+        ny0 = ny;
+        ny = ny + nz;
+    end 
+    fe_draws(:,:,:,d)  = fe_(fhor,errors,Phi(1 : ny*lags, 1 : ny));
     
     %======================================================================
     % IRF
@@ -1313,12 +1412,13 @@ for  d =  1 : K
         Ctheta(:,:,d)              = C.theta;
     end
     
-    
+    if exogenous_block == 1
+        ny = ny0;
+    end
     if waitbar_yes, waitbar(d/K, wb); end
     dd = 0; % reset 
 end
 if waitbar_yes, close(wb); end
-
 
 %********************************************************
 %* Storing the resutls
@@ -1744,6 +1844,9 @@ end
         end
         if nexogenous >0
             xdata = [xdata exogenous(idx,:)];
+        end
+        if exogenous_block == 1
+            xdata = [xdata XX2];
         end
         % posterior density
         if nunits == 1
