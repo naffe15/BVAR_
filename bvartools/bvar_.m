@@ -1808,7 +1808,9 @@ if mixed_freq_on
     BVAR.yfilt = yfilt;
     BVAR.yinterpol = yinterpol;
     BVAR.logL  = logL;
-    KFoptions.mf_varindex = options.mf_varindex;
+    if isfield(options,'mf_varindex')== 1
+        KFoptions.mf_varindex = options.mf_varindex;
+    end
     BVAR.KFoptions        =  KFoptions;
 end
 
