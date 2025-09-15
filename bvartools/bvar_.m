@@ -104,12 +104,7 @@ robust_credible_regions_  = 0;
 % Interpolate the missing values of each times series.
 mixed_freq_on = 0;
 if any(any(isnan(y))) %== 1
-    if any(sum(isnan(y),2) == ny)
-        warning('Cannot activate the Mixed Frequency BVAR. Data contains raws that have only ''nan''s. Each variable is interpolated individually.')        
-    else
-        disp('Activating the Mixed Frequency BVAR')
         mixed_freq_on = 1;
-    end    
     index_nan_var = find(sum(isnan(y),1) ~= 0);
     yoriginal     = y;
     % interporlate the variables that have nans
@@ -923,7 +918,12 @@ ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock a
 irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
 Qlr_draws     = zeros(ny,ny,K);                     % long run impact matrix
 e_draws       = zeros(size(yy,1), ny,K);                  % residuals
-fe_draws      = zeros(size(yy,1), ny,fhor,K);                  % residuals
+if size(yy,1)*ny*fhor*K < 1e8
+    flag_fe  = 1;
+    fe_draws = zeros(size(yy,1), ny,fhor,K);  % forecast errors 
+else 
+    flag_fe  = 0; 
+end
 yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts with shocks
 yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecast without the shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional on endogenous path
@@ -1097,7 +1097,9 @@ for  d =  1 : K
     Sigma_draws(:,:,d) = Sigma;
     errors             = yy - XX * Phi;
     e_draws(:,:,d)     = errors;
-    fe_draws(:,:,:,d)  = fe_(fhor,errors,Phi(1 : ny*lags, 1 : ny));
+    if flag_fe
+        fe_draws(:,:,:,d)  = fe_(fhor,errors,Phi(1 : ny*lags, 1 : ny));
+    end
     Sigma_lower_chol_draw(:,:,d) = Sigma_lower_chol;
         
     
@@ -1527,8 +1529,9 @@ BVAR.lags         = lags;               % lags
 BVAR.N            = ny;                 % number of variables
 BVAR.e_draws      = e_draws;            % residuals
 % BVAR.e            = e_draws;            % backward compatible with earlier versions
-BVAR.fe_draws     = fe_draws;           % insample forecast errors
-
+if flag_fe 
+    BVAR.fe_draws     = fe_draws;           % insample forecast errors
+end
 BVAR.posterior    = posterior;
 BVAR.prior        = prior;             % priors used
 BVAR.logmlike     = log_dnsty;
