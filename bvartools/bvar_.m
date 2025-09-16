@@ -100,6 +100,7 @@ set_irf             = 0;
 robust_bayes_       = 0;
 robust_credible_regions_  = 0;
 exogenous_block = 0;
+nz              = 0;
 
 % for mixed frequecy / irregurerly sampled data.
 % Interpolate the missing values of each times series.
@@ -739,7 +740,7 @@ if nunits == 1
     if exogenous_block == 1
        [yy1,XX1] = YXB_(y(idx, :),lags,[nx timetrend]);
        [yy2,XX2] = YXB_(exogenous(idx, :),lags,[nx timetrend]);
-       yy = [yy1, yy2]; XX = [XX1, XX2];
+       yy = [yy1, yy2]; XX = [XX1(:,1:lags*ny), XX2];
     else 
        [yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
     end
@@ -773,7 +774,7 @@ if nexogenous > 0
     XX    = [XX exogenous(idx(1)+lags : idx(end),:)];
 end
 if exogenous_block == 1
-    xdata = [xdata XX2];
+    xdata = [xdata,  [nan(lags,lags*nz); XX2(:,1:lags*nz)]];
 end
 
 % OLS estimate [NO DUMMY]:
@@ -971,6 +972,7 @@ logL                      = NaN(K,1);
 if exogenous_block == 1
     Phi_draws     = zeros((ny+nz)*lags+nx, (ny+nz), K);
     Sigma_draws   = zeros((ny+nz),(ny+nz),K);
+    Sigma_lower_chol_draw = zeros((ny+nz),(ny+nz),K);             % Shocks Covariance Cholesksi 
     ir_draws      = zeros((ny+nz),hor,(ny+nz),K);
     irlr_draws    = zeros((ny+nz),hor,(ny+nz),K);
     Qlr_draws     = zeros((ny+nz),(ny+nz),K);
@@ -1147,7 +1149,7 @@ for  d =  1 : K
             zPhi1 = randn( (nz*lags+nx+timetrend) * nz, 1);
             zPhi2 = kron(zSigma_lower_chol , ZZi_lower_chol) * zPhi1;
             zPhi3 = reshape(zPhi2,(nz*lags+nx+timetrend), nz);
-            zPhi  = zPhi3 + posterior.PhiHat;
+            zPhi  = zPhi3 + zposterior.PhiHat;
 
             yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
             yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:); % coefficient of lag exogenous on endogenous
@@ -1173,13 +1175,17 @@ for  d =  1 : K
             Phi(ny*lags+1,:) = mu_rob + (mu_cov_chol*randn(ny, 1))';
         end
         
-        Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
-        test = (abs(eig(Companion_matrix)));
-        if non_explosive_ == 1
-            % Checking the eigenvalues of the companion matrix (on or inside the
-            % unit circle)
-            if any(test>1.01) %any(test>1.0000000000001)
-                p = p+1;                
+        if exogenous_block == 0
+            Companion_matrix(1:ny,:) = Phi(1:(ny)*lags,:)';
+            test = (abs(eig(Companion_matrix)));
+            if non_explosive_ == 1
+                % Checking the eigenvalues of the companion matrix (on or inside the
+                % unit circle)
+                if any(test>1.01) %any(test>1.0000000000001)
+                    p = p+1;
+                else
+                    dd = 1;
+                end
             else
                 dd = 1;
             end
@@ -1848,7 +1854,7 @@ end
             xdata = [xdata exogenous(idx,:)];
         end
         if exogenous_block == 1
-            xdata = [xdata XX2];
+            xdata = [xdata,  [nan(lags,lags*nz); XX2(:,1:lags*nz)]];
         end
         % posterior density
         if nunits == 1
