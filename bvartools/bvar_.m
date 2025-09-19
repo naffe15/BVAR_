@@ -876,10 +876,12 @@ end
 if exogenous_block == 1
     exogenous_block = 0;
     ny0 = ny;
+    ydata0 = ydata;
     ny = nz;
     [zposterior, zvar] = posterior_(exogenous);
     exogenous_block = 1;
     ny = ny0;
+    ydata = ydata0;
 end
 
 % compute the second and fourth moments robust to error distribution misspecification  
@@ -1152,11 +1154,11 @@ for  d =  1 : K
             zPhi  = zPhi3 + zposterior.PhiHat;
 
             yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
-            yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:); % coefficient of lag exogenous on endogenous
+            yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:)'; % coefficient of lag exogenous on endogenous
             yPhic = yPhi(ny*lags+1 : ny*lags+nx+timetrend, :); % constant and time trend of endogenous
             zPhiz = zPhi(1:nz*lags,:); % coefficient of lag exogenous on exogenous
             zPhiy = zeros(nz*lags, ny); % coefficient of lag endogenous on exogenous
-            zPhic = yPhi(nz*lags+1 : nz*lags+nx+timetrend, :);% constant and time trend of exogenous
+            zPhic = zPhi(nz*lags+1 : nz*lags+nx+timetrend, :);% constant and time trend of exogenous
             % 
             Phi = [yPhiy, yPhiz;
                     zPhiy, zPhiz;
