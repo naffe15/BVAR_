@@ -1154,14 +1154,14 @@ for  d =  1 : K
             zPhi  = zPhi3 + zposterior.PhiHat;
 
             yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
-            yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:)'; % coefficient of lag exogenous on endogenous
+            yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:); % coefficient of lag exogenous on endogenous
             yPhic = yPhi(ny*lags+1 : ny*lags+nx+timetrend, :); % constant and time trend of endogenous
             zPhiz = zPhi(1:nz*lags,:); % coefficient of lag exogenous on exogenous
-            zPhiy = zeros(nz*lags, ny); % coefficient of lag endogenous on exogenous
+            zPhiy = zeros(ny*lags, nz); % coefficient of lag endogenous on exogenous
             zPhic = zPhi(nz*lags+1 : nz*lags+nx+timetrend, :);% constant and time trend of exogenous
             % 
-            Phi = [yPhiy, yPhiz;
-                    zPhiy, zPhiz;
+            Phi = [yPhiy, zPhiy;
+                    yPhiz, zPhiz;
                     yPhic, zPhic];
         else
             Phi1 = randn(nk * ny, 1);
