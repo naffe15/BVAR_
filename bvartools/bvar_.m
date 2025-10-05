@@ -496,7 +496,7 @@ if nargin > 2
                 '\na = index of the variable',...
                 '\nb = index of the shock'],class(zeros_signs))
         end
-        [f,sr] = sign2matrix(zeros_signs,ny);
+        [f,sr] = sign2matrix(zeros_signs,ny+nz);
         if isfield(options,'var_pos')==0
             var_pos = ones(1,ny);
         else
@@ -1210,6 +1210,27 @@ for  d =  1 : K
     
     %======================================================================
     % IRF
+    if exogenous_block
+        % reorder regressors from y(-1), y(-2), ..., z(-1), z(-2), ...
+        % to  y(-1), z(-1), y(-2), z(-2) ...
+        Phi_tmp = Phi; Phi0 = zeros(size(Phi));
+        %%Sigma_tmp = Sigma; 
+        %%Sigma = [zSigma, zeros(nz,ny0); zeros(ny0,nz), ySigma];
+        index = 0;
+        for ell = 1 : lags
+            Phi0(index+ 1 : index + ny0, :) = Phi_tmp(ny0*(ell-1)+1 : ny0*ell,:);
+            Phi0(index + ny0 + 1 : index + ny0 + nz, :) = ... 
+            Phi_tmp(ny0*lags + (ell-1)*nz + 1 : ny0*lags + (ell)*nz, :); 
+            
+            %%Phi0(index+ 1 : index + nz, :) = Phi_tmp(ny0*lags + (ell-1)*nz + 1 : ny0*lags + (ell)*nz, :);
+            %%Phi0(index + nz + 1 : index + nz + ny0, :) = Phi_tmp(ny0*(ell-1)+1 : ny0*ell,:);
+            index = index + ny; 
+        end
+        Phi0(ny*lags+1:end, :) = Phi(ny*lags+1:end, :);
+        Phi = Phi0;
+        %%Phi(:,1:nz) = Phi0(:,ny0+1:ny0+nz);
+        %%Phi(:,1+nz:nz+ny0) = Phi0(:,1:ny0);
+    end
     % Compute the impulse response functions
     % with cholesky
     if irf_1STD == 1
@@ -1358,6 +1379,10 @@ for  d =  1 : K
     
     %======================================================================
     % Forecasts
+    if exogenous_block
+        Phi = Phi_tmp;
+        %Sigma = Sigma_tmp;
+    end
     % compute the out of sample forecast (unconditional)
     [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,Phi,Sigma,fhor,lags);
     yhatfut_no_shocks(:,:,d,:)            = frcst_no_shock;
