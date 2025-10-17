@@ -129,4 +129,55 @@ pause;
  plot_irfs_(irfs_to_plot,options);
 
 
+%% Example for Exogenonus block with USA and Canada data about inflation, interest rates and unemployment rate
+% Canada data is treated as exogenous in this analysis.
+close all; clc; clear;
+
+load DataEx.mat;
+
+addpath ../../cmintools/
+addpath ../../bvartools/
+
+load DataEx.mat;
+y = [CPI_US UNRATE_US INTRATE_US];
+z = [CPI_CA UNRATE_CA INTRATE_CA];
+lags = 4;
+
+% Bvar 
+options.exogenous_block = z;
+bvarer = bvar_(y,lags,options);
+
+% IRF graphs: all z (4:6) responses to y (1:3) shocks
+[n, H, ~, ndraws] = size(bvarer.ir_draws);
+horizons = 0:H-1;
+
+figure;
+for iz = 1:3        % z1,z2,z3  -> variabili 4,5,6
+    for iy = 1:3    % y1,y2,y3  -> shock 1,2,3
+        
+        response_draws = squeeze(bvarer.ir_draws(3+iz, :, iy, :)); % H × ndraws
+        
+        mean_irf  = mean(response_draws, 2);
+        lower_irf = quantile(response_draws, 0.16, 2);
+        upper_irf = quantile(response_draws, 0.84, 2);
+
+        subplot(3,3,(iz-1)*3 + iy);
+        hold on;
+
+        fill([horizons, fliplr(horizons)], ...
+             [lower_irf' fliplr(upper_irf')], ...
+             [0.8 0.8 1], 'EdgeColor', 'none');
+
+        plot(horizons, mean_irf, '-k', 'LineWidth', 1.5);
+        yline(0,'--','Color',[0.5 0.5 0.5]);
+
+        title(sprintf('z_%d \\leftarrow shock y_%d', iz, iy));
+        if iz==3, xlabel('Horizon'); end
+        if iy==1, ylabel('IRF'); end
+        grid on;
+    end
+end
+
+sgtitle('Impulse Responses of z to shocks in y');
+
 
