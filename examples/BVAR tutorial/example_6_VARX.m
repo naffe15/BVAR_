@@ -152,7 +152,7 @@ bvarer = bvar_(y,lags,options);
 horizons = 0:H-1;
 
 figure;
-for iz = 1:3        % z1,z2,z3  -> variabili 4,5,6
+for iz = 1:3        % z1,z2,z3  -> variabkes 4,5,6
     for iy = 1:3    % y1,y2,y3  -> shock 1,2,3
         
         response_draws = squeeze(bvarer.ir_draws(3+iz, :, iy, :)); % H × ndraws
@@ -179,5 +179,35 @@ for iz = 1:3        % z1,z2,z3  -> variabili 4,5,6
 end
 
 sgtitle('Impulse Responses of z to shocks in y');
+
+
+figure;
+for iz = 1:3        % z1,z2,z3  -> shocks 4,5,6
+    for iy = 1:3    % y1,y2,y3  -> variables 1,2,3
+        
+        response_draws = squeeze(bvarer.ir_draws(iy, :, iz+3, :)); % H × ndraws
+        
+        mean_irf  = mean(response_draws, 2);
+        lower_irf = quantile(response_draws, 0.16, 2);
+        upper_irf = quantile(response_draws, 0.84, 2);
+
+        subplot(3,3,(iy-1)*3 + iz);
+        hold on;
+
+        fill([horizons, fliplr(horizons)], ...
+             [lower_irf' fliplr(upper_irf')], ...
+             [0.8 0.8 1], 'EdgeColor', 'none');
+
+        plot(horizons, mean_irf, '-k', 'LineWidth', 1.5);
+        yline(0,'--','Color',[0.5 0.5 0.5]);
+
+        title(sprintf('y_%d \\leftarrow shock z_%d', iy, iz));
+        if iz==3, xlabel('Horizon'); end
+        if iy==1, ylabel('IRF'); end
+        grid on;
+    end
+end
+
+sgtitle('Impulse Responses of y to shocks in z');
 
 
