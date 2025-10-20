@@ -104,6 +104,9 @@ NowOptions.fast_kf = 1;
 NowOptions.noprint = 1;
 out = nowcast_bvar(yNowCast, bvarmf, NowOptions);
 
+tmp_str = 'mfvar_plt';
+mkdir(tmp_str);
+
 % plot nowcast against actual
 true = y(LastDataPoint + 3,1);
 for dd = 1: size(yNowCast,3)
@@ -156,5 +159,5 @@ for xx = 1 : dd
 
 end
 if strcmp(version('-release'),'2022b') == 0
-    savefigure_pdf([tmp_str '\GDP_Now_' tag_]);
+    savefigure_pdf([tmp_str '\GDP_Now_']);
 end

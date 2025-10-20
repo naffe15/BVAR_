@@ -124,7 +124,6 @@ for jj = 1 : length(varnames)
     eval([ 'save DataMF ' varnames{jj} ' -append'])
 end
 
-
 %% Rolling Window Quarterly Database
 clear all
 datafile = 'Qdata.xls';
@@ -187,6 +186,42 @@ T(1:ff)  = [];
 % construct YoY growth rate 
 y2      = 100*(yy2(1+ff:end,:) - yy2(1:end-ff,:));
 save DataFAVAR T y1 y2 varnames_y1 varnames_y2
+
+%% Exogenous block Database
+clear all
+
+%EX: quarterly database with various macro variables
+datafile = 'dataEx.xlsx';
+
+% xlsread not reccomended for recent versions of matlab
+if isMATLABReleaseOlderThan("R2024a")
+    [num,txt,raw] = xlsread(datafile);
+    % generate a column vector with the T span
+    timev  = num(1:end,1:2);
+    % remove the first two columns of numbers (T span)
+    num(:,1:2) = [];
+    % generate a cell vector with the varables names
+    varnames  = txt(1,3:end);
+else
+  Tbl = readtable(datafile);
+    timev = Tbl{:,1};         % colonna Quarter
+    varnames = Tbl.Properties.VariableNames;
+    varnames  = Tbl.Properties.VariableNames;
+    varnames(:,1) = [];
+    varnames(:,1) = [];
+    % varnames() = [];
+    num = Tbl{:,3:end}
+end
+
+% this is QUARTERLY data
+% convention: 1980Q1 = 1980.00, 1980Q2 = 1980.25, ecc.
+T = (timev(1):0.25:timev(end));
+
+save DataEx T num varnames
+for jj = 1 : length(varnames)
+    eval([varnames{jj} '=num(:,' num2str(jj) ');'])
+    eval([ 'save DataEx ' varnames{jj} ' -append'])
+end
 
 %% EA Unconventional MP shocks
 clear all 
