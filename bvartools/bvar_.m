@@ -562,7 +562,7 @@ if nargin > 2
         % Forecast conditional on the path of an endogenous var
         cfrcst_yes      = 1; 
         if isfield(options,'endo_path')== 0
-            error('You need to provide the p[ath for the endogenou variable')
+            error('You need to provide the path for the endogenou variable')
         end        
         % rows forecasts, column variables
         endo_path       = options.endo_path;

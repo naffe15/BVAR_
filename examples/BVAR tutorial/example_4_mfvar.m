@@ -74,6 +74,9 @@ lags = 6;                                 % number  of  lags
 
 % Estimate the MFVAR model last full data arraw December 2024
 LastDataPoint           = find(T==2025)-1; % december 2024
+options.endo_index      = 5;
+options.endo_path       = y(LastDataPoint+1:end,options.endo_index);
+options.fhor            = size(options.endo_path,1);
 
 options.mf_varindex     = 1;
 options.K               = 1000;
