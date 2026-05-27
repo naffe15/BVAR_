@@ -1673,6 +1673,8 @@ BVAR.y            = var.y;              % dependent  (including dummy if Minneso
 BVAR.XX           = XX;                 % regressors (no dummy)
 BVAR.yy           = yy;                 % dependent  (no dummy)
 
+% I am adding this
+
 % prediction
 BVAR.fhor         = fhor;               % forecast horizon
 BVAR.hor          = hor;                % IRF horizon
