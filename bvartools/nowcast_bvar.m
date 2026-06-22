@@ -2,7 +2,7 @@ function out = nowcast_bvar(DataMFNC, BVAR, options)
 
 fast_kf             = 0;
 KFoptions           = BVAR.KFoptions;
-NumbDrawsFromPost   = 100;
+NumbDrawsFromPost   = 1000;
 lags                = BVAR.lags;
 fhor                = BVAR.fhor;
 forecast_data       = BVAR.forecast_data;
