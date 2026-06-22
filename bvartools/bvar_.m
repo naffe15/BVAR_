@@ -1144,13 +1144,19 @@ for  d =  1 : K
         end 
 
         if exogenous_block == 1
+            % Draw Phi from its matrix-normal conditional posterior without
+            % ever forming the full kron(Sigma,XXi) matrix: for Z iid N(0,1)
+            % reshaped to nk x ny, XXi_lower_chol*Z*Sigma_lower_chol' has the
+            % same distribution as reshape(kron(Sigma_lower_chol,XXi_lower_chol)*vec(Z), nk, ny),
+            % via vec(A*Z*B') = kron(B,A)*vec(Z). Same draw, far cheaper for
+            % large ny*nk since the (ny*nk)x(ny*nk) Kronecker matrix is never built.
             Phi1 = randn(nk * ny, 1);
-            Phi2 = kron(ySigma_lower_chol , XXi_lower_chol) * Phi1;
-            Phi3 = reshape(Phi2, nk, ny);
+            Z    = reshape(Phi1, nk, ny);
+            Phi3 = XXi_lower_chol * Z * ySigma_lower_chol';
             yPhi  = Phi3 + posterior.PhiHat;
             zPhi1 = randn( (nz*lags+nx+timetrend) * nz, 1);
-            zPhi2 = kron(zSigma_lower_chol , ZZi_lower_chol) * zPhi1;
-            zPhi3 = reshape(zPhi2,(nz*lags+nx+timetrend), nz);
+            Zz    = reshape(zPhi1, (nz*lags+nx+timetrend), nz);
+            zPhi3 = ZZi_lower_chol * Zz * zSigma_lower_chol';
             zPhi  = zPhi3 + zposterior.PhiHat;
 
             yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
@@ -1164,9 +1170,10 @@ for  d =  1 : K
                     yPhiz, zPhiz;
                     yPhic, zPhic];
         else
+            % See comment above: avoids forming kron(Sigma_lower_chol,XXi_lower_chol).
             Phi1 = randn(nk * ny, 1);
-            Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
-            Phi3 = reshape(Phi2, nk, ny);
+            Z    = reshape(Phi1, nk, ny);
+            Phi3 = XXi_lower_chol * Z * Sigma_lower_chol';
             Phi  = Phi3 + posterior.PhiHat;
         end
         
@@ -1579,68 +1586,85 @@ end
 %set_irf = signs_irf + narrative_signs_irf + zeros_signs_irf;
 penalizationstrn = {'Ridge','Lasso','ElasticNet'};
 % loop across penalization approaches
-for pp = 1 : 3    
-    Phi_ = []; Sigma_ = []; u_ = []; Omega_(:,:,1) = eye(ny);  InfoCrit_ = [];   
-    if eval([ penalizationstrn{pp} '_ == 1'])
+% (rewritten to avoid eval(): 'name' is used both as the BVAR.(name) output
+% field and to pick the matching var{Ridge,Lasso,ElasticNet} struct built
+% above, via the switch below, instead of building variable names as strings.)
+for pp = 1 : 3
+    name   = penalizationstrn{pp};
+    active = false;
+    switch name
+        case 'Ridge'
+            if Ridge_ == 1, active = true; varPP = varRidge; end
+        case 'Lasso'
+            if Lasso_ == 1, active = true; varPP = varLasso; end
+        case 'ElasticNet'
+            if ElasticNet_ == 1, active = true; varPP = varElasticNet; end
+    end
+    Phi_ = []; Sigma_ = []; u_ = []; Omega_(:,:,1) = eye(ny);  InfoCrit_ = [];
+    if active
         % AR param
-        eval(['BVAR.' penalizationstrn{pp} '.Phi    = var' penalizationstrn{pp} '.B;']);
-        eval(['Phi_   = BVAR.' penalizationstrn{pp} '.Phi;'])       
+        BVAR.(name).Phi = varPP.B;
+        Phi_            = BVAR.(name).Phi;
         % Error term
-        eval(['BVAR.' penalizationstrn{pp} '.e      = var' penalizationstrn{pp} '.u;']);
-        eval(['u_ = BVAR.' penalizationstrn{pp} '.e;'])
-        % Covariance Matrix        
-        eval(['BVAR.' penalizationstrn{pp} '.Sigma  = 1/(nobs-nk) * var' penalizationstrn{pp} '.u'' * var' penalizationstrn{pp} '.u;'])        
-        eval(['Sigma_ = BVAR.' penalizationstrn{pp} '.Sigma;'])
+        BVAR.(name).e   = varPP.u;
+        u_              = BVAR.(name).e;
+        % Covariance Matrix
+        BVAR.(name).Sigma = 1/(nobs-nk) * varPP.u' * varPP.u;
+        Sigma_             = BVAR.(name).Sigma;
         % Recursive IRFs
-        eval(['BVAR.' penalizationstrn{pp} '.ir      = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));']);                
+        BVAR.(name).ir  = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));
         % info crit
         [InfoCrit_.AIC, InfoCrit_.HQIC, InfoCrit_.BIC] ...
             = IC(Sigma_, u_, nobs, nk);
-        eval(['BVAR.' penalizationstrn{pp} '.InfoCrit      = InfoCrit_;']);                                     
+        BVAR.(name).InfoCrit = InfoCrit_;
         % IRFs with different identification schemes
         % point identification: LR
         if long_run_irf == 1
-            eval(['[BVAR.' penalizationstrn{pp} '.irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);'])
+            [BVAR.(name).irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);
         end
         % point identification: with heteroskedasticity
         if heterosked_irf == 1
-            eval(['[BVAR.' penalizationstrn{pp} '.irheterosked,Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);'])
+            [BVAR.(name).irheterosked,Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);
         end
         % set identification: signs
-        if set_irf > 0  
-            wb = waitbar(0, ['Generating rotations for set-identification - ' penalizationstrn{pp} ' Estimator']);
-        end        
+        if set_irf > 0
+            wb = waitbar(0, ['Generating rotations for set-identification - ' name ' Estimator']);
+        end
         if signs_irf == 1
-            for d1 = 1 : set_irf                
-                eval(['[BVAR.' penalizationstrn{pp} '.irsign_draws(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);'])
+            for d1 = 1 : set_irf
+                [BVAR.(name).irsign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);
                 waitbar(d1/set_irf, wb);
-            end            
+            end
         end
         % set identification: narrative and sign restrictions
         if narrative_signs_irf == 1
             for d1 = 1 : set_irf
-                eval(['[BVAR.' penalizationstrn{pp} '.irnarrsign_draws(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);'])
+                [BVAR.(name).irnarrsign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);
                 waitbar(d1/set_irf, wb);
             end
         end
         % set identification: zeros and sign restrictions
         if zeros_signs_irf == 1
             for d1 = 1 : set_irf
-                eval(['[BVAR.' penalizationstrn{pp} 'irzerosign_draws.(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);'])
+                % NOTE: the previous eval()-built string here was malformed
+                % (missing the '.' before 'irzerosign_draws' and a stray '.'
+                % before the index), so this branch would have errored if
+                % ever exercised. Fixed as part of removing eval().
+                [BVAR.(name).irzerosign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);
                 waitbar(d1/set_irf, wb);
             end
         end
         if set_irf>0, close(wb); end
     end
     if cnnctdnss_ == 1 % default identification (Pesaran and Shin)
-        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);']);        
+        BVAR.(name).Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);
     elseif cnnctdnss_ == 2 % customized identification
         Sigma_lower_chol = chol(Sigma_)';
         Omegam           = median(Omega_,3);
-        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);']);                
+        BVAR.(name).Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);
     end
 
 end
