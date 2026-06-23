@@ -286,8 +286,6 @@ if dummy == 1
     prior.S        = varp.u' * varp.u;
     prior.XXi      = varp.xxi;
     prior.PhiHat   = varp.B;
-    prior.YYdum    = varp.y;
-    prior.XXdum    = varp.X;
     if prior.df < ny
         error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
     end
@@ -874,6 +872,7 @@ for  d =  1 : K
         yfill(:,:,d)     = KFout.smoothSt_plus_ss(:,KFout.index_var);
         yfilt(:,:,d)     = KFout.filteredSt_plus_ss(:,KFout.index_var);
         % recompute the posterior with smoothed data
+        % (prior is fixed -- presample assumed complete, not Kalman-filled)
         [posterior1]     = posterior_(yfill(:,:,d));
         S_inv_upper_chol = chol(inv(posterior1.S));
         XXi_lower_chol   = chol(posterior1.XXi)';
@@ -1378,26 +1377,12 @@ end
         if dummy == 1
             %********************************************************
             % Minnesota Prior
+            % prior.df/S/XXi/PhiHat are computed once before the MCMC
+            % loop (in the prior-specification block above posterior_).
+            % They are fixed across draws: the presample is assumed to
+            % be complete (no missing values), so the Kalman-smoothed
+            % data passed as y does not affect the prior density.
             %********************************************************
-            % Prior density
-            Tp = presample + lags;
-            if nx
-                xdata = xdata(1:Tp, :);
-            else
-                xdata = [];
-            end
-            % varp            = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-            varp            = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-            Tup             = size(varp.u, 1);
-            prior.df        = Tup - ny*lags - nx - flat*(ny+1);
-            prior.S         = varp.u' * varp.u;
-            prior.XXi       = varp.xxi;
-            prior.PhiHat    = varp.B;
-            priors.YYdum    = varp.y;
-            priors.XXdum    = varp.X;
-            if prior.df < ny
-                error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
-            end
             posterior.df    = Tu - ny*lags - nx - flat*(ny+1);
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
