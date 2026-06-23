@@ -229,7 +229,7 @@ else % pooled units
         varols.y = [varols.y; tmp_varols.y];
     end
     % Compute OLS regression and residuals of the pooled estimator
-    varols = fast_ols(varols.y,varols.X);
+    varols = fast_ols_(varols.y,varols.X);
 end
 if exogenous_block == 1
     zdata   = exogenous(idx, :);
@@ -1371,11 +1371,11 @@ end
                 var.y = [var.y; tmp_var.y];
             end
             % Compute OLS regression and residuals of the pooled estimator
-            var = fast_ols(var.y,var.X);
+            var = fast_ols_(var.y,var.X);
         end
         Tu = size(var.u, 1);
                 
-        if dummy ==  1
+        if dummy == 1
             %********************************************************
             % Minnesota Prior
             %********************************************************
@@ -1431,23 +1431,6 @@ end
             posterior.PhiHat = var.B;
         end
         
-    end
-%********************************************************
-%********************************************************
-    function out = fast_ols(y,X)
-        % Compute OLS regression and residuals
-        [vl,d_,vr] = svd(X,0);
-        di = 1./diag(d_);
-        B = (vr.*repmat(di',ny*lags+nx,1))*vl'*y;
-        u = y-X*B;
-        xxi = vr.*repmat(di',ny*lags+nx,1);
-        xxi = xxi*xxi';
-
-        out.B = B;
-        out.u = u;
-        out.xxi = xxi;
-        out.y   = y;
-        out.X   = X;
     end
 %********************************************************
 %********************************************************
