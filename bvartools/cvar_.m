@@ -83,7 +83,7 @@ end
 
 % declaring the names for the observable variables
 for v = 1 : ny
-    eval(['varnames{'   num2str(v) '} =  ''Var' num2str(v) ''';'])
+    varnames{v} = ['Var' num2str(v)];
 end
 
 
@@ -826,70 +826,86 @@ end
 % Penalized Approaches (Regularization)
 penalizationstrn = {'Ridge','Lasso','ElasticNet'};
 % loop across penalization approaches
-for pp = 1 : 3    
-    Phi_ = []; Sigma_ = []; u_ = []; Omega_(:,:,1) = eye(ny);  InfoCrit_ = [];   
-    if eval([ penalizationstrn{pp} '_ == 1'])
+% (rewritten to avoid eval(): 'name' is used both as the CVAR.(name) output
+% field and to pick the matching var{Ridge,Lasso,ElasticNet} struct built
+% above, via the switch below, instead of building variable names as strings.)
+for pp = 1 : 3
+    name   = penalizationstrn{pp};
+    active = false;
+    switch name
+        case 'Ridge'
+            if Ridge_ == 1,       active = true; varPP = varRidge;      end
+        case 'Lasso'
+            if Lasso_ == 1,       active = true; varPP = varLasso;      end
+        case 'ElasticNet'
+            if ElasticNet_ == 1,  active = true; varPP = varElasticNet; end
+    end
+    Phi_ = []; Sigma_ = []; u_ = []; Omega_(:,:,1) = eye(ny); InfoCrit_ = [];
+    if active
         % AR param
-        eval(['CVAR.' penalizationstrn{pp} '.Phi    = var' penalizationstrn{pp} '.B;']);
-        eval(['Phi_   = CVAR.' penalizationstrn{pp} '.Phi;'])       
+        CVAR.(name).Phi = varPP.B;
+        Phi_            = CVAR.(name).Phi;
         % Error term
-        eval(['CVAR.' penalizationstrn{pp} '.e      = var' penalizationstrn{pp} '.u;']);
-        eval(['u_ = CVAR.' penalizationstrn{pp} '.e;'])
-        % Covariance Matrix        
-        eval(['CVAR.' penalizationstrn{pp} '.Sigma  = 1/(nobs-nk) * var' penalizationstrn{pp} '.u'' * var' penalizationstrn{pp} '.u;'])        
-        eval(['Sigma_ = CVAR.' penalizationstrn{pp} '.Sigma;'])
+        CVAR.(name).e   = varPP.u;
+        u_              = CVAR.(name).e;
+        % Covariance Matrix
+        CVAR.(name).Sigma = 1/(nobs-nk) * varPP.u' * varPP.u;
+        Sigma_             = CVAR.(name).Sigma;
         % Recursive IRFs
-        eval(['CVAR.' penalizationstrn{pp} '.ir      = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));']);                
+        CVAR.(name).ir  = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));
         % info crit
         [InfoCrit_.AIC, InfoCrit_.HQIC, InfoCrit_.BIC] ...
             = IC(Sigma_, u_, nobs, nk);
-        eval(['CVAR.' penalizationstrn{pp} '.InfoCrit      = InfoCrit_;']);                                     
+        CVAR.(name).InfoCrit = InfoCrit_;
         % IRFs with different identification schemes
         % point identification: LR
         if long_run_irf == 1
-            eval(['[CVAR.' penalizationstrn{pp} '.irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);'])
+            [CVAR.(name).irlr, Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);
         end
         % point identification: with heteroskedasticity
         if heterosked_irf == 1
-            eval(['[CVAR.' penalizationstrn{pp} '.irheterosked,Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);'])
+            [CVAR.(name).irheterosked, Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);
         end
         % set identification: signs
-        if set_irf > 0  
-            wb = waitbar(0, ['Generating rotations for set-identification - ' penalizationstrn{pp} ' Estimator']);
-        end        
+        if set_irf > 0
+            wb = waitbar(0, ['Generating rotations for set-identification - ' name ' Estimator']);
+        end
         if signs_irf == 1
-            for d1 = 1 : set_irf                
-                eval(['[CVAR.' penalizationstrn{pp} '.irsign_boots(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);'])
+            for d1 = 1 : set_irf
+                [CVAR.(name).irsign_boots(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);
                 waitbar(d1/set_irf, wb);
-            end            
+            end
         end
         % set identification: narrative and sign restrictions
         if narrative_signs_irf == 1
             for d1 = 1 : set_irf
-                eval(['[CVAR.' penalizationstrn{pp} '.irnarrsign_boots(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);'])
+                [CVAR.(name).irnarrsign_boots(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);
                 waitbar(d1/set_irf, wb);
             end
         end
         % set identification: zeros and sign restrictions
         if zeros_signs_irf == 1
             for d1 = 1 : set_irf
-                eval(['[CVAR.' penalizationstrn{pp} 'irzerosign_boots.(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);'])
+                % NOTE: the previous eval()-built string here was malformed
+                % (missing '.' before 'irzerosign_boots' and a stray '.'
+                % before the index), so this branch would have errored if
+                % ever exercised. Fixed as part of removing eval().
+                [CVAR.(name).irzerosign_boots(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);
                 waitbar(d1/set_irf, wb);
             end
         end
-        if set_irf>0, close(wb); end
+        if set_irf > 0, close(wb); end
     end
     if cnnctdnss_ == 1 % default identification (Pesaran and Shin)
-        eval(['CVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);']);        
+        CVAR.(name).Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);
     elseif cnnctdnss_ == 2 % customized identification
         Sigma_lower_chol = chol(Sigma_)';
-        % this part is not correct as the median orthogonal rotation is not
-        % orthogonal
+        % this part is not correct as the median orthogonal rotation is not orthogonal
         Omegam           = median(Omega_,3);
-        eval(['CVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);']);                
+        CVAR.(name).Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);
     end
 
 end
