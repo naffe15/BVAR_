@@ -26,12 +26,6 @@ function [BVAR] = bvar_(y,lags,options)
 % Omega, impulse response with the various identification restrictions,
 % forecast and marginal likelihood. 
 
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-% Revised, 27/02/2020
-% Revised, 27/04/2020
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -41,646 +35,94 @@ end
 if lags < 1
     error('lags cannot be zero or negative');
 end
-% number of observable variables
-ny                  = size(y, 2);
-% number of units (for panels)
-nunits              = size(y, 3);
-
 %********************************************************
-%* DEFAULT SETTINGS
-%********************************************************
-% Control random number generator
-if isOctave == 0
-    isMatlab = 1;
-    rng('default');
-    rng(999);
-else
-    isMatlab = 0;
-    % pkg load optim
-    randn('state',999);
-    rand('state',999);
-end
-
-
-% Default Settings (they can all be changed in 'options' see below)
-K                   = 5000;         % number of draws from the posterior
-hor                 = 24;           % horizon for the IRF
-fhor                = 12;           % horizon for the forecasts
-nethor              = 12;           % network horizon/ splioover and connectedness
-firstobs            = lags+1;       % first observation
-presample           = 0;            % using a presample for setting the hyper-parameter of the Minnesosta prior
-noconstant          = 0;            % when 0, includes a constatn in the VAR
-timetrend           = 0;            % when 1, includes a time trend in the VAR
-minn_prior_tau      = 3;            % Minnesota prior Hyper-Param: Overall Tightness
-minn_prior_decay    = 0.5;          % Minnesota prior Hyper-Param: Tighness on lags>1
-minn_prior_lambda   = 5;            % Minnesota prior Hyper-Param: Sum-of-Coefficient
-minn_prior_mu       = 2;            % Minnesota prior Hyper-Param: Co-Persistence
-minn_prior_omega    = 2;            % Minnesota prior Hyper-Param: Shocks Variance
-long_run_irf        = 0;            % when 0, it does not compute long run IRF
-irf_1STD            = 1;            % when 1, IRF are computed as 1SD increase. Else, IRF are compued as unitary increase in the shock
-cfrcst_yes          = 0;            % no conditional forecast unless defined in options
-non_explosive_      = 0;            % 
-heterosked          = 0;
-
-signs_irf           = 0;
-narrative_signs_irf = 0;
-zeros_signs_irf     = 0;
-proxy_irf           = 0;
-heterosked_irf      = 0;
-hmoments_signs_irf  = 0;
-hmoments_eig_irf    = 0;
-noprint             = 0;
-nexogenous          = 0;
-exogenous           = [];
-cnnctdnss_          = 0;
-Ridge_              = 0; 
-Lasso_              = 0;
-ElasticNet_         = 0;
-set_irf             = 0;
-robust_bayes_       = 0;
-robust_credible_regions_  = 0;
-exogenous_block = 0;
-nz              = 0;
-
-% for mixed frequecy / irregurerly sampled data.
-% Interpolate the missing values of each times series.
-mixed_freq_on = 0;
-if any(any(isnan(y))) %== 1
-        mixed_freq_on = 1;
-    index_nan_var = find(sum(isnan(y),1) ~= 0);
-    yoriginal     = y;
-    % interporlate the variables that have nans
-    T = 1:1:length(y);
-    for kk  = 1 : length(index_nan_var)
-        v                       = y(isfinite(y(:,index_nan_var(kk))),index_nan_var(kk));
-        x                       = find(isfinite(y(:,index_nan_var(kk))));
-        if isMatlab == 1
-            y(:,index_nan_var(kk))  = interp1(x,v,T','spline');
-        else
-            y(:,index_nan_var(kk))  = spline(x,v,T');
-        end
-        yinterpol               = y;
-    end
-end
-if mixed_freq_on == 1 && nargin < 3
-    warning('You did not specified the aggregation of the mixed freq. Variables will be treated as stocks.');
-    index = zeros(size(y,2),1);
-end
-if mixed_freq_on == 1 && nunits > 1
-    error('The toolbox does not estimate a pooled VAR with missing observations.');
-end
-
-% Priors declaration: default Jeffrey prior
-dummy    = 0;
-flat     = 1;
-priors   = priors_( );
-
-% declaring the names for the observable variables
-for v = 1 : ny
-    eval(['varnames{'   num2str(v) '} =  ''Var' num2str(v) ''';'])
-end
-
-
-%********************************************************
-%* CUSTOMIZED SETTINGS
+%* DEFAULT SETTINGS AND OPTIONS PARSING
 %********************************************************
 if nargin > 2
-    if isfield(options,'vnames')==1
-        varnames = options.vnames;
-    end
-    %======================================================================
-    % Inference options
-    %======================================================================
-    if isfield(options,'K')==1
-        K = options.K;
-    end
-    if isfield(options,'firstobs')==1
-        firstobs = options.firstobs;
-        if firstobs < lags + 1
-            error('firstobs need to be larger than lags +1')
-        end
-    end
-    if isfield(options,'presample')==1
-        presample = options.presample;
-    end
-    if isfield(options,'noconstant')==1
-        noconstant = options.noconstant;
-    end
-    if isfield(options,'timetrend')==1
-        timetrend  = options.timetrend;
-        noconstant = 0; 
-    end    
-    if isfield(options,'non_explosive_')==1
-        non_explosive_  = options.non_explosive_;
-    end    
-    if isfield(options,'heterosked_weights')==1
-        ww  = options.heterosked_weights;
-        heterosked = 1;
-    end    
-    % compute the second and fourth moments robust to error distribution misspecification   
-    if isfield(options,'robust_bayes')==1
-        robust_bayes_  = options.robust_bayes;
-        % shrinkage towards a normal distribution K_shrinkage = infty
-        if isfield(options,'K_shrinkage') == 1 
-            K_shrinkage = options.K_shrinkage;
-        else
-            K_shrinkage = 1 * size(y, 1);
-        end
-    end    
-    %======================================================================
-    % Exogenous Variables options
-    %======================================================================
-    if isfield(options,'exogenous')==1 || isfield(options,'controls')==1
-        if isfield(options,'controls')==1
-            exogenous = options.controls;
-        else
-            exogenous = options.exogenous;
-        end
-        nexogenous = size(exogenous,2);
-        if size(exogenous,1) ~= size(y,1)+ fhor && size(exogenous,1) ~= size(y,1)
-            error('Size Mismatch between endogenous and exogenos variables; exo must be either T or T+fhor');
-        end
-        if any(isnan(exogenous(lags+1:end,:)))
-            error('Exogenous variables cannnot be ''nan'' from lags+1 onward.');
-        end
-    end
-    %======================================================================
-    % Exogenous Block options
-    %======================================================================
-    if isfield(options,'exogenous_block')==1
-        exogenous_block = 1;
-        exogenous = options.exogenous_block; 
-
-        nz = size(exogenous,2);
-        if size(exogenous,1) ~= size(y,1)+ fhor && size(exogenous,1) ~= size(y,1)
-            error('Size Mismatch between endogenous and exogenos variables; exo must be either T or T+fhor');
-        end
-        if any(isnan(exogenous(lags+1:end,:)))
-            error('Exogenous variables cannot be ''nan'' from lags+1 onward.');
-        end
-    end
-    %======================================================================
-    % Minnesota prior options
-    %======================================================================
-    if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Minnesota')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'minnesota')==1) || ...
-       (isfield(options,'prior')==1 && strcmp(options.prior.name,'Minnesota')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'minnesota')==1)
-        %  MINNESOTA PRIOR
-        dummy = 1;
-        flat  = 0;
-        timetrend = 0;
-        priors.name= 'Minnesota';
-    end
-    if isfield(options,'minn_prior_tau')==1 || isfield(options,'bvar_prior_tau')==1
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        %  MINNESOTA PRIOR: tightness
-        if isfield(options,'bvar_prior_mu')==1
-            minn_prior_tau = options.bvar_prior_tau;
-        else
-            minn_prior_tau = options.minn_prior_tau;
-        end
-    end
-    if isfield(options,'minn_prior_decay')==1 || isfield(options,'bvar_prior_decay')==1
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        %  MINNESOTA PRIOR: decay
-        if isfield(options,'bvar_prior_mu')==1
-            minn_prior_decay = options.bvar_prior_decay;
-        else
-            minn_prior_decay = options.minn_prior_decay;
-        end
-    end
-    if isfield(options,'minn_prior_lambda')==1 || isfield(options,'bvar_prior_lambda')==1
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        %  MINNESOTA PRIOR: sum-of-coeff
-        if isfield(options,'bvar_prior_mu')==1
-            minn_prior_lambda = options.bvar_prior_lambda;
-        else
-            minn_prior_lambda = options.minn_prior_lambda;
-        end
-    end
-    if isfield(options,'minn_prior_mu')==1 || isfield(options,'bvar_prior_mu')==1
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        %  MINNESOTA PRIOR: co-persistence
-        if isfield(options,'bvar_prior_mu')==1
-            minn_prior_mu = options.bvar_prior_mu;
-        else
-            minn_prior_mu = options.minn_prior_mu;
-        end
-    end
-    if isfield(options,'minn_prior_omega')==1 || isfield(options,'bvar_prior_omega')==1
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        %  MINNESOTA PRIOR: variance
-        if isfield(options,'bvar_prior_omega')==1
-            minn_prior_omega = options.bvar_prior_omega;
-        else
-            minn_prior_omega = options.minn_prior_omega;
-        end
-    end
-    if isfield(options,'max_minn_hyper')==1 && options.max_minn_hyper ==1 && mixed_freq_on ==0
-        % maximize the hyper parameters of the minnesota prior
-        hyperpara(1) = minn_prior_tau;
-        hyperpara(2) = minn_prior_decay;
-        hyperpara(3) = minn_prior_lambda;
-        hyperpara(4) = minn_prior_mu;
-        hyperpara(5) = minn_prior_omega;
-        
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        try
-            [postmode,lm,~] = bvar_max_hyper(hyperpara,y,lags,options);
-
-            minn_prior_tau      = postmode(1);
-            minn_prior_decay    = postmode(2);
-            minn_prior_lambda   = postmode(3);
-            minn_prior_mu       = postmode(4);
-            minn_prior_omega    = postmode(5);
-            disp('                       ')
-            disp('Maximization Successful: I will use the mode values.')
-
-        catch   
-            warning('Maximization NOT Successful')
-            disp('Using hyper parameter default values')
-        end
-    end
-    %======================================================================
-    % Conjugate/Hierachical MN-IW prior options
-    %======================================================================
-    if (isfield(options,'priors')==1 && strcmp(options.priors.name,'Conjugate')==1) || (isfield(options,'priors')==1 && strcmp(options.priors.name,'conjugate')==1) || ...
-       (isfield(options,'prior')==1 && strcmp(options.prior.name,'Conjugate')==1) || (isfield(options,'prior')==1 && strcmp(options.prior.name,'conjugate')==1)
-        
-        if isfield(options,'prior')==1
-            options.priors = options.prior;
-        end
-        if dummy == 1
-            warning('You have set both the Conjugate and Minnesota (perhaps via options.minn_prior_XX)');
-            warning('I will consider the Conjugate prior only');
-        end
-        dummy = 2;
-        %  warning('The Conjugate prior is still under construction ... ');
-        flat  = 0;
-        priors.name= 'Conjugate';
-        % Priors for the AR parameters
-        if isfield(options.priors,'Phi') == 1
-            % mean
-            if isfield(options.priors.Phi,'mean') == 1
-                prior.Phi.mean  = options.priors.Phi.mean;
-                if max(size(prior.Phi.mean) ~= [ny*lags+(1-noconstant)+timetrend+nexogenous   ny]) ~= 0
-                    error('Size mismatch')
-                end
-            else
-                warning(['You did not provide a prior mean for the AR coeff. ' ...
-                    'Assume zeros everywhere.'])
-                prior.Phi.mean  = zeros(ny*lags+(1-noconstant)+timetrend+nexogenous , ny);
-            end
-            % variance
-            if isfield(options.priors.Phi,'cov') == 1
-                prior.Phi.cov   = options.priors.Phi.cov;
-%                 if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend ) * ny
-                if length(prior.Phi.cov) ~= (ny*lags+(1-noconstant) +timetrend+nexogenous ) || size(prior.Phi.cov,1 )~=size(prior.Phi.cov,2)
-                    error('Size mismatch: Covariance Phi should be square, e.g. size(Phi.mean,1)x size(Phi.mean,1)')
-                end
-            else
-                warning(['You did not provide a Covariance for the AR coeff. ' ...
-                    'Assume 10 times Identity Matrix.'])
-%                 prior.Phi.cov  = 10 * eye((ny*lags+(1-noconstant) + timetrend) * ny);
-                prior.Phi.cov  = 10 * eye((ny*lags+(1-noconstant) + timetrend+nexogenous));
-            end
-        else
-            warning(['You did not provide prior mean and covariance for the AR coeff ' ...
-                'Assume zeros everywhere with covariance 10 times Identity Matrix.'])
-%             prior.Phi.cov   = 10 * eye((ny*lags+(1-noconstant) +timetrend ) * ny);
-            prior.Phi.cov   = 10 * eye((ny*lags+(1-noconstant) + timetrend+nexogenous ));
-            prior.Phi.mean  = zeros(ny*lags+(1-noconstant) + timetrend+nexogenous ,  ny);
-        end
-        % Priors for the Residual Covariance
-        if isfield(options.priors,'Sigma') == 1
-            % scale
-            if isfield(options.priors.Sigma,'scale') == 1
-                prior.Sigma.scale = options.priors.Sigma.scale;
-                if size(prior.Sigma.scale) ~= [ny ny]
-                    error('Size mismatch')
-                end
-            else
-                warning(['You did not provide a prior scale for the Residual Covariance. ' ...
-                    'Assume identity matrix.'])
-                prior.Sigma.scale = eye(ny);
-            end
-            % degrees of freedom
-            if isfield(options.priors.Sigma,'df') == 1
-                prior.Sigma.df = options.priors.Sigma.df;
-                if length(prior.Sigma.df) ~= 1
-                    error('Size mismatch')
-                end
-                if prior.Sigma.df/2 <= ny-1
-                    error('Too few degrees of freedom - Increase prior df')
-                end
-            else
-                warning(['You did not provide the degrees of freedom for the Residual Covariance. ' ...
-                    'Assume N+1 degrees of freedom.'])
-                prior.Sigma.df = ny + nexogenous + timetrend + 1;
-                while prior.Sigma.df/2 <= ny-1 % too few df
-                    prior.Sigma.df =  prior.Sigma.df +1;
-                end
-            end
-        else
-            warning(['You did not provide prior scale and degrees of freedom for the Residual Covariance. ' ...
-                'Assume an identity matrix matrix with N+1 degrees of freedom.'])
-            prior.Sigma.scale = eye(ny);
-            prior.Sigma.df    = ny + nexogenous + timetrend + 1;
-            while prior.Sigma.df/2 <= ny-1 % too few df
-                prior.Sigma.df =  prior.Sigma.df +1;
-            end
-        end
-    end
-    %======================================================================
-    % IRF options
-    %======================================================================
-    if isfield(options,'hor') ==1
-        hor = options.hor;
-    end
-    if isfield(options,'set_irf') ==1        
-        % set_irf is the # of rotations for set identified systems in wihch
-        % Phi and Sigma are point estimates (e.g. OLS, Ridge, Lasso or
-        % Elastic Nets); default 0
-        set_irf = options.set_irf;
-    end
-    if isfield(options,'robust_credible_regions') ==1 
-        % computing the robust bayesian credible regions of
-        % Giacomini-Kitagawa ECMA 2021
-        robust_credible_regions_ = 1;
-        if isfield(options.robust_credible_regions,'KG') == 1 && options.robust_credible_regions.KG == 0 % to disactivate
-            robust_credible_regions_ = 0;
-        end
-        L                        = 1000;
-        opt_GiacomoniKitagawa.aalpha    = 0.68; % Credibility level
-        opt_GiacomoniKitagawa.gridLength = 1000; 
-        if isfield(options.robust_credible_regions,'L') == 1         
-            L = options.robust_credible_regions.L;
-        end
-        if isfield(options.robust_credible_regions,'aalpha') == 1         
-            opt_GiacomoniKitagawa.aalpha = options.robust_credible_regions.aalpha;
-        end
-        if isfield(options.robust_credible_regions,'gridLength') == 1         
-            opt_GiacomoniKitagawa.gridLength = options.robust_credible_regions.gridLength;
-        end
-    end
-    if isfield(options,'long_run_irf')==1
-        % Activating Long run IRF
-        long_run_irf = options.long_run_irf;
-    end
-    if isfield(options,'heterosked_regimes')==1
-        % Activating identification via heteroskedasticity
-        if length(options.heterosked_regimes) ~= size(y,1)
-            error('heterosked_regimes must have the same time dimension of y')            
-        end
-        heterosked_irf     = 1;
-        heterosked_regimes = options.heterosked_regimes(lags+1:end);
-        if any(heterosked_regimes>1) || any(heterosked_regimes<0) 
-            error('heterosked_regimes must contain zero (first regime) and one (second regime)')
-        end
-    end    
-    if isfield(options,'signs')==1
-        % Activating IRF with sign restrictions (mulitple horizons allowed)
-        signs_irf       = 1;
-        signs           = options.signs;
-        if iscellstr(signs) == 0
-            error(['options.signs should be a cell array. Each cell must contain a string with the format'...
-                '\n''y(a,b,c)<0'' or ''y(a,b,c)>0'' where a, b and c are integers.',...
-                '\na = index of the variable',...
-                '\nb = horizon',...
-                '\nc = index of the shock'],class(zeros))
-        end
-    end
-    if isfield(options,'narrative')==1
-        if signs_irf  == 0
-            warning('You did not provide any sign restrictions.')
-            signs{1} = 'isempty(y(1,1,1))==0';
-        end
-        if signs_irf  == 1
-            signs_irf       = 0;  % disactivating signs
-        end
-        narrative_signs_irf = 1; 
-        narrative           = options.narrative ;
-    end
-    if isfield(options,'zeros_signs')==1
-        if signs_irf  == 1
-            signs_irf       = 0;  % disactivating signs
-        end
-        if narrative_signs_irf  == 1
-            narrative_signs_irf       = 0;  % disactivating narrative
-        end
-        % Activating IRF with zeros and sign restrictions (mulitple horizons NOT allowed)
-        zeros_signs_irf  = 1;
-        zeros_signs      = options.zeros_signs;
-        if iscellstr(zeros_signs) == 0
-            error(['options.zeros_signs should be a cell array.'...
-                '\nEach cell must contain a string with the following format'...
-                '\nFor sign restrictions ''y(a,b)=1'' or ''y(a,b)=-1'',',...
-                '\nFor short run zero restriction ''ys(a,b)=0'',',...
-                '\nFor long run restriction ''yr(a,1,b)=0'' where a and b are integers.',...
-                '\na = index of the variable',...
-                '\nb = index of the shock'],class(zeros_signs))
-        end
-        [f,sr] = sign2matrix(zeros_signs,ny+nz);
-        if isfield(options,'var_pos')==0
-            var_pos = ones(1,ny);
-        else
-            var_pos = options.var_pos;
-        end
-    end
-    if isfield(options,'proxy')==1
-        % Activating IRF with provy
-        proxy_irf   = 1;
-        in.proxies  = options.proxy;
-        in.vars     = y;
-        in.p        = lags;
-        in.compute_F_stat = 0;
-        if isfield(options,'proxy_end') == 1
-            in.T_m_end  = options.proxy_end;
-        else
-            in.T_m_end  = 0;  %if the times series of the instrument ends when VAR data ends
-        end
-        in.irhor    = hor;
-        if isnumeric(in.proxies) == 0
-            error(['options.proxy should be a numeric array (nans or inf not allowed)'],class(in.proxies))
-        end
-        inols =in;
-    end
-    if isfield(options,'hmoments')==1
-        if signs_irf  == 0
-            warning('You did not provide any sign restrictions.')
-            signs{1} = 'isempty(y(1,1,1))==0';
-        end
-        if signs_irf  == 1
-            signs_irf       = 0;  % disactivating signs
-        end
-        if robust_bayes_ == 0
-            robust_bayes_      = 1;
-            K_shrinkage        = 1 * size(y,2);
-        end
-        hmoments_signs_irf = 1;
-        hmoments           = options.hmoments;
-        [f]                = hmoments2matrix(hmoments,ny);
-    end
-    if isfield(options,'hmoments_eig')==1
-        moment = options.hmoments_eig;
-%         if moment ~= 3 ||  moment ~= 4
-%             warning('You can decompose third (3) or fourth (4) moments. I set as default 4')
-%             moment = 4;
-%         end
-        if robust_bayes_ == 0
-            robust_bayes_      = 1;
-            K_shrinkage        = 1 * size(y,2);
-        end
-        hmoments_eig_irf = 1;
-    end
-    if isfield(options,'irf_1STD')==1
-        % Activating of unitary IRF, i.e. a unitary increase in the shocks
-        % (instead of 1 STD)
-        irf_1STD = options.irf_1STD;
-    end
-    %======================================================================
-    % (Un)Conditional Forecasts options
-    %======================================================================
-    if isfield(options,'fhor')==1
-        fhor = options.fhor;
-        if fhor < 1
-            error('Forecast horizon must be positive')
-        end
-    end
-    if isfield(options,'endo_index')==1        
-        % Forecast conditional on the path of an endogenous var
-        cfrcst_yes      = 1; 
-        if isfield(options,'endo_path')== 0
-            error('You need to provide the path for the endogenou variable')
-        end        
-        % rows forecasts, column variables
-        endo_path       = options.endo_path;
-        endo_path_index = options.endo_index;
-        if length(endo_path_index) ~= size(endo_path)
-            error(['Mismatch beween the number of endogenous paths and the number of conditioned variables'...
-                '\nE.g. the # of conditioned variables must coincide with the # of column in ''options.endo_path'''],class(endo_path_index));
-        end
-        if isfield(options,'exo_index')==1
-            % Forecast conditional on the path of an endo var using only a
-            % subset of shocks. notice that the # of endo and # exo must coincide
-            cfrcst_yes  = 2;
-            exo_index   = options.exo_index;
-            Omega       = eye(ny);
-            %             if isfield(options,'Omegaf')==1
-            %                 Omegaf = options.Omegaf;
-            %             end
-            if length(exo_index) ~= length(endo_path_index)
-                error('the # of conditioned endogenous and # exogenous shocks used must coincide');
-            end
-        end
-        if nunits > 1
-            cfrcst_yes = 0;
-            warning('Conditional forecasts are not supported with pooled VARs.')
-        end
-    end
-    %======================================================================
-    % Missing Values options
-    %======================================================================
-    if mixed_freq_on == 1 && isfield(options,'mixed_freq_index')==1
-        index = options.mixed_freq_index;
-        if length(index) ~= size(y,2)
-            error(['You have to specify as many index as observables.'...'
-                '\nIf no missing values for var j index(j)=0'...
-                '\nIf missing values for var j, and var j is a stock index(j)=0'...
-                '\nIf missing values for var j, and var j is a real flow index(j)=2'],class(index))
-        end        
-    elseif mixed_freq_on == 1 && isfield(options,'mf_varindex')== 1
-        index = zeros(ny,1);
-        index(options.mf_varindex) = 2;        
-    elseif (mixed_freq_on == 1 && isfield(options,'mixed_freq_index')== 0) || (mixed_freq_on == 1 && isfield(options,'mf_varindex')== 0)
-        warning(['You did not specified the aggregation of the mixed freq. Variables will be treated as stocks.']);
-        index = zeros(size(y,2),1);                
-    end
-    if isfield(options,'noprint')==1
-        noprint = options.noprint;
-    end
-    %======================================================================
-    % Network-Spillover-Connectedness options
-    %======================================================================
-    if isfield(options,'nethor')==1
-        nethor = options.nethor;
-    end
-    if isfield(options,'connectedness')==1 
-        cnnctdnss_ = options.connectedness;      
-        if cnnctdnss_ == 2 && set_irf == 0
-           set_irf = 100; 
-        end            
-    end
-    if isfield(options,'Ridge')==1
-        Ridge_     = 1;%options.Ridge;
-        if isfield(options.Ridge,'est') == 1
-            Ridge_ = options.Ridge.est;
-        end            
-        %cnnctdnss_ = 1;
-        if isfield(options.Ridge,'lambda') == 1
-            Ridge_lambda = options.Ridge.lambda;
-        else
-            warning('You did not specify a value for the penalization parameter (options.Ridge.lambda)')
-            warning('I am using lambda = 0.02')
-            Ridge_lambda = 0.02;
-        end        
-    end
-    if isfield(options,'Lasso')==1
-        % (matlab stat toolbox needed)
-        if exist('lasso') ~= 2 
-            error('Cannot estimate VAR with Lasso: matlab stat toolbox needed')
-        end
-        Lasso_     = 1;%options.Lasso;     
-        if isfield(options.Lasso,'est') == 1
-            Lasso_ = options.Lasso.est;
-        end            
-        %cnnctdnss_ = 1;
-        if isfield(options.Lasso,'lambda') == 1
-            Lasso_lambda = options.Lasso.lambda;
-        else
-            warning('You did not specify a value for the penalization parameter (options.Lasso.lambda)')
-            %warning('Use the largest value of Lambda that gives a nonnull model')
-            warning('I am using lambda = 0.05')
-            Lasso_lambda = 0.05;
-        end
-    end
-    if isfield(options,'ElasticNet')==1
-        % (matlab stat toolbox needed)
-        if  exist('lasso') ~= 2 
-            error('Cannot estimate VAR with ElasticNet: matlab stat toolbox needed')            
-        end
-        ElasticNet_ = 1;%options.ElasticNet;   
-        if isfield(options.ElasticNet,'est') == 1            
-            ElasticNet_ = options.ElasticNet.est;
-        end            
-        %cnnctdnss_  = 1;
-        if isfield(options.ElasticNet,'lambda') == 1
-            ElasticNet_lambda = options.ElasticNet.lambda;
-        else
-            warning('You did not specify a value for the penalization parameter (options.ElasticNet.lambda)')
-            warning('I am using lambda = 0.05')
-            ElasticNet_lambda = 0.05;
-        end
-        if isfield(options.ElasticNet,'alpha') == 1
-            ElasticNet_alpha = options.ElasticNet.alpha;
-        else
-            warning('You did not specify a value for the relative penalization parameter (options.ElasticNet.alpha)')
-            warning('I am using 0.5')
-            ElasticNet_alpha = 0.5;
-        end
-    end
+    opt = parse_bvar_options(y, lags, options);
+else
+    opt = parse_bvar_options(y, lags);
 end
+
+% --- always set ---
+ny                       = opt.ny;
+nunits                   = opt.nunits;
+isMatlab                 = opt.isMatlab;
+K                        = opt.K;
+hor                      = opt.hor;
+fhor                     = opt.fhor;
+nethor                   = opt.nethor;
+firstobs                 = opt.firstobs;
+presample                = opt.presample;
+noconstant               = opt.noconstant;
+timetrend                = opt.timetrend;
+minn_prior_tau           = opt.minn_prior_tau;
+minn_prior_decay         = opt.minn_prior_decay;
+minn_prior_lambda        = opt.minn_prior_lambda;
+minn_prior_mu            = opt.minn_prior_mu;
+minn_prior_omega         = opt.minn_prior_omega;
+long_run_irf             = opt.long_run_irf;
+irf_1STD                 = opt.irf_1STD;
+cfrcst_yes               = opt.cfrcst_yes;
+non_explosive_           = opt.non_explosive_;
+heterosked               = opt.heterosked;
+signs_irf                = opt.signs_irf;
+narrative_signs_irf      = opt.narrative_signs_irf;
+zeros_signs_irf          = opt.zeros_signs_irf;
+proxy_irf                = opt.proxy_irf;
+heterosked_irf           = opt.heterosked_irf;
+hmoments_signs_irf       = opt.hmoments_signs_irf;
+hmoments_eig_irf         = opt.hmoments_eig_irf;
+noprint                  = opt.noprint;
+nexogenous               = opt.nexogenous;
+exogenous                = opt.exogenous;
+cnnctdnss_               = opt.cnnctdnss_;
+Ridge_                   = opt.Ridge_;
+Lasso_                   = opt.Lasso_;
+ElasticNet_              = opt.ElasticNet_;
+set_irf                  = opt.set_irf;
+robust_bayes_            = opt.robust_bayes_;
+robust_credible_regions_ = opt.robust_credible_regions_;
+exogenous_block          = opt.exogenous_block;
+nz                       = opt.nz;
+mixed_freq_on            = opt.mixed_freq_on;
+dummy                    = opt.dummy;
+flat                     = opt.flat;
+priors                   = opt.priors;
+varnames                 = opt.varnames;
+y                        = opt.y;   % possibly interpolated -- see parse_bvar_options.m
+
+% --- only present if the corresponding options.* branch fired ---
+if isfield(opt,'ww'),                    ww                  = opt.ww;                    end
+if isfield(opt,'K_shrinkage'),           K_shrinkage         = opt.K_shrinkage;           end
+if isfield(opt,'heterosked_regimes'),    heterosked_regimes  = opt.heterosked_regimes;    end
+if isfield(opt,'signs'),                 signs               = opt.signs;                 end
+if isfield(opt,'narrative'),             narrative           = opt.narrative;             end
+if isfield(opt,'zeros_signs'),           zeros_signs         = opt.zeros_signs;           end
+if isfield(opt,'f'),                     f                   = opt.f;                     end
+if isfield(opt,'sr'),                    sr                  = opt.sr;                    end
+if isfield(opt,'var_pos'),               var_pos             = opt.var_pos;               end
+if isfield(opt,'in'),                    in                  = opt.in;                    end
+if isfield(opt,'inols'),                 inols               = opt.inols;                 end
+if isfield(opt,'hmoments'),              hmoments            = opt.hmoments;              end
+if isfield(opt,'moment'),                moment              = opt.moment;                end
+if isfield(opt,'endo_path'),             endo_path           = opt.endo_path;             end
+if isfield(opt,'endo_path_index'),       endo_path_index     = opt.endo_path_index;       end
+if isfield(opt,'exo_index'),             exo_index           = opt.exo_index;             end
+if isfield(opt,'Omega'),                 Omega               = opt.Omega;                 end
+if isfield(opt,'L'),                     L                   = opt.L;                     end
+if isfield(opt,'opt_GiacomoniKitagawa'), opt_GiacomoniKitagawa = opt.opt_GiacomoniKitagawa; end
+if isfield(opt,'Ridge_lambda'),          Ridge_lambda        = opt.Ridge_lambda;           end
+if isfield(opt,'Lasso_lambda'),          Lasso_lambda        = opt.Lasso_lambda;           end
+if isfield(opt,'ElasticNet_lambda'),     ElasticNet_lambda   = opt.ElasticNet_lambda;      end
+if isfield(opt,'ElasticNet_alpha'),      ElasticNet_alpha    = opt.ElasticNet_alpha;       end
+if isfield(opt,'index_nan_var'),         index_nan_var       = opt.index_nan_var;          end
+if isfield(opt,'yoriginal'),             yoriginal           = opt.yoriginal;              end
+if isfield(opt,'yinterpol'),             yinterpol           = opt.yinterpol;              end
+if isfield(opt,'index'),                 index               = opt.index;                  end
+if isfield(opt,'prior'),                 prior               = opt.prior;                  end
+clear opt
+
 
 %********************************************************
 %* Consistency Checks
@@ -787,7 +229,7 @@ else % pooled units
         varols.y = [varols.y; tmp_varols.y];
     end
     % Compute OLS regression and residuals of the pooled estimator
-    varols = fast_ols(varols.y,varols.X);
+    varols = fast_ols_(varols.y,varols.X);
 end
 if exogenous_block == 1
     zdata   = exogenous(idx, :);
@@ -817,7 +259,7 @@ if ElasticNet_ == 1
     varElasticNet.u = varElasticNet.y - varElasticNet.X*varElasticNet.B;
 end
 
-
+%--------------------------------------------------------------------------
 % specify the prior
 if dummy == 1
     % MINNESOTA PRIOR:
@@ -844,8 +286,6 @@ if dummy == 1
     prior.S        = varp.u' * varp.u;
     prior.XXi      = varp.xxi;
     prior.PhiHat   = varp.B;
-    prior.YYdum    = varp.y;
-    prior.XXdum    = varp.X;
     if prior.df < ny
         error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
     end
@@ -864,8 +304,10 @@ elseif dummy == 2
     % MN-IW
     prior.name  = 'MultivariateNormal-InverseWishart';    
 end
+%--------------------------------------------------------------------------
 
-% specify the posterior (the varols agin on actual+dummy)
+%--------------------------------------------------------------------------
+% compute the posterior (the varols agin on actual+dummy)
 [posterior,var] = posterior_(y);
 
 if exogenous_block == 1
@@ -882,8 +324,7 @@ end
 % compute the second and fourth moments robust to error distribution misspecification  
 if robust_bayes_ > 0 
     
-    
-    %% Kurtosis
+    % Kurtosis
     %var.u
     Dpl       = duplicationmatrix(ny);
     Dplus     = pinv(Dpl);
@@ -913,13 +354,16 @@ if robust_bayes_ > 0
     vech_Sig_cov_lower_chol  = chol(vech_Sig_cov_,'lower');
     
     if robust_bayes_ > 1 
-        %% Skewness
+        % Skewness
         ivech_Sig_cov_ = pinv(vech_Sig_cov_);
         Sstar_         = nobs /(nobs+K_shrinkage) * thirdmom(varols.u);
         mu_cov_        = 1/nobs * Sstar_ * ivech_Sig_cov_ * Sstar_';
         mu_cov_chol    = chol(Sig_ - mu_cov_,'lower');
     end
 end
+%--------------------------------------------------------------------------
+
+
 
 %*********************************************************
 %* Compute the log marginal data density for the VAR model
@@ -1144,13 +588,19 @@ for  d =  1 : K
         end 
 
         if exogenous_block == 1
+            % Draw Phi from its matrix-normal conditional posterior without
+            % ever forming the full kron(Sigma,XXi) matrix: for Z iid N(0,1)
+            % reshaped to nk x ny, XXi_lower_chol*Z*Sigma_lower_chol' has the
+            % same distribution as reshape(kron(Sigma_lower_chol,XXi_lower_chol)*vec(Z), nk, ny),
+            % via vec(A*Z*B') = kron(B,A)*vec(Z). Same draw, far cheaper for
+            % large ny*nk since the (ny*nk)x(ny*nk) Kronecker matrix is never built.
             Phi1 = randn(nk * ny, 1);
-            Phi2 = kron(ySigma_lower_chol , XXi_lower_chol) * Phi1;
-            Phi3 = reshape(Phi2, nk, ny);
+            Z    = reshape(Phi1, nk, ny);
+            Phi3 = XXi_lower_chol * Z * ySigma_lower_chol';
             yPhi  = Phi3 + posterior.PhiHat;
             zPhi1 = randn( (nz*lags+nx+timetrend) * nz, 1);
-            zPhi2 = kron(zSigma_lower_chol , ZZi_lower_chol) * zPhi1;
-            zPhi3 = reshape(zPhi2,(nz*lags+nx+timetrend), nz);
+            Zz    = reshape(zPhi1, (nz*lags+nx+timetrend), nz);
+            zPhi3 = ZZi_lower_chol * Zz * zSigma_lower_chol';
             zPhi  = zPhi3 + zposterior.PhiHat;
 
             yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
@@ -1164,9 +614,10 @@ for  d =  1 : K
                     yPhiz, zPhiz;
                     yPhic, zPhic];
         else
+            % See comment above: avoids forming kron(Sigma_lower_chol,XXi_lower_chol).
             Phi1 = randn(nk * ny, 1);
-            Phi2 = kron(Sigma_lower_chol , XXi_lower_chol) * Phi1;
-            Phi3 = reshape(Phi2, nk, ny);
+            Z    = reshape(Phi1, nk, ny);
+            Phi3 = XXi_lower_chol * Z * Sigma_lower_chol';
             Phi  = Phi3 + posterior.PhiHat;
         end
         
@@ -1421,6 +872,7 @@ for  d =  1 : K
         yfill(:,:,d)     = KFout.smoothSt_plus_ss(:,KFout.index_var);
         yfilt(:,:,d)     = KFout.filteredSt_plus_ss(:,KFout.index_var);
         % recompute the posterior with smoothed data
+        % (prior is fixed -- presample assumed complete, not Kalman-filled)
         [posterior1]     = posterior_(yfill(:,:,d));
         S_inv_upper_chol = chol(inv(posterior1.S));
         XXi_lower_chol   = chol(posterior1.XXi)';
@@ -1543,104 +995,89 @@ else
 end
 %==========================================================================
 % Penalized Approaches (Regularization)
-% Parameters Estiamtes
-% if Ridge_ == 1
-%     BVAR.Ridge.Phi    = varRidge.B;
-%     BVAR.Ridge.e      = varRidge.u;
-%     BVAR.Ridge.Sigma  = 1/(nobs-nk)*varRidge.u'*varRidge.u;
-%     % info crit
-%     [BVAR.Ridge.InfoCrit.AIC, BVAR.Ridge.InfoCrit.HQIC, BVAR.Ridge.InfoCrit.BIC] ...
-%         = IC(BVAR.Ridge.Sigma, BVAR.Ridge.e, nobs, nk);
-%     % ir with recursive identification
-%     BVAR.Ridge.ir      = iresponse(BVAR.Ridge.Phi,BVAR.Ridge.Sigma,hor,eye(ny));
-%     % connectedness 
-% end
-% if Lasso_ == 1
-%     BVAR.Lasso.Phi    = varLasso.B;
-%     BVAR.Lasso.e      = varLasso.u;
-%     BVAR.Lasso.Sigma  = 1/(nobs-nk) * varLasso.u'*varLasso.u;
-%     % info crit
-%     [BVAR.Lasso.InfoCrit.AIC, BVAR.Lasso.InfoCrit.HQIC, BVAR.Lasso.InfoCrit.BIC] ...
-%         = IC(BVAR.Lasso.Sigma, BVAR.Lasso.e, nobs, nk);
-%     % ir with recursive identification
-%     BVAR.Lasso.ir      = iresponse(BVAR.Lasso.Phi,BVAR.Lasso.Sigma,hor,eye(ny));   
-% end
-% if ElasticNet_ == 1
-%     BVAR.ElasticNet.Phi    = varElasticNet.B;
-%     BVAR.ElasticNet.e      = varElasticNet.u;
-%     BVAR.ElasticNet.Sigma  = 1/(nobs-nk) * varElasticNet.u'*varElasticNet.u;
-%     % info crit
-%     [BVAR.ElasticNet.InfoCrit.AIC, BVAR.ElasticNet.InfoCrit.HQIC, BVAR.ElasticNet.InfoCrit.BIC] ...
-%         = IC(BVAR.ElasticNet.Sigma, BVAR.ElasticNet.e, nobs, nk);
-%     % ir with recursive identification
-%     BVAR.ElasticNet.ir      = iresponse(BVAR.ElasticNet.Phi,BVAR.ElasticNet.Sigma,hor,eye(ny));   
-% end
 % Parameters Estiamtes - IRFs - Connectedness
 %set_irf = signs_irf + narrative_signs_irf + zeros_signs_irf;
 penalizationstrn = {'Ridge','Lasso','ElasticNet'};
 % loop across penalization approaches
-for pp = 1 : 3    
-    Phi_ = []; Sigma_ = []; u_ = []; Omega_(:,:,1) = eye(ny);  InfoCrit_ = [];   
-    if eval([ penalizationstrn{pp} '_ == 1'])
+% (rewritten to avoid eval(): 'name' is used both as the BVAR.(name) output
+% field and to pick the matching var{Ridge,Lasso,ElasticNet} struct built
+% above, via the switch below, instead of building variable names as strings.)
+for pp = 1 : 3
+    name   = penalizationstrn{pp};
+    active = false;
+    switch name
+        case 'Ridge'
+            if Ridge_ == 1, active = true; varPP = varRidge; end
+        case 'Lasso'
+            if Lasso_ == 1, active = true; varPP = varLasso; end
+        case 'ElasticNet'
+            if ElasticNet_ == 1, active = true; varPP = varElasticNet; end
+    end
+    Phi_ = []; Sigma_ = []; u_ = []; Omega_(:,:,1) = eye(ny);  InfoCrit_ = [];
+    if active
         % AR param
-        eval(['BVAR.' penalizationstrn{pp} '.Phi    = var' penalizationstrn{pp} '.B;']);
-        eval(['Phi_   = BVAR.' penalizationstrn{pp} '.Phi;'])       
+        BVAR.(name).Phi = varPP.B;
+        Phi_            = BVAR.(name).Phi;
         % Error term
-        eval(['BVAR.' penalizationstrn{pp} '.e      = var' penalizationstrn{pp} '.u;']);
-        eval(['u_ = BVAR.' penalizationstrn{pp} '.e;'])
-        % Covariance Matrix        
-        eval(['BVAR.' penalizationstrn{pp} '.Sigma  = 1/(nobs-nk) * var' penalizationstrn{pp} '.u'' * var' penalizationstrn{pp} '.u;'])        
-        eval(['Sigma_ = BVAR.' penalizationstrn{pp} '.Sigma;'])
+        BVAR.(name).e   = varPP.u;
+        u_              = BVAR.(name).e;
+        % Covariance Matrix
+        BVAR.(name).Sigma = 1/(nobs-nk) * varPP.u' * varPP.u;
+        Sigma_             = BVAR.(name).Sigma;
         % Recursive IRFs
-        eval(['BVAR.' penalizationstrn{pp} '.ir      = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));']);                
+        BVAR.(name).ir  = iresponse(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,eye(ny));
         % info crit
         [InfoCrit_.AIC, InfoCrit_.HQIC, InfoCrit_.BIC] ...
             = IC(Sigma_, u_, nobs, nk);
-        eval(['BVAR.' penalizationstrn{pp} '.InfoCrit      = InfoCrit_;']);                                     
+        BVAR.(name).InfoCrit = InfoCrit_;
         % IRFs with different identification schemes
         % point identification: LR
         if long_run_irf == 1
-            eval(['[BVAR.' penalizationstrn{pp} '.irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);'])
+            [BVAR.(name).irlr,Omega_] = iresponse_longrun(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags);
         end
         % point identification: with heteroskedasticity
         if heterosked_irf == 1
-            eval(['[BVAR.' penalizationstrn{pp} '.irheterosked,Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);'])
+            [BVAR.(name).irheterosked,Omega_] = iresponse_heterosked(Phi_(1 : ny*lags, 1 : ny),u_,hor,heterosked_regimes);
         end
         % set identification: signs
-        if set_irf > 0  
-            wb = waitbar(0, ['Generating rotations for set-identification - ' penalizationstrn{pp} ' Estimator']);
-        end        
+        if set_irf > 0
+            wb = waitbar(0, ['Generating rotations for set-identification - ' name ' Estimator']);
+        end
         if signs_irf == 1
-            for d1 = 1 : set_irf                
-                eval(['[BVAR.' penalizationstrn{pp} '.irsign_draws(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);'])
+            for d1 = 1 : set_irf
+                [BVAR.(name).irsign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_sign(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs);
                 waitbar(d1/set_irf, wb);
-            end            
+            end
         end
         % set identification: narrative and sign restrictions
         if narrative_signs_irf == 1
             for d1 = 1 : set_irf
-                eval(['[BVAR.' penalizationstrn{pp} '.irnarrsign_draws(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);'])
+                [BVAR.(name).irnarrsign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);
                 waitbar(d1/set_irf, wb);
             end
         end
         % set identification: zeros and sign restrictions
         if zeros_signs_irf == 1
             for d1 = 1 : set_irf
-                eval(['[BVAR.' penalizationstrn{pp} 'irzerosign_draws.(:,:,:,' num2str(d1) ...
-                    '),Omega_(:,:,' num2str(d1) ')] = iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);'])
+                % NOTE: the previous eval()-built string here was malformed
+                % (missing the '.' before 'irzerosign_draws' and a stray '.'
+                % before the index), so this branch would have errored if
+                % ever exercised. Fixed as part of removing eval().
+                [BVAR.(name).irzerosign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
+                    iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);
                 waitbar(d1/set_irf, wb);
             end
         end
         if set_irf>0, close(wb); end
     end
     if cnnctdnss_ == 1 % default identification (Pesaran and Shin)
-        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);']);        
+        BVAR.(name).Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny),Sigma_,nethor);
     elseif cnnctdnss_ == 2 % customized identification
         Sigma_lower_chol = chol(Sigma_)';
         Omegam           = median(Omega_,3);
-        eval(['BVAR.' penalizationstrn{pp} '.Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);']);                
+        BVAR.(name).Connectedness = connectedness(Phi_(1 : ny*lags, 1 : ny), Sigma_, nethor, Sigma_lower_chol * Omegam);
     end
 
 end
@@ -1705,27 +1142,7 @@ if signs_irf == 1 && narrative_signs_irf == 0
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irsign_lower_draws = irsign_lower_draws;
         BVAR.irsign_upper_draws = irsign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw 
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irsign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irsign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS. 
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irsign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irsign_robust_credible_bands.l(:,:,ss) = credlb';
-
-            % % Compute highest posterior density (HPD) interval under single prior.
-            % [hpdlb,hpdub] = highestPosteriorDensity(rSinglePriorPost,opt);
-            % 
-            % postMeanBoundWidth = meanub - meanlb; % Width of posterior mean bounds.
-            % hpdWidth = hpdub - hpdlb; % Width of highest posterior density regions
-            % credWidth = credub - credlb; % Width of robustified credible region
-            % 
-            % priorInformativeness = 1 - hpdWidth./credWidth; % Informativeness of prior
-        end
+        BVAR.irsign_robust_credible_bands = compute_rob_cred_bands_(irsign_lower_draws, irsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
 else
     BVAR.irsign_draws = [];
@@ -1740,18 +1157,8 @@ if narrative_signs_irf == 1
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irnarrsign_lower_draws = irnarrsign_lower_draws;
         BVAR.irnarrsign_upper_draws = irnarrsign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw 
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irzerosign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irzerosign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS. 
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irnarrsign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irnarrsign_robust_credible_bands.l(:,:,ss) = credlb';
-        end
+        % NOTE: previously used irzerosign_* draws here by mistake (copy-paste bug).
+        BVAR.irnarrsign_robust_credible_bands = compute_rob_cred_bands_(irnarrsign_lower_draws, irnarrsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end    
 else
     BVAR.irnarrsign_draws = [];
@@ -1766,18 +1173,7 @@ if zeros_signs_irf == 1
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irzerosign_lower_draws = irzerosign_lower_draws;
         BVAR.irzerosign_upper_draws = irzerosign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw 
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irzerosign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irzerosign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS. 
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irzerosign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irzerosign_robust_credible_bands.l(:,:,ss) = credlb';
-        end
+        BVAR.irzerosign_robust_credible_bands = compute_rob_cred_bands_(irzerosign_lower_draws, irzerosign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
 else
     BVAR.irzerosign_draws = [];
@@ -1806,18 +1202,7 @@ if hmoments_signs_irf == 1
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irhmomsign_lower_draws = irhmomsign_lower_draws;
         BVAR.irhmomsign_upper_draws = irhmomsign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irhmomsign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irhmomsign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS.
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irhmomsign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irhmomsign_robust_credible_bands.l(:,:,ss) = credlb';
-        end
+        BVAR.irhmomsign_robust_credible_bands = compute_rob_cred_bands_(irhmomsign_lower_draws, irhmomsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
 
 else
@@ -1901,33 +1286,19 @@ end
                 var.y = [var.y; tmp_var.y];
             end
             % Compute OLS regression and residuals of the pooled estimator
-            var = fast_ols(var.y,var.X);
+            var = fast_ols_(var.y,var.X);
         end
         Tu = size(var.u, 1);
                 
-        if dummy ==  1
+        if dummy == 1
             %********************************************************
             % Minnesota Prior
+            % prior.df/S/XXi/PhiHat are computed once before the MCMC
+            % loop (in the prior-specification block above posterior_).
+            % They are fixed across draws: the presample is assumed to
+            % be complete (no missing values), so the Kalman-smoothed
+            % data passed as y does not affect the prior density.
             %********************************************************
-            % Prior density
-            Tp = presample + lags;
-            if nx
-                xdata = xdata(1:Tp, :);
-            else
-                xdata = [];
-            end
-            % varp            = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-            varp            = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-            Tup             = size(varp.u, 1);
-            prior.df        = Tup - ny*lags - nx - flat*(ny+1);
-            prior.S         = varp.u' * varp.u;
-            prior.XXi       = varp.xxi;
-            prior.PhiHat    = varp.B;
-            priors.YYdum    = varp.y;
-            priors.XXdum    = varp.X;
-            if prior.df < ny
-                error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
-            end
             posterior.df    = Tu - ny*lags - nx - flat*(ny+1);
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
@@ -1961,30 +1332,6 @@ end
             posterior.PhiHat = var.B;
         end
         
-    end
-%********************************************************
-%********************************************************
-    function [priors] = priors_( )
-        
-        priors.name  = 'N/A';
-
-    end
-%********************************************************
-%********************************************************
-    function out = fast_ols(y,X)
-        % Compute OLS regression and residuals
-        [vl,d_,vr] = svd(X,0);
-        di = 1./diag(d_);
-        B = (vr.*repmat(di',ny*lags+nx,1))*vl'*y;
-        u = y-X*B;
-        xxi = vr.*repmat(di',ny*lags+nx,1);
-        xxi = xxi*xxi';
-
-        out.B = B;
-        out.u = u;
-        out.xxi = xxi;
-        out.y   = y;
-        out.X   = X;
     end
 %********************************************************
 %********************************************************
