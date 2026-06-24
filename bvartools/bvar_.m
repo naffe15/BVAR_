@@ -995,38 +995,6 @@ else
 end
 %==========================================================================
 % Penalized Approaches (Regularization)
-% Parameters Estiamtes
-% if Ridge_ == 1
-%     BVAR.Ridge.Phi    = varRidge.B;
-%     BVAR.Ridge.e      = varRidge.u;
-%     BVAR.Ridge.Sigma  = 1/(nobs-nk)*varRidge.u'*varRidge.u;
-%     % info crit
-%     [BVAR.Ridge.InfoCrit.AIC, BVAR.Ridge.InfoCrit.HQIC, BVAR.Ridge.InfoCrit.BIC] ...
-%         = IC(BVAR.Ridge.Sigma, BVAR.Ridge.e, nobs, nk);
-%     % ir with recursive identification
-%     BVAR.Ridge.ir      = iresponse(BVAR.Ridge.Phi,BVAR.Ridge.Sigma,hor,eye(ny));
-%     % connectedness 
-% end
-% if Lasso_ == 1
-%     BVAR.Lasso.Phi    = varLasso.B;
-%     BVAR.Lasso.e      = varLasso.u;
-%     BVAR.Lasso.Sigma  = 1/(nobs-nk) * varLasso.u'*varLasso.u;
-%     % info crit
-%     [BVAR.Lasso.InfoCrit.AIC, BVAR.Lasso.InfoCrit.HQIC, BVAR.Lasso.InfoCrit.BIC] ...
-%         = IC(BVAR.Lasso.Sigma, BVAR.Lasso.e, nobs, nk);
-%     % ir with recursive identification
-%     BVAR.Lasso.ir      = iresponse(BVAR.Lasso.Phi,BVAR.Lasso.Sigma,hor,eye(ny));   
-% end
-% if ElasticNet_ == 1
-%     BVAR.ElasticNet.Phi    = varElasticNet.B;
-%     BVAR.ElasticNet.e      = varElasticNet.u;
-%     BVAR.ElasticNet.Sigma  = 1/(nobs-nk) * varElasticNet.u'*varElasticNet.u;
-%     % info crit
-%     [BVAR.ElasticNet.InfoCrit.AIC, BVAR.ElasticNet.InfoCrit.HQIC, BVAR.ElasticNet.InfoCrit.BIC] ...
-%         = IC(BVAR.ElasticNet.Sigma, BVAR.ElasticNet.e, nobs, nk);
-%     % ir with recursive identification
-%     BVAR.ElasticNet.ir      = iresponse(BVAR.ElasticNet.Phi,BVAR.ElasticNet.Sigma,hor,eye(ny));   
-% end
 % Parameters Estiamtes - IRFs - Connectedness
 %set_irf = signs_irf + narrative_signs_irf + zeros_signs_irf;
 penalizationstrn = {'Ridge','Lasso','ElasticNet'};
@@ -1174,27 +1142,7 @@ if signs_irf == 1 && narrative_signs_irf == 0
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irsign_lower_draws = irsign_lower_draws;
         BVAR.irsign_upper_draws = irsign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw 
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irsign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irsign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS. 
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irsign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irsign_robust_credible_bands.l(:,:,ss) = credlb';
-
-            % % Compute highest posterior density (HPD) interval under single prior.
-            % [hpdlb,hpdub] = highestPosteriorDensity(rSinglePriorPost,opt);
-            % 
-            % postMeanBoundWidth = meanub - meanlb; % Width of posterior mean bounds.
-            % hpdWidth = hpdub - hpdlb; % Width of highest posterior density regions
-            % credWidth = credub - credlb; % Width of robustified credible region
-            % 
-            % priorInformativeness = 1 - hpdWidth./credWidth; % Informativeness of prior
-        end
+        BVAR.irsign_robust_credible_bands = compute_rob_cred_bands_(irsign_lower_draws, irsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
 else
     BVAR.irsign_draws = [];
@@ -1209,18 +1157,8 @@ if narrative_signs_irf == 1
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irnarrsign_lower_draws = irnarrsign_lower_draws;
         BVAR.irnarrsign_upper_draws = irnarrsign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw 
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irzerosign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irzerosign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS. 
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irnarrsign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irnarrsign_robust_credible_bands.l(:,:,ss) = credlb';
-        end
+        % NOTE: previously used irzerosign_* draws here by mistake (copy-paste bug).
+        BVAR.irnarrsign_robust_credible_bands = compute_rob_cred_bands_(irnarrsign_lower_draws, irnarrsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end    
 else
     BVAR.irnarrsign_draws = [];
@@ -1235,18 +1173,7 @@ if zeros_signs_irf == 1
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irzerosign_lower_draws = irzerosign_lower_draws;
         BVAR.irzerosign_upper_draws = irzerosign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw 
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irzerosign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irzerosign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS. 
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irzerosign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irzerosign_robust_credible_bands.l(:,:,ss) = credlb';
-        end
+        BVAR.irzerosign_robust_credible_bands = compute_rob_cred_bands_(irzerosign_lower_draws, irzerosign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
 else
     BVAR.irzerosign_draws = [];
@@ -1275,18 +1202,7 @@ if hmoments_signs_irf == 1
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irhmomsign_lower_draws = irhmomsign_lower_draws;
         BVAR.irhmomsign_upper_draws = irhmomsign_upper_draws;
-        for ss = 1 : ny
-            % flip the order
-            % from: variable, horizon, [shock], draw
-            % to:   draw    , horizon, [shock], variable
-            rMinPost = permute(squeeze(irhmomsign_lower_draws(:,:,ss,:)), [3 2 1] );
-            rMaxPost = permute(squeeze(irhmomsign_upper_draws(:,:,ss,:)), [3 2 1] );
-            % Compute robustified credible region for IS.
-            % [integrate out draws]
-            [credlb,credub] = credibleRegion(rMinPost,rMaxPost,opt_GiacomoniKitagawa);
-            BVAR.irhmomsign_robust_credible_bands.u(:,:,ss) = credub';
-            BVAR.irhmomsign_robust_credible_bands.l(:,:,ss) = credlb';
-        end
+        BVAR.irhmomsign_robust_credible_bands = compute_rob_cred_bands_(irhmomsign_lower_draws, irhmomsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
 
 else
