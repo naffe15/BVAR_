@@ -65,16 +65,8 @@ noconstant          = 0;            % when 0, includes a constatn in the VAR
 timetrend           = 0;            % when 1, includes a time trend in the VAR
 minn_prior_tau      = 3;            % Minnesota prior Hyper-Param: Overall Tightness
 minn_prior_decay    = 0.5;          % Minnesota prior Hyper-Param: Tighness on lags>1
-
-%=============================================================================================M1
-
 minn_prior_lambda   = 5;            % Minnesota prior Hyper-Param: Co-Persistence
 minn_prior_mu       = 2;            % Minnesota prior Hyper-Param: Sum-of-Coefficient
-
-
-
-
-
 minn_prior_omega    = 2;            % Minnesota prior Hyper-Param: Shocks Variance
 long_run_irf        = 0;            % when 0, it does not compute long run IRF
 irf_1STD            = 1;            % when 1, IRF are computed as 1SD increase. Else, IRF are compued as unitary increase in the shock
@@ -101,9 +93,6 @@ robust_bayes_       = 0;
 robust_credible_regions_  = 0;
 exogenous_block = 0;
 nz              = 0;
-
-
-%==========================================================================================================M2
 pandemic_on    = 0;
 pandemic_h     = 0;
 pandemic_start = [];
@@ -322,7 +311,7 @@ if nargin > 2
 
 
 
-    %======================================================================================M3
+    %======================================================================
     % Pandemic Prior options
     %======================================================================
     if isfield(options, 'pandemic') == 1
@@ -337,16 +326,18 @@ if nargin > 2
             pandemic_h = 6;               
         end
         if isfield(options.pandemic,'phi') == 1
-            pandemic_phi = options.pandemic.phi;
-            if isscalar(pandemic_phi)
-                pandemic_phi = pandemic_phi * ones(1, pandemic_h);
+           pandemic_phi = options.pandemic.phi;
+           if isscalar(pandemic_phi)
+              pandemic_phi = pandemic_phi * ones(1, pandemic_h);
                 
-            elseif length(pandemic_phi) ~= pandemic_h
-                error('Pandemic Priors: phi must be a scalar or a vector of length h.');
-            end
+           elseif length(pandemic_phi) ~= pandemic_h
+                 error('Pandemic Priors: phi must be a scalar or a vector of length h.');
+           end
         else
             pandemic_phi = pandemic_phi * ones(1, pandemic_h); 
         end
+
+
         dummy       = 4;
         flat        = 0;
         priors.name = 'Pandemic-Minnesota';
@@ -784,8 +775,6 @@ opt.flat                      = flat;
 opt.priors                   = priors;
 opt.varnames                 = varnames;
 opt.y                        = y;   % possibly interpolated -- see header note
-
-%========================================================================================================M4
 opt.pandemic_on    = pandemic_on;
 opt.pandemic_h     = pandemic_h;
 opt.pandemic_start = pandemic_start;
