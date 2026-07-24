@@ -91,6 +91,11 @@ flat                     = opt.flat;
 priors                   = opt.priors;
 varnames                 = opt.varnames;
 y                        = opt.y;   % possibly interpolated -- see parse_bvar_options.m
+pandemic_on              = opt.pandemic_on;
+pandemic_h               = opt.pandemic_h;
+pandemic_start           = opt.pandemic_start;
+pandemic_phi             = opt.pandemic_phi;
+
 
 % --- only present if the corresponding options.* branch fired ---
 if isfield(opt,'ww'),                    ww                  = opt.ww;                    end
@@ -175,11 +180,11 @@ end
 % organize data as  yy = XX B + E
 if nunits == 1
     if exogenous_block == 1
-       [yy1,XX1] = YXB_(y(idx, :),lags,[nx timetrend]);
-       [yy2,XX2] = YXB_(exogenous(idx, :),lags,[nx timetrend]);
-       yy = [yy1, yy2]; XX = [XX1(:,1:lags*ny), XX2];
+        [yy1,XX1] = YXB_(y(idx, :),lags,[nx timetrend]);
+        [yy2,XX2] = YXB_(exogenous(idx, :),lags,[nx timetrend]);
+        yy = [yy1, yy2]; XX = [XX1(:,1:lags*ny), XX2];
     else 
-       [yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
+        [yy,XX] = YXB_(y(idx, :),lags,[nx timetrend]);
     end
 else % pooled units
     yy = []; XX = [];
@@ -202,10 +207,16 @@ if T-lags < lags*ny + nx %+ flat*(ny+1)
     error('Less observations than regressors: increase the # of obs or decrease the # of lags.')
 end
 xdata   = ones(T,nx);
+
+
+
+
+
 if timetrend == 1
     % xdata = [xdata [1:T]'];
     xdata = [xdata [1-lags : T-lags]'];
 end
+
 if nexogenous > 0
     xdata = [xdata exogenous(idx,:)]; 
     XX    = [XX exogenous(idx(1)+lags : idx(end),:)];
@@ -213,6 +224,16 @@ end
 if exogenous_block == 1
     xdata = [xdata,  [nan(lags,lags*nz); XX2(:,1:lags*nz)]];
 end
+
+
+panDum = zeros(size(y,1), pandemic_h);
+for j = 1 : pandemic_h
+    panDum(pandemic_start + j - 1, j) = 1;
+end
+xdata = [xdata, panDum(idx, :)];
+XX    = [XX, panDum(idx(1)+lags : idx(end),:)]; 
+
+
 
 % OLS estimate [NO DUMMY]:
 if nunits == 1
@@ -303,6 +324,41 @@ elseif dummy == 0
 elseif dummy == 2
     % MN-IW
     prior.name  = 'MultivariateNormal-InverseWishart';    
+
+elseif dummy == 4
+    mnprior.tight         = minn_prior_tau;
+    mnprior.decay         = minn_prior_decay;
+    vprior.sig            = std(y(firstobs-lags : firstobs+presample-1,:))';
+    vprior.w              = minn_prior_omega;
+    lambda                = minn_prior_lambda;
+    mu                    = minn_prior_mu;
+    pandemic.h            = pandemic_h;
+    pandemic.phi          = pandemic_phi;
+    [ydum, xdum, pbreaks] = pandemic_varprior(ny, nx, lags, mnprior, vprior, pandemic);
+    % Prior density
+    Tp = presample + lags;
+    if nx
+        xdata = xdata(1:Tp, :);
+    else
+        xdata = [];
+    end
+    %     varp            = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
+    varp           = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
+    Tup            = size(varp.u, 1);
+    prior.df       = Tup - ny*lags - nx - flat*(ny+1) - pandemic_h;
+    prior.S        = varp.u' * varp.u;
+    prior.XXi      = varp.xxi;
+    prior.PhiHat   = varp.B;
+    if prior.df < ny
+        error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
+    end
+    prior.minn_prior_tau    = minn_prior_tau;
+    prior.minn_prior_decay  = minn_prior_decay;
+    prior.minn_prior_lambda = minn_prior_lambda;
+    prior.minn_prior_mu     = minn_prior_mu;
+    prior.minn_prior_omega  = minn_prior_omega;
+    prior.pandemic_h        = pandemic_h;
+    prior.pandemic_phi      = pandemic_phi;
 end
 %--------------------------------------------------------------------------
 
@@ -387,6 +443,12 @@ elseif dummy == 0 % jeffrey prior
 
 elseif dummy == 2 % conjugate MN-IW prior
     log_dnsty = mniw_log_dnsty(prior,posterior,varols);
+
+
+elseif dummy == 4
+    prior_int = matrictint(prior.S, prior.df, prior.XXi);
+    lik_nobs  = posterior.df - prior.df;
+    log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);  
     
 end
 
@@ -398,7 +460,14 @@ end
 % Preallocation of memory
 % Matrices for collecting draws from Posterior Density
 % Last dimension corresponds to a specific draw
-Phi_draws     = zeros(ny*lags+nx+timetrend + nexogenous, ny, K);   % Autoregressive Parameters
+
+
+Phi_draws = zeros(ny*lags+nx+timetrend+nexogenous+pandemic_h, ny, K); % Autoregressive Parameters - Minnesota Pandemic
+
+
+
+
+
 Sigma_draws   = zeros(ny,ny,K);                     % Shocks Covariance
 Sigma_lower_chol_draw = zeros(ny,ny,K);             % Shocks Covariance Cholesksi 
 ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Cholesky IRF
@@ -501,6 +570,11 @@ if nexogenous>0
     forecast_data.xdata = [forecast_data.xdata exogenous(T-lags+1 : T-lags+fhor,:)];
 end
 
+forecast_data.xdata = [forecast_data.xdata, zeros(fhor, pandemic_h)];
+
+
+
+
 if exogenous_block == 1
     forecast_data.initval     = [ydata(end-lags+1:end, :), zdata(end-lags+1:end, :)];
 else
@@ -541,6 +615,11 @@ if exogenous_block == 1
 else
     nk = ny*lags+nx+timetrend + nexogenous;
 end
+
+
+nk = nk + pandemic_h;
+
+
 
 % Declaration of the companion matrix
 Companion_matrix = diag(ones(ny*(lags-1),1),-ny);
@@ -1268,6 +1347,12 @@ end
         if nexogenous >0
             xdata = [xdata exogenous(idx,:)];
         end
+
+        if pandemic_on == 1
+           xdata = [xdata, panDum(idx, :)];
+        end
+
+
         if exogenous_block == 1
             xdata = [xdata,  [nan(lags,lags*nz); XX2(:,1:lags*nz)]];
         end
@@ -1330,9 +1415,20 @@ end
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
-        end
         
+
+        elseif dummy == 4
+            %********************************************************
+            % Pandemic Minnesota Prior
+            %********************************************************
+            posterior.df     = Tu - ny*lags - nx - flat*(ny+1) - pandemic_h;
+            posterior.S      = var.u' * var.u;
+            posterior.XXi    = var.xxi;
+            posterior.PhiHat = var.B;
+        end
+         
     end
+
 %********************************************************
 %********************************************************
 
