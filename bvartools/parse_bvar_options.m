@@ -130,6 +130,7 @@ end
 dummy    = 0;
 flat     = 1;
 priors.name  = 'N/A';   % was priors_() -- see file header note
+plr      = [];          % PLR (Prior for the Long Run) off by default
 
 % declaring the names for the observable variables
 for v = 1 : ny
@@ -434,6 +435,100 @@ if nargin > 2
             while prior.Sigma.df/2 <= ny-1 % too few df
                 prior.Sigma.df =  prior.Sigma.df +1;
             end
+        end
+    end
+    %======================================================================
+    % PLR (Prior for the Long Run) options -- Giannone, Lenza & Primiceri (2019)
+    %======================================================================
+    if (isfield(options,'priors')==1 && isfield(options.priors,'name')==1 && strcmp(options.priors.name,'PLR')==1) || ...
+       (isfield(options,'priors')==1 && isfield(options.priors,'name')==1 && strcmp(options.priors.name,'plr')==1) || ...
+       (isfield(options,'prior')==1  && isfield(options.prior,'name')==1  && strcmp(options.prior.name,'PLR')==1)  || ...
+       (isfield(options,'prior')==1  && isfield(options.prior,'name')==1  && strcmp(options.prior.name,'plr')==1)
+        %  PLR PRIOR: Minnesota short-run dummies + PLR long-run dummies
+        if isfield(options,'prior')==1 && isfield(options,'priors')==0
+            options.priors = options.prior;
+        end
+        if isfield(options.priors,'PLR')==0 || isfield(options.priors.PLR,'H')==0
+            error('PLR prior: you must supply options.priors.PLR.H, an %dx%d invertible matrix.', ny, ny);
+        end
+        H = options.priors.PLR.H;
+        if isequal(size(H),[ny ny])==0
+            error('PLR prior: H must be %dx%d (got %dx%d).', ny, ny, size(H,1), size(H,2));
+        end
+        if rank(H) < ny
+            error('PLR prior: H must be invertible (rank %d < %d).', rank(H), ny);
+        end
+        if isfield(options.priors.PLR,'phi')==1
+            phi = options.priors.PLR.phi(:);
+            if isscalar(phi)
+                phi = phi*ones(ny,1);
+            end
+            if numel(phi) ~= ny
+                error('PLR prior: phi must be a scalar or a %d-vector (got %d).', ny, numel(phi));
+            end
+            if any(phi <= 0)
+                error(['PLR prior: phi must be > 0 (use phi ~ 1e-4 for a dogmatic ' ...
+                       'prior, as in GLP''s own code, and phi = Inf to switch a row off).']);
+            end
+        else
+            phi = ones(ny,1);           % paper reference value
+        end
+        plr.H   = H;
+        plr.phi = phi;
+        % PLR and the Pandemic prior each add columns/rows the other path does
+        % not size for: the pandemic indicators are appended to xdata
+        % unconditionally in bvar_.m while nx stays put, and the PLR rows pad
+        % the constant/exogenous block with zeros(1,nx) -- the widths would not
+        % match inside rfvar3. Refuse the combination.
+        if pandemic_on == 1
+            error(['PLR prior: options.pandemic and the PLR prior cannot be combined. ' ...
+                   'The pandemic indicators enter as extra exogenous columns, which the ' ...
+                   'PLR dummy rows do not size for. Pick one.']);
+        end
+        % Same width problem, and the same decision as Prof. Ferroni's on
+        % exogenous variables: an exogenous BLOCK also widens xdata without
+        % widening nx, so it bypasses the warn-and-drop guard in bvar_.m that
+        % catches plain exogenous variables. On the Minnesota path this already
+        % fails, but deep inside rfvar3 with a bare "Dimensions of arrays being
+        % concatenated are not consistent" -- say so here instead.
+        if exogenous_block == 1
+            error(['PLR prior: an exogenous block (options.exogenous_block) cannot be ' ...
+                   'combined with the PLR prior. The block adds columns to xdata that ' ...
+                   'the dummy observations do not size for (the same reason exogenous ' ...
+                   'variables are dropped on the Minnesota path).']);
+        end
+        if dummy == 2
+            warning('You have set both the PLR and the Conjugate prior');
+            warning('I will consider the PLR prior only');
+        end
+        dummy = 3;
+        flat  = 0;
+        priors.name = 'PLR';
+        % PLR replaces the co-persistence ("lambda") and sum-of-coefficients
+        % ("mu") dummies: stacking both double-counts the long-run information
+        % (GLP 2019, Sec. 2: Sims-Zha is the PLR special case H = eye(ny)).
+        % Default them off unless the user set them explicitly.
+        if isfield(options,'minn_prior_lambda')==0 && isfield(options,'bvar_prior_lambda')==0
+            minn_prior_lambda = 0;
+        end
+        if isfield(options,'minn_prior_mu')==0 && isfield(options,'bvar_prior_mu')==0
+            minn_prior_mu = 0;
+        end
+        if minn_prior_lambda ~= 0 || minn_prior_mu ~= 0
+            warning('PLR combined with sum-of-coefficients/co-persistence dummies double-counts long-run information (GLP 2019, Sec. 2)');
+        end
+        % phi is tuned by calling bvar_max_hyper directly with the extended
+        % hyper-vector (see the PLR documentation); options.max_minn_hyper
+        % would have tuned the five Minnesota hyperparameters only.
+        if isfield(options,'max_minn_hyper')==1 && options.max_minn_hyper == 1
+            error('PLR prior: options.max_minn_hyper tunes the Minnesota hyperparameters only. To tune phi, call bvar_max_hyper with the extended hyper-vector.');
+        end
+        % near-unit-root draws: warn on features that invert (I - B(1))
+        if isfield(options,'long_run_irf')==1 && options.long_run_irf == 1
+            warning('PLR + long-run (BQ) identification: iresponse_longrun inverts (I-F), which explodes on the near-unit-root draws PLR is designed to admit');
+        end
+        if isfield(options,'non_explosive_')==1 && options.non_explosive_ == 1
+            warning('PLR + non_explosive_: the stationarity filter rejects the draws PLR is designed to admit (and the redraw loop has no iteration cap)');
         end
     end
     %======================================================================
@@ -773,6 +868,7 @@ opt.mixed_freq_on            = mixed_freq_on;
 opt.dummy                    = dummy;
 opt.flat                      = flat;
 opt.priors                   = priors;
+opt.plr                      = plr;
 opt.varnames                 = varnames;
 opt.y                        = y;   % possibly interpolated -- see header note
 opt.pandemic_on    = pandemic_on;
