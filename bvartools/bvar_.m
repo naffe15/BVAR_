@@ -95,6 +95,14 @@ pandemic_on              = opt.pandemic_on;
 pandemic_h               = opt.pandemic_h;
 pandemic_start           = opt.pandemic_start;
 pandemic_phi             = opt.pandemic_phi;
+plr                      = opt.plr;   % PLR spec ([] unless options.priors.name='PLR')
+if ~isempty(plr)
+    % y_bar_0 (GLP 2019, eq. 7): mean of the given initial observations.
+    % Computed ONCE here so that the prior and the posterior rfvar3 calls
+    % append identical PLR rows for any presample (the phi-dependent
+    % normalization then cancels in posterior_int - prior_int).
+    plr.ybar = mean(y(firstobs-lags : firstobs-1, :), 1);
+end
 
 
 % --- only present if the corresponding options.* branch fired ---
@@ -143,7 +151,13 @@ end
 if firstobs + presample  <= lags
     error('firstobs+presample should be > # lags (for initializating the VAR)')
 end
-if dummy == 1 && nexogenous > 0 
+if ~isempty(plr) && mixed_freq_on == 1
+    error(['PLR: missing observations are not supported. The mixed-frequency ' ...
+           'Kalman path initializes from (I-B(1))\c and solves a Lyapunov ' ...
+           'equation (var2ss.m, kfilternan.m), which blow up on the ' ...
+           'near-unit-root draws PLR admits.']);
+end
+if (dummy == 1 || dummy == 3) && nexogenous > 0
     warning('I will not use exogenous variables with Minnesota');
     nexogenous = 0;
 end
@@ -359,6 +373,39 @@ elseif dummy == 4
     prior.minn_prior_omega  = minn_prior_omega;
     prior.pandemic_h        = pandemic_h;
     prior.pandemic_phi      = pandemic_phi;
+
+elseif dummy == 3
+    % PLR PRIOR: Minnesota short-run dummies + PLR long-run dummies
+    mnprior.tight         = minn_prior_tau;
+    mnprior.decay         = minn_prior_decay;
+    % Use only initializations lags for the variance prior
+    vprior.sig            = std(y(firstobs-lags : firstobs+presample-1,:))';
+    vprior.w              = minn_prior_omega;
+    lambda                = minn_prior_lambda;
+    mu                    = minn_prior_mu;
+    [ydum, xdum, pbreaks] = varprior(ny, nx, lags, mnprior, vprior);
+    % Prior density
+    Tp = presample + lags;
+    if nx
+        xdata = xdata(1:Tp, :);
+    else
+        xdata = [];
+    end
+    varp           = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu, [], plr);
+    Tup            = size(varp.u, 1);
+    prior.df       = Tup - ny*lags - nx - flat*(ny+1);
+    prior.S        = varp.u' * varp.u;
+    prior.XXi      = varp.xxi;
+    prior.PhiHat   = varp.B;
+    if prior.df < ny
+        error('PLR: too few degrees of freedom in the Inverse-Wishart part of the prior. Tighten the Minnesota short-run or increase the training sample size.')
+    end
+    prior.minn_prior_tau    = minn_prior_tau;
+    prior.minn_prior_decay  = minn_prior_decay;
+    prior.minn_prior_lambda = minn_prior_lambda;
+    prior.minn_prior_mu     = minn_prior_mu;
+    prior.minn_prior_omega  = minn_prior_omega;
+    prior.plr               = plr;
 end
 %--------------------------------------------------------------------------
 
@@ -450,6 +497,11 @@ elseif dummy == 4
     lik_nobs  = posterior.df - prior.df;
     log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);  
     
+elseif dummy == 3 % PLR: same conjugate NIW marginal as the Minnesota dummy prior
+    prior_int = matrictint(prior.S, prior.df, prior.XXi);
+    lik_nobs  = posterior.df - prior.df;
+    log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
+
 end
 
 
@@ -1359,9 +1411,9 @@ end
         % posterior density
         if nunits == 1
             if heterosked == 0
-                var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+                var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, [], plr);
             else
-                var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+                var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww, plr);
             end
         else  % pooled units
             var.y = []; var.X = [];
@@ -1424,6 +1476,20 @@ end
             posterior.df     = Tu - ny*lags - nx - flat*(ny+1) - pandemic_h;
             posterior.S      = var.u' * var.u;
             posterior.XXi    = var.xxi;
+            posterior.PhiHat = var.B;
+
+        elseif dummy == 3
+            %********************************************************
+            % PLR prior (Minnesota short-run + PLR long-run)
+            % prior.df/S/XXi/PhiHat are computed once before the MCMC
+            % loop (in the prior-specification block above posterior_).
+            % They are fixed across draws: the presample is assumed to
+            % be complete (no missing values), so the Kalman-smoothed
+            % data passed as y does not affect the prior density.
+            %********************************************************
+            posterior.df    = Tu - ny*lags - nx - flat*(ny+1);
+            posterior.S     = var.u' * var.u;
+            posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
         end
          
