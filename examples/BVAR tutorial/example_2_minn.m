@@ -9,6 +9,8 @@
 % 3) Compare  IRFS to  MP shock with  three  hyperparameter choices
 % 4) Pandemic Minnesota and comparison IRFS to EBP shock of Pandemic
 % Minnesota and classic Minnesota
+% 5) Minnesota with the long run prior and comparison IRFS to a GDP shock
+% with and without it
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 warning off; clear; close all; clc;
@@ -214,3 +216,100 @@ plot_opts.varnames    = Yname;
 plot_opts.shocksnames = {'EBP shock - Pandemic Priors'};
 plot_irfs_(irfs_pandemic, plot_opts)
 sgtitle('EBP shock - Pandemic Priors')
+
+
+%% Case 5:  Estimation with the Prior for the Long Run
+%           (shrinks the combinations H*y, one tightness phi per row of H)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Small phi imposes  a unit root on that combination, large phi is
+% uninformative. Here the rows of H are the common trend Y+C+I and the two
+% great ratios C-Y and I-Y: the variables are left free to trend, but not
+% free to drift apart. The prior replaces the sum-of-coefficients and
+% co-persistence dummies and nests them, since H = eye(ny) with
+% phi = 1/minn_prior_mu gives back the minn_prior_mu block.
+% Prior based on the paper "Priors for the Long Run" (2019) by D. Giannone,
+% M. Lenza and G. Primiceri, JASA 114:526, 565-580
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+clear all; close all; clc;
+
+addpath ../../cmintools/
+addpath ../../bvartools/
+
+% load quarterly data from Giannone, Lenza and Primiceri (2019) data set
+% US log real per capita GDP, consumption and investment, 1955Q1-2013Q1
+load DataGLP
+y    = [Y C I];   % the variables for the VAR
+lags = 5;
+
+%% 5.1 Estimation with a generic Minnesota prior
+clear options
+options.hor             = 60;   % long horizon: the prior acts on the long run
+options.minn_prior_tau  = 3;    % overall tightness; decay, lambda, mu and
+                                % omega stay at their default values
+BVAR3                   = bvar_(y,lags,options);
+
+%% 5.2 Estimation with the Minnesota and the long run prior
+clear options
+options.hor             = 60;
+options.minn_prior_tau  = 3;    % same short run prior as in 5.1
+options.priors.name     = 'PLR';
+% the linear combinations the prior is elicited on
+options.priors.PLR.H    = [ 1  1  1 ;     % Y+C+I, the common trend
+                           -1  1  0 ;     % C-Y,   the consumption great ratio
+                           -1  0  1 ];    % I-Y,   the investment great ratio
+% one tightness per row of H; these are GLP's own estimates for this VAR
+options.priors.PLR.phi  = [0.86; 0.56; 1.86];
+BVAR4                   = bvar_(y,lags,options);
+
+% Plotting cholesky responses to the first (GDP) shock
+% Define the IRF of Interest
+indx_sho              = 1;
+% Order of the variables for the plot
+indx_var              = [1, 2, 3];
+
+% IRFs to PLOT: compare IRFs obtained with the two priors
+mltple_irfs_to_plot_all(:,:,1,:) = BVAR3.ir_draws(indx_var,:,indx_sho,:);
+mltple_irfs_to_plot_all(:,:,2,:) = BVAR4.ir_draws(indx_var,:,indx_sho,:);
+
+% Customize the plot
+clear options
+% variables names for the plots
+options.varnames      = {'GDP','Consumption','Investment'};
+% name of the directory where the figure is saved
+options.saveas_dir    = './irfs_plt';
+% name of the figure to save
+options.saveas_strng  = 'minn_vs_longrun';
+% name of the shock
+options.shocksnames   = {'Minnesota','Minnesota + LR'};
+% additional 90% HPD set
+options.conf_sig_2    = 0.9;
+% the plotting command
+plot_all_irfs_(mltple_irfs_to_plot_all,options)
+
+% The prior is elicited on H*y, so look at the responses of H*y itself: the
+% two great ratios, with and without the long run prior
+ratios_to_plot(1,:,1,:) = BVAR3.ir_draws(2,:,indx_sho,:) - BVAR3.ir_draws(1,:,indx_sho,:);
+ratios_to_plot(2,:,1,:) = BVAR3.ir_draws(3,:,indx_sho,:) - BVAR3.ir_draws(1,:,indx_sho,:);
+ratios_to_plot(1,:,2,:) = BVAR4.ir_draws(2,:,indx_sho,:) - BVAR4.ir_draws(1,:,indx_sho,:);
+ratios_to_plot(2,:,2,:) = BVAR4.ir_draws(3,:,indx_sho,:) - BVAR4.ir_draws(1,:,indx_sho,:);
+
+% Customize the plot
+clear options
+% variables names for the plots
+options.varnames      = {'C - Y','I - Y'};
+% name of the directory where the figure is saved
+options.saveas_dir    = './irfs_plt';
+% name of the figure to save
+options.saveas_strng  = 'minn_vs_longrun_ratios';
+% name of the shock
+options.shocksnames   = {'Minnesota','Minnesota + LR'};
+% additional 90% HPD set
+options.conf_sig_2    = 0.9;
+% the plotting command
+plot_all_irfs_(ratios_to_plot,options)
+
+%% ESSENCE: THE  LONG  RUN  PRIOR  BARELY  MOVES  THE  IMPACT  RESPONSES
+%% BUT  DISCIPLINES  THE  LOW  FREQUENCIES:  THE  GREAT  RATIOS,  LEFT
+%% FREE  TO  DRIFT  BY  THE  MINNESOTA  PRIOR,  ARE  PULLED  BACK
+%% TOGETHER  AT  LONG  HORIZONS.
