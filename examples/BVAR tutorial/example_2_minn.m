@@ -7,8 +7,8 @@
 % 1) mixed calibrated/estimated Minnesota prior hyperparameters
 % 2) optimally chosen  Minnesota prior hyperparameters
 % 3) Compare  IRFS to  MP shock with  three  hyperparameter choices
-% 4) Pandemic Minnesota and comparison IRFS to EBP shock of Pandemic
-% Minnesota and classic Minnesota
+% 4) Comparison of log marginal data density and IRFs to an EBP shock 
+% between Pandemic Priors and the classic Minnesota Prior
 % 5) Minnesota with the long run prior and comparison IRFS to a GDP shock
 % with and without it
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -130,19 +130,22 @@ bvar2 = bvar_(y(presample+1:end,:),lags,options);
 
 
 
-%% Case 4:  The Pandemic Minnesota
+%% Case 4:  The Pandemic Priors
 %           (with pandemic_on==1, the pandemic prior is active)
 % example_pandemic_minn.m — VAR inference with Minnesota Prior vs Pandemic
-% Priors(implementation of the Pandemic Prior of the Cascaldi-Garcia,2025)
+% Priors(implementation of the Pandemic Priors of the Cascaldi-Garcia,2025)
 %
 % What this case does:
 %   Estimates the same VAR twice with the BVAR_ toolbox: once as a
 %   classic Minnesota Prior (no pandemic dummies), and once as a
-%   Pandemic Minnesota Prior (6 time dummies covering March-August
+%   Pandemic Priors (6 time dummies covering March-August
 %   2020). Both runs share the same Minnesota hyperparameters, so the
 %   only difference between the two estimations is the presence of the
-%   pandemic dummies. The impulse responses to the EBP shock are then
-%   plotted separately for each specification with plot_irfs_.
+%   pandemic dummies. 
+%   First, we compare the log marginal data densities across the two specifications.
+%   Subsequently, we plot the impulse responses to the EBP shock for each model
+%   using plot_irfs_ to provide a direct visual comparison.
+%   
 %
 % Reference:
 %   Cascaldi-Garcia, D. (2025), "Pandemic Priors"
@@ -151,8 +154,7 @@ bvar2 = bvar_(y(presample+1:end,:),lags,options);
 %
 %   The dataset used in this example (Data.xlsx) is taken directly from
 %   the author's replication files
-%% 4.1
-% Data preparation:
+%% 4.1 Data preparation:
 %   - Apply a log*100 transformation to the variables expressed in
 %     levels (S&P 500, PCE, PCE Price Index, Employment, Industrial
 %     Production), so that their coefficients/IRFs can be read as
@@ -173,7 +175,9 @@ time_vec = datetime(1975,1,1):calmonths(1):datetime(2022,12,1);
 nAR = 12;
 covid_ind_F = find(datetime(2020,3,1)==time_vec);
 
-%% ============ Common options ============
+%% 4.2 Log Marginal likelihood comparison
+
+% ============ Common options ============
 opts = struct();
 opts.minn_prior_tau    = 5;
 opts.minn_prior_decay  = 1;
@@ -183,7 +187,7 @@ opts.minn_prior_omega  = 1;
 opts.K   = 2000;
 opts.hor = 36;
 
-%% ============ Pandemic Minnesota Prior ============
+% ============ Pandemic Priors ============
 opts_pandemic = opts;
 opts_pandemic.pandemic.start = covid_ind_F;    % first period covered by the pandemic dummies (March 2020)
 opts_pandemic.pandemic.h     = 6;              % number of pandemic dummy periods (March-August 2020)
@@ -192,11 +196,21 @@ opts_pandemic.pandemic.phi   = 0.05;           % tightness of the pandemic dummi
 
 BVAR_pandemic = bvar_(Yraw, nAR, opts_pandemic);
 
-%% ============ Minnesota Prior  ============
+% ============ Minnesota Prior  ============
 opts_minn = opts;
 BVAR_minn = bvar_(Yraw, nAR, opts_minn);
 
-%% ============ EBP shock impact — Classic Minnesota ============
+% ============ Log Marginal Likelihood Comparison ============
+disp('log marginal data density')
+disp(['  Minnesota Prior  = ' num2str(BVAR_minn.logmlike,'%6.2f')])
+disp(['  Pandemic Priors  = ' num2str(BVAR_pandemic.logmlike,'%6.2f')])
+pause;
+
+
+%% 4.3 Comparison of EBP Shock Impact
+
+
+% ============ EBP shock impact — Minnesota Prior ============
 indx_sho = 1;              % EBP is the first variable -> the real EBP shock
 indx_var = 1:size(Yraw,2); % all 8 variables
 
@@ -208,7 +222,7 @@ plot_opts.shocksnames = {'EBP shock - Classic Minnesota'};
 plot_irfs_(irfs_minn, plot_opts)
 sgtitle('EBP shock - Classic Minnesota')
 
-%% ============ EBP shock impact — Pandemic Priors ============
+% ============ EBP shock impact — Pandemic Priors ============
 irfs_pandemic = BVAR_pandemic.ir_draws(indx_var,:,indx_sho,:);
 
 clear plot_opts
@@ -216,6 +230,8 @@ plot_opts.varnames    = Yname;
 plot_opts.shocksnames = {'EBP shock - Pandemic Priors'};
 plot_irfs_(irfs_pandemic, plot_opts)
 sgtitle('EBP shock - Pandemic Priors')
+pause;
+
 
 
 %% Case 5:  Estimation with the Prior for the Long Run
