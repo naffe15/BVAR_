@@ -313,7 +313,7 @@ if nargin > 2
 
 
     %======================================================================
-    % Pandemic Prior options
+    % Pandemic Priors options
     %======================================================================
     if isfield(options, 'pandemic') == 1
         if ~isfield(options.pandemic, 'start')
@@ -341,7 +341,7 @@ if nargin > 2
 
         dummy       = 4;
         flat        = 0;
-        priors.name = 'Pandemic-Minnesota';
+        priors.name = 'Pandemic Priors';
     end
 
 
