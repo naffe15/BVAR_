@@ -1,8 +1,21 @@
 function [ydum,xdum,breaks]=pandemic_varprior(nv,nx,lags,mnprior,vprior, pandemic)
 %function [ydum,xdum,breaks]=pandemic_varprior(nv,nx,lags,mnprior,vprior, pandemic)
+% 
+% This function is the pandemic extension of Sims' varprior.m (see the
+% original file header below): the Minnesota block (mnprior, vprior) is
+% built with exactly the same logic as in varprior.m, but xdum is widened
+% by pandemic.h columns from the start. Once the Minnesota block is
+% implemented, we append a pandemic block to xdum and ydum.
+%
+% The aim of these changes is to implement the Pandemic Priors of
+% Cascaldi-Garcia (2025), but built on top of the Minnesota implementation
+% discussed in Sims and Zha (1998), Del Negro and Schorfheide (2011), or
+% Villemot and Pfeifer (2017); rather than on the Banbura, Giannone and
+% Reichlin (2010) implementation used in the original paper.
+
 % ydum, xdum:   dummy observation data that implement the prior
 % breaks:       vector of points in the dummy data after which new dummy obs's start
-%                   Set breaks=T+[0;breaks], ydata=[ydata;ydum], xdum=[xdata;xdum], where 
+%                   Set breaks=T+[0;breaks], ydata=[ydata;ydum], xdum=[xdata;xdum], where
 %                   actual data matrix has T rows, in preparing input for rfvar3
 % nv,nx,lags: VAR dimensions
 % mnprior.tight:Overall tightness of Minnesota prior
@@ -12,16 +25,19 @@ function [ydum,xdum,breaks]=pandemic_varprior(nv,nx,lags,mnprior,vprior, pandemi
 %                   Should be an integer, and will be rounded if not.  vprior.sig is needed
 %                   to scale the Minnesota prior, even if the prior on sigma is not used itself.
 %                   Set vprior.w=0 to achieve this.
+% pandemic:     Structure that contains pandemic.h (number of pandemic periods) and pandemic.phi (1xh row vector
+%                   of shrinkage hyper-parameters for the pandemic time dummies).
+%
 % Note:         The original Minnesota prior treats own lags asymmetrically, and therefore
 %                   cannot be implemented entirely with dummy observations.  It is also usually
 %                   taken to include the sum-of-coefficients and co-persistence components
 %                   that are implemented directly in rfvar3.m.  The diagonal prior on v, combined
 %                   with sum-of-coefficients and co-persistence components and with the unit own-first-lag
-%                   prior mean generates larger prior variances for own than for cross-effects even in 
-%                   this formulation, but here there is no way to shrink toward a set of unconstrained 
+%                   prior mean generates larger prior variances for own than for cross-effects even in
+%                   this formulation, but here there is no way to shrink toward a set of unconstrained
 %                   univariate AR's.
 
-% Original file downloaded from:
+% Original file of varprior.m is downloaded from:
 % http://sims.princeton.edu/yftp/VARtools/matlab/varprior.m
 
 if ~isempty(mnprior)
