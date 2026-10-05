@@ -920,16 +920,17 @@ for  d =  1 : K
         norm     = sqrt(      omega12o*omega12o');
         omega12 = omega12o/norm*sqrt(Sigma(1,1)-omega11^2); 
         icholSig = inv(Sigma_lower_chol);
-        Omegap_draws(:,:,d) = icholSig*[[omega11; omega21'] , [omega12; omega22]];
+        Omega     = icholSig*[[omega11; omega21'] , [omega12; omega22]];
+        Omegap_draws(:,:,d) = Omega;
         %max(max(abs(Omegap_draws(:,:,d)*Omegap_draws(:,:,d)'-Sigma)))
         % max(max(abs(Omegap_draws(:,:,d)*Omegap_draws(:,:,d)'-eye(ny))))
         clear tmp_
     end
     % with heteroskedasticity 
     if heterosked_irf == 1
-        [irheterosked,Omegah]       = iresponse_heterosked(Phi(1 : ny*lags, 1 : ny),errors,hor,heterosked_regimes);
+        [irheterosked,Omega]       = iresponse_heterosked(Phi(1 : ny*lags, 1 : ny),errors,hor,heterosked_regimes);
         irheterosked_draws(:,:,:,d) = irheterosked;
-        Omegah_draws(:,:,d)         = Omegah;
+        Omegah_draws(:,:,d)         = Omega;
     end
     % with higher-moments and sign restrictions
     if hmoments_signs_irf == 1
