@@ -23,7 +23,18 @@ function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M)
 
 lh=zeros(1,2);
 omega=G*sig*G'+M*M';
-[uo doo vo]=svd(omega);
+% --- robust factorization of the predicted state variance --------------
+% omega is symmetric PSD in exact arithmetic; with many exactly observed
+% states (MF-BVAR) roundoff makes it slightly asymmetric/indefinite, and
+% svd then returns uo ~= vo (or NaN). Symmetrize, use eig, clip negatives.
+omega=(omega+omega')/2;
+[uo,doo]=eig(omega);
+doo=diag(max(real(diag(doo)),0));
+vo=uo;
+% -------------------------------------------------------------------------
+% original codes
+%[uo doo vo]=svd(omega);
+%--------------------------------------------------------------------------
 [u d v]=svd(H*uo*sqrt(doo));
 first0=min(find(diag(d)<1e-12));
 if isempty(first0),first0=min(size(H))+1;end
