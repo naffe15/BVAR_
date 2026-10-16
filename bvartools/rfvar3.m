@@ -80,6 +80,11 @@ if scale_ ==1
 end
 % Everything now set up with input data for y=Xb+e 
 
+% prior dummy rows follow the first break (none in OLS calls); lambda changes
+% sign below, so keep it for the diffuse prior on the constant
+dummies = nbreaks > 0 && breaks(2) < T;
+lambda0 = lambda;
+
 % Add persistence dummies
 if lambda ~= 0 || mu > 0
     ybar = mean(ydata(1:lags,:),1);
@@ -108,15 +113,22 @@ if lambda ~= 0 || mu > 0
     end
 end
 
+% Diffuse prior on the deterministic terms (GLP 2019, App. B.2): only the
+% co-persistence dummy with lambda > 0 involves them (the mu and PLR rows
+% have a zero constant column)
+if dummies && lambda0 <= 0 && nx > 0
+    Vc = 10e6;
+    y  = [y; zeros(nx, nvar)];
+    X  = [X; zeros(nx, nvar * lags), eye(nx) / sqrt(Vc)];
+end
+
 % Add Priors-for-the-Long-Run dummies (Giannone, Lenza & Primiceri 2019, JASA,
 % 114:526, eq. 10): one row per long-run direction (row of H), dependent value
 % and all lags equal to w_i = (H(i,:)*ybar'/phi(i))*inv(H)(:,i)', constant and
 % exogenous columns 0 -- same mechanics as the persistence dummies above. With
-% H = eye(nvar) and phi = 1/mu this reproduces the mu block bit-for-bit. H and
-% phi are validated at parse time (parse_bvar_options.m); plr.ybar is computed
-% ONCE in bvar_.m so the prior and the posterior calls append identical rows
-% for any presample (the phi-dependent ML normalization must cancel in
-% posterior_int - prior_int).
+% H = eye(nvar) and phi = 1/mu these are the rows of the mu block. plr.ybar is
+% computed once (bvar_.m, or bvar_ml.m when tuning phi), so the prior and the
+% posterior calls append identical rows.
 if ~isempty(plr)
     H    = plr.H;
     phi  = plr.phi(:);

@@ -10,7 +10,7 @@
 % 4) Comparison of log marginal data density and IRFs to an EBP shock 
 % between Pandemic Priors and the classic Minnesota Prior
 % 5) Minnesota with the long run prior and comparison IRFS to a GDP shock
-% with and without it
+% with and without it; the tightness of the long run prior chosen optimally
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 warning off; clear; close all; clc;
@@ -329,3 +329,25 @@ plot_all_irfs_(ratios_to_plot,options)
 %% BUT  DISCIPLINES  THE  LOW  FREQUENCIES:  THE  GREAT  RATIOS,  LEFT
 %% FREE  TO  DRIFT  BY  THE  MINNESOTA  PRIOR,  ARE  PULLED  BACK
 %% TOGETHER  AT  LONG  HORIZONS.
+
+%% 5.3 Estimation with the long run prior and optimally chosen phi
+%      as in Giannone, Lenza and Primiceri (2019): phi and the overall
+%      tightness tau maximize the marginal likelihood times the Gamma
+%      hyperprior on phi (mode 1, std 1), with their lag decay
+clear options
+options.minn_prior_decay = 1;        % GLP lag decay (alpha = 2)
+options.priors.name      = 'PLR';
+options.priors.PLR.H     = [ 1  1  1 ; -1  1  0 ; -1  0  1 ];
+options.max_plr_hyper    = 1;        % start the optimization routine
+options.index_est        = [1 6:8];  % tau and the three phi
+% phi starts from 2, one per row of H; options.priors.PLR.phi = 2 would
+% optimize one phi for all the rows, and without options.index_est only
+% the phi are optimized
+BVAR5                    = bvar_(y,lags,options);
+
+fprintf('phi, GLP estimates:  %6.3f %6.3f %6.3f\n', 0.86, 0.56, 1.86)
+fprintf('phi, optimal values: %6.3f %6.3f %6.3f   tau = %4.2f\n', ...
+    BVAR5.prior.plr.phi, BVAR5.prior.minn_prior_tau)
+
+%% ESSENCE: THE  OPTIMAL  PHI  ARE  CLOSE  TO  THE  ESTIMATES  OF  GIANNONE,
+%% LENZA  AND  PRIMICERI  (2019)  FOR  THIS  VAR.

@@ -38,6 +38,7 @@ bvar_prior_omega    = hyperpara(5);%1;
 unit_root_          = ones(ny,1);
 flat                = 0; 
 heterosked          = 0;
+plr                 = [];
 
 esse = ones(size(y,1),ny);
 
@@ -60,6 +61,9 @@ if nargin > 3
     if isfield(options,'first_obs')==1
         first_obs = options.first_obs;
     end
+    if isfield(options,'firstobs')==1
+        first_obs = options.firstobs;
+    end
     if isfield(options,'presample')==1
         presample = options.presample;
     end
@@ -79,6 +83,9 @@ if nargin > 3
         ww  = options.heterosked_weights;
         heterosked = 1;
     end    
+    if isfield(options,'plr')==1
+        plr = options.plr;
+    end
 
 
 end
@@ -100,6 +107,10 @@ if first_obs + presample  <= lags
 end
 
 idx = first_obs+presample-lags:first_obs+nobs-1;
+if isempty(plr) == 0
+    % y_bar_0 of the PLR, as in bvar_
+    plr.ybar = mean(y(first_obs-lags : first_obs-1, :), 1);
+end
 
 
 if noconstant
@@ -125,9 +136,9 @@ T     =  size(ydata, 1);
 xdata = ones(T,nx);
 % posterior density
 if heterosked == 0
-    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, [], plr);
 else
-    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww, plr);
 end
 Tu = size(var.u, 1);
 
@@ -138,7 +149,7 @@ if nx
 else
     xdata = [];
 end
-varp = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
+varp = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu, [], plr);
 Tup = size(varp.u, 1);
 
 prior.df        = Tup - ny*lags - nx - flat*(ny+1);

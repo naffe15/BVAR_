@@ -27,6 +27,7 @@ index_fixed = [];
 index_est   = 1:nhpara;
 hyperpara_fidex =  [];
 mh_         = 0;
+hyperpara_names = {};
 
 objective_function = 'bvar_opt_hyperpara';
 
@@ -56,6 +57,12 @@ if nargin > 3
     if isfield(options,'objective_function') ==1
         objective_function = options.objective_function;
         dummy_ =0;
+    end
+    if isfield(options,'hyperpara_names') ==1
+        hyperpara_names = options.hyperpara_names;
+        if length(hyperpara_names) ~=  nhpara
+            error('Mismatch between the size of hyperpara_names and the hyperpara vector');
+        end
     end
 end
 
@@ -125,6 +132,30 @@ else % other maximization e.g. conjugate MNIW
     log_dnsty   = -fh;
     JJ          = jacob_bvar(xh);
     HH          =  JJ * H * JJ';
+    if isempty(hyperpara_names) == 0 % Print the output when the hyperparameters are named
+        fullmode                    = hyperpara;
+        fullmode(options.index_est) = postmode;
+
+        disp('=================================================================');
+        disp('  ');
+        disp('** Initial Hyperpara Values and Log Objective **');
+        disp('  ');
+        rownam = [hyperpara_names(:)', {'log objective'}];
+        minus_log_dnsty_0 = feval(objective_function,x0,y,lags,options);
+        x = [hyperpara(:); -minus_log_dnsty_0];
+        for jj =1: length(x)
+            X = sprintf('%s = %0.5g',rownam{jj},x(jj));
+            disp(X)
+        end
+        disp('  ');
+        disp('** Mode: (Minimization of -Log Objective)  **');
+        disp('  ');
+        x = [fullmode(:); log_dnsty];
+        for jj =1: length(x)
+            X = sprintf('%s = %0.5g',rownam{jj},x(jj));
+            disp(X)
+        end
+    end
 end
 
 

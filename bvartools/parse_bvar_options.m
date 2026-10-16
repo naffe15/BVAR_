@@ -416,7 +416,7 @@ if nargin > 2
                 if length(prior.Sigma.df) ~= 1
                     error('Size mismatch')
                 end
-                if prior.Sigma.df/2 <= ny-1
+                if prior.Sigma.df <= ny-1
                     error('Too few degrees of freedom - Increase prior df')
                 end
             else
@@ -503,6 +503,7 @@ if nargin > 2
         end
         dummy = 3;
         flat  = 0;
+        timetrend = 0;
         priors.name = 'PLR';
         % PLR replaces the co-persistence ("lambda") and sum-of-coefficients
         % ("mu") dummies: stacking both double-counts the long-run information
@@ -517,11 +518,55 @@ if nargin > 2
         if minn_prior_lambda ~= 0 || minn_prior_mu ~= 0
             warning('PLR combined with sum-of-coefficients/co-persistence dummies double-counts long-run information (GLP 2019, Sec. 2)');
         end
-        % phi is tuned by calling bvar_max_hyper directly with the extended
-        % hyper-vector (see the PLR documentation); options.max_minn_hyper
-        % would have tuned the five Minnesota hyperparameters only.
         if isfield(options,'max_minn_hyper')==1 && options.max_minn_hyper == 1
-            error('PLR prior: options.max_minn_hyper tunes the Minnesota hyperparameters only. To tune phi, call bvar_max_hyper with the extended hyper-vector.');
+            error('PLR prior: options.max_minn_hyper tunes the Minnesota hyperparameters only. To tune phi, set options.max_plr_hyper = 1, or call bvar_max_hyper with options.objective_function = ''bvar_opt_plr'' (see bvar_opt_plr.m).');
+        end
+        if isfield(options,'max_plr_hyper')==1 && options.max_plr_hyper == 1 && mixed_freq_on == 0
+            % maximize the marginal likelihood (GLP hyperprior on) over phi
+            if isfield(options.priors.PLR,'phi')==1 && isscalar(options.priors.PLR.phi)
+                phi0 = phi(1);      % one phi for all the rows of H
+            else
+                phi0 = phi';
+            end
+            hyperpara = [minn_prior_tau minn_prior_decay minn_prior_lambda ...
+                minn_prior_mu minn_prior_omega phi0];
+            if isfield(options,'index_est')==0
+                options.index_est = 5 + find(isfinite(phi0));
+            end
+            % fminsearch does not move from a start at 1, i.e. 0 in logs
+            start1 = options.index_est(abs(log(hyperpara(options.index_est))) < 1e-2);
+            hyperpara(start1) = 2;
+            if isfield(options,'max_compute')==0
+                options.max_compute = 7;
+            end
+            if isfield(options,'hyperpara_names')==0
+                options.hyperpara_names = [{'tau','decay','lambda','mu','omega'}, ...
+                    arrayfun(@(i) sprintf('phi_%d',i), 1:length(phi0), 'UniformOutput', false)];
+            end
+            index_phi = intersect(options.index_est, 6:length(hyperpara));
+            if any(hyperpara(index_phi) < 1e-5) || any(hyperpara(index_phi) > 50)
+                error('PLR prior: the estimated phi must start in [1e-5, 50], the bounds of GLP (2019). Set options.priors.PLR.phi inside them.');
+            end
+            options.objective_function = 'bvar_opt_plr';
+            postmode = bvar_max_hyper(hyperpara,y,lags,options);
+
+            hyperpara(options.index_est) = postmode;
+            for i = index_phi(hyperpara(index_phi) < 2*1e-5)
+                warning('PLR prior: %s = %.3g is at its lower bound, 1e-5: the data want that combination dogmatic.', options.hyperpara_names{i}, hyperpara(i));
+            end
+            for i = index_phi(hyperpara(index_phi) > 50/2)
+                warning('PLR prior: %s = %.3g is at its upper bound, 50: the data want that combination switched off.', options.hyperpara_names{i}, hyperpara(i));
+            end
+            minn_prior_tau   = hyperpara(1);
+            minn_prior_decay = hyperpara(2);
+            minn_prior_omega = hyperpara(5);
+            phi              = hyperpara(6:end)';
+            if isscalar(phi)
+                phi = phi*ones(ny,1);
+            end
+            plr.phi = phi;
+            disp('                       ')
+            disp('Maximization Successful: I will use the mode values.')
         end
         % near-unit-root draws: warn on features that invert (I - B(1))
         if isfield(options,'long_run_irf')==1 && options.long_run_irf == 1
