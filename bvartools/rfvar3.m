@@ -114,12 +114,17 @@ if lambda ~= 0 || mu > 0
 end
 
 % Diffuse prior on the deterministic terms (GLP 2019, App. B.2): only the
-% co-persistence dummy with lambda > 0 involves them (the mu and PLR rows
-% have a zero constant column)
+% co-persistence dummy with lambda > 0 involves the constant (the mu and PLR
+% rows have a zero constant column); the row is added only to the
+% deterministic columns with no prior information (e.g. not to the pandemic
+% dummies, which have their own prior)
 if dummies && lambda0 <= 0 && nx > 0
-    Vc = 10e6;
-    y  = [y; zeros(nx, nvar)];
-    X  = [X; zeros(nx, nvar * lags), eye(nx) / sqrt(Vc)];
+    Vc  = 10e6;
+    Xp  = X(breaks(2)-lags+1:end, nvar*lags+1:end);   % prior rows, deterministic columns
+    nop = find(all(Xp == 0, 1));                      % columns with no prior information
+    E   = eye(nx);
+    y   = [y; zeros(numel(nop), nvar)];
+    X   = [X; zeros(numel(nop), nvar * lags), E(nop,:) / sqrt(Vc)];
 end
 
 % Add Priors-for-the-Long-Run dummies (Giannone, Lenza & Primiceri 2019, JASA,
