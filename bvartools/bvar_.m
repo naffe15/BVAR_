@@ -69,6 +69,7 @@ heterosked               = opt.heterosked;
 signs_irf                = opt.signs_irf;
 narrative_signs_irf      = opt.narrative_signs_irf;
 zeros_signs_irf          = opt.zeros_signs_irf;
+setrestr_irf             = opt.setrestr_irf;
 proxy_irf                = opt.proxy_irf;
 heterosked_irf           = opt.heterosked_irf;
 hmoments_signs_irf       = opt.hmoments_signs_irf;
@@ -112,6 +113,8 @@ if isfield(opt,'heterosked_regimes'),    heterosked_regimes  = opt.heterosked_re
 if isfield(opt,'signs'),                 signs               = opt.signs;                 end
 if isfield(opt,'narrative'),             narrative           = opt.narrative;             end
 if isfield(opt,'zeros_signs'),           zeros_signs         = opt.zeros_signs;           end
+if isfield(opt,'setrestr'),              setrestr            = opt.setrestr;              end
+if isfield(opt,'setrestr_opt'),          setrestr_opt        = opt.setrestr_opt;          end
 if isfield(opt,'f'),                     f                   = opt.f;                     end
 if isfield(opt,'sr'),                    sr                  = opt.sr;                    end
 if isfield(opt,'var_pos'),               var_pos             = opt.var_pos;               end
@@ -580,6 +583,16 @@ if zeros_signs_irf == 1
         irzerosign_upper_draws = ir_draws;
     end
 end
+if setrestr_irf == 1
+    irfset_draws       = ir_draws;
+    Omegaset_draws     = Sigma_draws;
+    irfset_weights     = zeros(K, 1);
+    OmegaEmpty         = zeros(K, 1);
+    if robust_credible_regions_
+        irfset_lower_draws = ir_draws;
+        irfset_upper_draws = ir_draws;
+    end
+end
 if proxy_irf == 1
     irproxy_draws = ir_draws;
     Omegap_draws  = Sigma_draws;
@@ -874,7 +887,7 @@ for  d =  1 : K
             if OmegaEmpty(d) == 0
                 irsign0 = nan(ny,hor,ny,L);
                 for ell = 1 : L
-                    [irsign0(:,:,:,ell), ~] = iresponse_sign(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,narrative);
+                    [irsign0(:,:,:,ell), ~] = iresponse_sign_narrative(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,narrative);
                     %waitbar(ell/L, wb1);
                 end
                 % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
@@ -904,6 +917,21 @@ for  d =  1 : K
             end
         end
 
+    end
+    % with options.set: sign, zero, narrative and dominance restrictions
+    if setrestr_irf == 1
+        [irfset,Omega,irfset_weights(d)] = iresponse_set(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,setrestr,[],setrestr_opt);
+        irfset_draws(:,:,:,d) = irfset;
+        Omegaset_draws(:,:,d) = Omega;
+        OmegaEmpty(d)         = any(any(isnan(Omega)));
+        % Approximating Giacomini-Kitagawa robust credible sets
+        if robust_credible_regions_ && OmegaEmpty(d) == 0
+            optL       = setrestr_opt;
+            optL.draws = L;
+            irsign0    = iresponse_set(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,setrestr,[],optL);
+            irfset_upper_draws(:,:,:,d) = max(irsign0,[],4);   % NaN ignored
+            irfset_lower_draws(:,:,:,d) = min(irsign0,[],4);
+        end
     end
     % with proxy
     if proxy_irf == 1
@@ -1092,6 +1120,13 @@ if set_irf > 0
             waitbar(d1/set_irf, wb);
         end
     end
+    % with options.set
+    if setrestr_irf == 1
+        optS       = setrestr_opt;
+        optS.draws = set_irf;
+        [BVAR.irfset_ols,BVAR.Omegaset_ols,BVAR.irfset_weights_ols] = ...
+            iresponse_set(BVAR.e_ols,BVAR.Phi_ols(1 : ny*lags, 1 : ny),BVAR.Sigma_ols,hor,setrestr,[],optS);
+    end
     close(wb)
 end
 % proxy
@@ -1186,7 +1221,7 @@ for pp = 1 : 3
         if narrative_signs_irf == 1
             for d1 = 1 : set_irf
                 [BVAR.(name).irnarrsign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
-                    iresponse_sign_narrative(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);
+                    iresponse_sign_narrative(u_,Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,signs,narrative);
                 waitbar(d1/set_irf, wb);
             end
         end
@@ -1201,6 +1236,13 @@ for pp = 1 : 3
                     iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);
                 waitbar(d1/set_irf, wb);
             end
+        end
+        % set identification: options.set
+        if setrestr_irf == 1
+            optS       = setrestr_opt;
+            optS.draws = set_irf;
+            [BVAR.(name).irfset_draws, Omega_, BVAR.(name).irfset_weights] = ...
+                iresponse_set(u_,Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,setrestr,[],optS);
         end
         if set_irf>0, close(wb); end
     end
@@ -1310,6 +1352,22 @@ if zeros_signs_irf == 1
 else
     BVAR.irzerosign_draws = [];
     BVAR.Omegaz           = [];
+end
+if setrestr_irf == 1
+    BVAR.irfset_draws       = irfset_draws;
+    BVAR.Omegaset           = Omegaset_draws;
+    BVAR.irfset_weights     = irfset_weights;   % importance weights (0 = no rotation found)
+    BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
+    if robust_credible_regions_
+        BVAR.robust_credible_regions_ = robust_credible_regions_;
+        BVAR.irfset_lower_draws = irfset_lower_draws;
+        BVAR.irfset_upper_draws = irfset_upper_draws;
+        BVAR.irfset_robust_credible_bands = compute_rob_cred_bands_(irfset_lower_draws, irfset_upper_draws, ny, opt_GiacomoniKitagawa);
+    end
+else
+    BVAR.irfset_draws   = [];
+    BVAR.Omegaset       = [];
+    BVAR.irfset_weights = [];
 end
 if heterosked_irf == 1
     BVAR.irheterosked_draws   = irheterosked_draws;

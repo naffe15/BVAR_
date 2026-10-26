@@ -77,6 +77,7 @@ heterosked          = 0;
 signs_irf           = 0;
 narrative_signs_irf = 0;
 zeros_signs_irf     = 0;
+setrestr_irf        = 0;   % options.set: signs, zeros, narrative (iresponse_set)
 proxy_irf           = 0;
 heterosked_irf      = 0;
 hmoments_signs_irf  = 0;
@@ -672,6 +673,28 @@ if nargin > 2
             var_pos = options.var_pos;
         end
     end
+    if isfield(options,'set')==1
+        % Activating set identification with iresponse_set: sign, zero
+        % (short and long run), magnitude, narrative and dominance
+        % restrictions. It takes precedence over the other set-identified
+        % options.
+        if signs_irf == 1 || narrative_signs_irf == 1 || zeros_signs_irf == 1
+            warning(['options.set is used: options.signs, options.narrative ' ...
+                'and options.zeros_signs are ignored.'])
+        end
+        signs_irf           = 0;
+        narrative_signs_irf = 0;
+        zeros_signs_irf     = 0;
+        setrestr_irf        = 1;
+        setrestr            = options.set;
+        if ischar(setrestr), setrestr = {setrestr}; end
+        if iscellstr(setrestr) == 0
+            error(['options.set should be a cell array of strings, e.g.' ...
+                '\n''y(a,b,c)>0'', ''y(a,b,c)=0'', ''y(a,inf,c)=0'', ''v(tau,n)>0'', ''most(tau,n,a)''.'])
+        end
+        setrestr_opt = struct();
+        if isfield(options,'set_opt'), setrestr_opt = options.set_opt; end
+    end
     if isfield(options,'proxy')==1
         % Activating IRF with provy
         proxy_irf   = 1;
@@ -893,6 +916,7 @@ opt.heterosked                = heterosked;
 opt.signs_irf                = signs_irf;
 opt.narrative_signs_irf      = narrative_signs_irf;
 opt.zeros_signs_irf          = zeros_signs_irf;
+opt.setrestr_irf             = setrestr_irf;
 opt.proxy_irf                = proxy_irf;
 opt.heterosked_irf           = heterosked_irf;
 opt.hmoments_signs_irf       = hmoments_signs_irf;
@@ -930,6 +954,8 @@ if exist('heterosked_regimes', 'var'),  opt.heterosked_regimes   = heterosked_re
 if exist('signs', 'var'),               opt.signs                = signs;               end
 if exist('narrative', 'var'),           opt.narrative            = narrative;           end
 if exist('zeros_signs', 'var'),         opt.zeros_signs          = zeros_signs;         end
+if exist('setrestr', 'var'),            opt.setrestr             = setrestr;            end
+if exist('setrestr_opt', 'var'),        opt.setrestr_opt         = setrestr_opt;        end
 if exist('f', 'var'),                   opt.f                    = f;                   end
 if exist('sr', 'var'),                  opt.sr                   = sr;                  end
 if exist('var_pos', 'var'),             opt.var_pos              = var_pos;             end
