@@ -1,8 +1,16 @@
-# BVAR_ — Empirical Macro Toolbox (EMT)
+# Empirical Macro Toolbox (EMT)
 
 by F. Ferroni and F. Canova
 
 The empirical macro toolbox (EMT) is a free, open-source, end-to-end macro empirics kit, written in MATLAB and compatible with GNU Octave. At its core are Bayesian VAR (BVAR) models—one of the most versatile ways to structure and analyze macroeconomic data, spanning forecasting, scenario design, nowcasting, and shock identification within a single disciplined framework. The package also contains functions and routines to estimate panel VARs, FAVARs, local projections, trend/cycles decomposition and other models. We describe the methodology employed and implementation of the functions. We illustrate the main features with a number of practical examples.
+
+## Documentation
+
+- **The Hitchhiker's Guide** (`HitchhikerGuide_.pdf`) explains the methods, every option and the examples; slides in `HitchhikerGuide_Slides.pdf`.
+- **Help in MATLAB**: every function has a help text with inputs, outputs and references, e.g. `help bvar_`, `help plot_irfs_`.
+- **Function map**: [dependency graph and list of all functions](https://naffe15.github.io/_pages/function_map.html) (also in [`docs/function_map.html`](docs/function_map.html)). After changing the toolbox, rebuild it in MATLAB with `cd docs; build_function_map`.
+- **Video tutorials**: [YouTube channel](https://www.youtube.com/channel/UCDepPX4wbdkIqfg438J0h_g).
+
 
 ## Getting started
 
@@ -72,13 +80,6 @@ The scripts in `examples/` reproduce the examples of the Hitchhiker's Guide. Run
 | `example_1_cyles`          | Trend-cycle decompositions with different filters            |
 | `example_2_dating`         | Dating business-cycle turning points and cyclical statistics |
 | `example_3_recession_prob` | Predicting recessions with a probit model                    |
-
-## Documentation
-
-- **The Hitchhiker's Guide** (`HitchhikerGuide_.pdf`) explains the methods, every option and the examples; slides in `HitchhikerGuide_Slides.pdf`.
-- **Help in MATLAB**: every function has a help text with inputs, outputs and references, e.g. `help bvar_`, `help plot_irfs_`.
-- **Function map**: [dependency graph and list of all functions](https://naffe15.github.io/_pages/function_map.html) (also in [`docs/function_map.html`](docs/function_map.html)). After changing the toolbox, rebuild it in MATLAB with `cd docs; build_function_map`.
-- **Video tutorials**: [YouTube channel](https://www.youtube.com/channel/UCDepPX4wbdkIqfg438J0h_g).
 
 ## License and citation
 
