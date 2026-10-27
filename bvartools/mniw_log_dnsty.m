@@ -1,11 +1,27 @@
 function  log_dnsty = mniw_log_dnsty(prior,posterior,var)
+%MNIW_LOG_DNSTY Log marginal likelihood with a normal-inverse-Wishart prior.
+%
+%   log_dnsty = MNIW_LOG_DNSTY(prior,posterior,var)
+%
+%   Inputs
+%     prior.Phi.mean    k x ny   prior mean of the coefficients
+%     prior.Phi.cov     k x k    prior covariance (row component)
+%     prior.Sigma.scale ny x ny  inverse-Wishart scale
+%     prior.Sigma.df    scalar   inverse-Wishart degrees of freedom
+%     posterior.PhiHat  k x ny   posterior mean of the coefficients
+%     var.y             T x ny   dependent variables
+%     var.X             T x k    regressors
+%
+%   Output
+%     log_dnsty         scalar   log marginal likelihood
+%
+%   See also P2P, BLP_ML, BVAR_.
+%
+%   Reference: Giannone, D., M. Lenza and G. E. Primiceri (2015), "Prior
+%   Selection for Vector Autoregressions", Review of Economics and
+%   Statistics 97(2), 436-451, Appendix A.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'logmlike' computes the marginal likelihood for the NM-IW 
-% Inputs:
-% Output: marginal data density
-% Filippo Ferroni, 3/21/2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 3/21/2020.
 
 [nobs,ny]  = size(var.y);
 nk         = size(var.X,2);
@@ -24,8 +40,8 @@ FF    = eye(ny) ...
     + Fo'* ((posterior.PhiHat - prior.Phi.mean)'* iV * (posterior.PhiHat - prior.Phi.mean) ...
     + var.e'* var.e) * Fo;
 log_dnsty = log_dnsty - (nobs + prior.Sigma.df)/2 * log(det(  FF ));
-log_dnsty = log_dnsty + ggammaln(ny,(nobs + prior.Sigma.df)/2) ;
-log_dnsty = log_dnsty - ggammaln(ny,prior.Sigma.df/2);
+log_dnsty = log_dnsty + ggammaln(ny,nobs + prior.Sigma.df) ;
+log_dnsty = log_dnsty - ggammaln(ny,prior.Sigma.df);
 
 
 function lgg = ggammaln(m, df)

@@ -1,15 +1,26 @@
 function [YYact,XXact] = YXB_(YY,lags,constant_timetrend)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'YXB_' organizes the data in the form
-% of Y = XB+E
-% NO dummy observations
-% constant and trends are at the end
+%YXB_ Builds the matrices of the regression Y = X*B + E for a VAR.
+%
+%   [YYact,XXact] = YXB_(YY,lags)
+%   [YYact,XXact] = YXB_(YY,lags,constant_timetrend)
+%
+%   Inputs
+%     YY                  T x nv   data
+%     lags                scalar   number of lags
+%     constant_timetrend  1 x 2    [constant timetrend], 1 to include each
+%                                  (default [1 0])
+%
+%   Outputs
+%     YYact   (T-lags) x nv              left-hand side
+%     XXact   (T-lags) x (nv*lags+d)     lags (lag-1 block first), then the
+%                                        constant and the trend
+%
+%   No dummy observations are added.
+%
+%   See also RFVAR3, FAST_OLS_.
 
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
+
 if nargin<3
     constant = 1;
     timetrend = 0;

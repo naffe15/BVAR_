@@ -1,6 +1,21 @@
 function d = checkrestrictions(restriction,y,v)
-
-% Check the restrictions 
+%CHECKRESTRICTIONS Checks whether all restrictions in a list hold.
+%
+%   d = CHECKRESTRICTIONS(restriction,y)
+%   d = CHECKRESTRICTIONS(restriction,y,v)
+%
+%   Inputs
+%     restriction  cell array of strings, each a MATLAB expression in y
+%                  and/or v that returns a logical scalar or array, e.g.
+%                  'y(1,1:4,2)>0' or 'v(10,1)>0'
+%     y            ny x hor x nshocks   impulse responses (can be [])
+%     v            T x nshocks          structural shocks (default [])
+%
+%   Output
+%     d            1 if every expression is true in all its elements, 0
+%                  otherwise
+%
+%   See also CHECKRESTRICTIONS2, IRESPONSE_SIGN_NARRATIVE.
 
 if nargin<3
     v = [];

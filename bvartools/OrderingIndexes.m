@@ -1,20 +1,21 @@
 function [sindex] = OrderingIndexes(varordering,varnames,newstrng)
+%ORDERINGINDEXES Positions of selected variables and workspace index variables.
+%
+%   sindex = ORDERINGINDEXES(varordering,varnames)
+%   sindex = ORDERINGINDEXES(varordering,varnames,newstrng)
+%
+%   Inputs
+%     varordering   cell   names of the VAR variables, in the VAR order
+%     varnames      cell   names of all variables in the data set
+%     newstrng      char   prefix of the index variables (default '')
+%
+%   Output
+%     sindex        position of each element of varordering in varnames
+%
+%   Also creates in the base workspace, for each variable XXX, a variable
+%   [newstrng 'iXXX'] equal to its position in the VAR (spaces and
+%   hyphens removed from the name).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'OrderingIndexes' find the specified order of variables
-
-% input: 
-% - varnames    = the list (names) of all the variables in the database
-% - varordering = the names and the order of the variables in the VAR
-
-% output: 
-% - sindex = the index in the varnames that correspond to the var ordering
-% - index_XX = the index that the variable XXX has in the VAR
-
-% Filippo Ferroni, 
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if nargin<3
     newstrng='';
 end

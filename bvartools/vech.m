@@ -1,5 +1,13 @@
 function y = vech(x)
-% vectorize the lower triangular part of a matrix x
+%VECH Stacks the lower triangle of a square matrix, column by column.
+%
+%   y = VECH(x)
+%
+%   Input    x   n x n
+%   Output   y   n(n+1)/2 x 1
+%
+%   See also IVECH, DUPLICATIONMATRIX.
+
 if size(x,1) ~= size(x,2)
     error('x must be a square matrix');
 end

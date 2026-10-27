@@ -1,4 +1,23 @@
 function [skw,skw_normal]  = skewness_(y,flags_)
+%SKEWNESS_ Skewness of each series with four estimators, three of them robust.
+%
+%   [skw,skw_normal] = SKEWNESS_(y)
+%   [skw,skw_normal] = SKEWNESS_(y,flags_)
+%
+%   Inputs
+%     y        T x ny   series (NaN ignored by the robust estimators)
+%     flags_   ny x 4   1 to compute an estimator (default all):
+%                       1 sample skewness, 2 Bowley (quartiles),
+%                       3 Groeneveld-Meeden, 4 Kendall-Stuart
+%
+%   Outputs
+%     skw          ny x 4   estimates (NaN where not computed)
+%     skw_normal   4 x 1    value of each estimator for a normal (zeros)
+%
+%   The sample skewness needs the Statistics Toolbox. References are in
+%   the comments below.
+%
+%   See also KURTOSIS_, CHECKMRESTRICTIONS.
 
 [~,ny] = size(y);
 if nargin<2

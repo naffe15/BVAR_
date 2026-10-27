@@ -1,29 +1,46 @@
-%function [varargout] = date_(varargin)
 function     [dt_]  = ...
     date_(x, time, strfreq, t0, t1, options) 
-%    date_(x, time, freq, ndfy, ndfm, ndly, ndlm, turnphase, phase, cycle, thresh, nrep, complete)
-% st,trinary,notentp,dura_,ampl_,cumm_,excc_,durcv_,amplcv_,exccv_
-%***********************************************************************************************/
-%*                                                                                             */
-%*  Modified BBQ program                                                                       */
-%*                                                                                             */
-%*  Computes turning points and imposes restrictions in one step                               */
-%*                                                                                             */
-%*    NB: rule is peak greater than turnphase on either side,                                  */
-%*             trough less than turnphase on either side.           (can be modified)          */
-%*    Restriction: Phase quarters/months, Cycle  quarters/months Alternating Troughs and Peaks,*/
-%*                  if two peaks(troughs) in a row chooses highest(lowest), Trough must be     */
-%*                  lower then preceeding peak, and No turning point within phase length       */
-%*                  of end points                                                              */
-%*                                                                                             */
-%*                                                                                              */
-%*                                                                                             */
-%*    Date: 15th November 2005                                                                  */
-%*     Author: James Engel - Code modified from Adrian Pagan and Don Harding's BBQ code     */
-%*
-%*     further adjustments  made  by  F. Canova
-%***********************************************************************************************/
-% 
+%DATE_ Business-cycle dating with the BBQ algorithm and summary statistics.
+%
+%   dt_ = DATE_(x,time,strfreq,t0,t1)
+%   dt_ = DATE_(x,time,strfreq,t0,t1,options)
+%
+%   Finds peaks and troughs with censoring rules (alternating peaks and
+%   troughs, minimum phase and cycle length, no turning point near the end
+%   points) and computes durations, amplitudes and other statistics.
+%
+%   Inputs
+%     x        T x 1    series (e.g. log GDP)
+%     time     T x 1    dates, same length as x
+%     strfreq  'q' or 'm'   quarterly or monthly data
+%     t0, t1   1 x 2    first and last period, [year quarter] or [year month]
+%     options  struct (optional)
+%       .turnphase  window for a turning point (default 2 q / 6 m)
+%       .phase      minimum length of a phase (default 2 q / 6 m)
+%       .cycle      minimum length of a cycle (default 5 q / 15 m)
+%       .thresh     peak-to-trough fall above which phase and cycle rules
+%                   are bypassed (default 10.4)
+%       .complete   1 use complete cycles only (default), 0 also incomplete
+%       .nrep       number of simulated data sets stacked in x (default 1)
+%
+%   Output
+%     dt_.st        T x 1   1 expansion, 0 contraction
+%     dt_.trinary   T x 1   1 peak, -1 trough, 0 otherwise
+%     dt_.dura      1 x 2   average duration of contractions, expansions
+%     dt_.ampl      1 x 2   average amplitude (percent)
+%     dt_.cumm      1 x 2   cumulative movements (percent)
+%     dt_.excc      1 x 2   excess movements (percent of the triangle)
+%     dt_.durcv, dt_.amplcv, dt_.exccv   coefficients of variation
+%     dt_.notentp   number of series with too few turning points
+%
+%   See also RAWALL, ISDATE, STATES.
+%
+%   Reference: Harding, D. and A. Pagan (2002), "Dissecting the Cycle: A
+%   Methodological Investigation", Journal of Monetary Economics 49(2),
+%   365-381.
+
+%   James Engel (2005), modified from the BBQ code of Adrian Pagan and Don
+%   Harding; further adjustments by Fabio Canova.
 
 ndfy = t0(1); % year start
 ndfm = t0(2); % month/quarter start, 

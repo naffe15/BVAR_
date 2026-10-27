@@ -1,6 +1,26 @@
 function Qbar  = max_fevd(i, h, j, Phi, Sigma, Kappa)
-% finds the rotation where shock j maximizes the fevd of vriable i at horizon h  
-% see also fevd.m
+%MAX_FEVD Rotation in which a shock explains most of a variable's FEVD.
+%
+%   Qbar = MAX_FEVD(i,h,j,Phi,Sigma)
+%   Qbar = MAX_FEVD(i,h,j,Phi,Sigma,Kappa)
+%
+%   Draws Kappa random rotations and keeps, for each target, the one in
+%   which shock j(s) has the largest share of the forecast error variance
+%   of variable i(s) at horizon h.
+%
+%   Inputs
+%     i       1 x s     target variables
+%     h       scalar    horizon
+%     j       1 x s     target shocks, one per variable in i
+%     Phi     (ny*lags+nx) x ny   VAR coefficients
+%     Sigma   ny x ny   covariance of the reduced-form residuals
+%     Kappa   scalar    number of random rotations (default 1000)
+%
+%   Output
+%     Qbar    ny x ny x s   chosen rotations; the columns are reordered so
+%                           that the target shock j(s) is in column 1
+%
+%   See also FEVD, GENERATEQ.
 
 if nargin < 6
     Kappa = 1000;

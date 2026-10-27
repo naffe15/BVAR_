@@ -1,26 +1,35 @@
 function [frcst_no_shock,frcst_with_shocks]=forecasts(forecast_data,Phi,Sigma,fhor,lags,EPS,skip_)
+%FORECASTS Out-of-sample forecasts of a VAR, with and without shocks.
+%
+%   [frcst_no_shock,frcst_with_shocks] = FORECASTS(forecast_data,Phi,Sigma,fhor,lags)
+%   [...] = FORECASTS(forecast_data,Phi,Sigma,fhor,lags,EPS)
+%   [...] = FORECASTS(forecast_data,Phi,Sigma,fhor,lags,EPS,skip_)
+%
+%   Inputs
+%     forecast_data  struct with fields
+%       .initval     lags x ny x nunits    last lags observations, oldest first
+%       .xdata       fhor x nx             exogenous regressors over the forecast
+%                                          horizon (constant included)
+%     Phi            (ny*lags+nx) x ny     VAR coefficients, lag-1 block first,
+%                                          exogenous rows last
+%     Sigma          ny x ny               covariance of the reduced-form residuals
+%     fhor           scalar                forecast horizon
+%     lags           scalar                number of lags
+%     EPS            fhor x ny             residual path for the with-shocks
+%                                          forecast (same for every unit). If
+%                                          omitted, residuals are drawn from
+%                                          N(0,Sigma).
+%     skip_          0 (default) or 1      1 skips the no-shock forecast, which
+%                                          is then returned as NaN
+%
+%   Outputs
+%     frcst_no_shock     fhor x ny x nunits   path with future residuals set to 0
+%     frcst_with_shocks  fhor x ny x nunits   path with residuals EPS or one
+%                                             random draw
+%
+%   See also CFORECASTS, CFORECASTS2, PLOT_FRCST_, BVAR_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'forecasts' computes out-of-sample forecasts
-
-% Inputs:
-% - forecast_data, last data
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - fhor, horizon of the out-of-sample forecasts
-% - lags
-% - EPS, a particular shock realization
-
-% Output:
-% - frcst_no_shock
-% 1st dimension:   horizon 
-% 2nd dimension:   variable 
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 ny = size(Sigma,1);
 nunits = size(forecast_data.initval,3);

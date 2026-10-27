@@ -1,4 +1,11 @@
 function plot_statistics_(y,options)
+%PLOT_STATISTICS_ Older version of PLOT_STATISTICS_ALL (not used by the toolbox).
+%
+%   PLOT_STATISTICS_(y,options)
+%
+%   Same inputs as PLOT_STATISTICS_ALL; use that function instead.
+%
+%   See also PLOT_STATISTICS_ALL.
 
 [T,ny] = size(y);
 TT     = [1:1:T];

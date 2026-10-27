@@ -1,5 +1,12 @@
 function y = ivech(x)
-% inverse of vech (vectorize the lower triangular part of a matrix x)
+%IVECH Symmetric matrix from its VECH.
+%
+%   y = IVECH(x)
+%
+%   Input    x   n(n+1)/2 x 1   output of VECH
+%   Output   y   n x n          symmetric matrix
+%
+%   See also VECH.
 
 [K,k] = size(x);
 if  k ~= 1

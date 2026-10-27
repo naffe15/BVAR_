@@ -1,35 +1,43 @@
 function [ir,Omeg] = iresponse_zeros_signs(Phi,Sigma,hor,lag,var_pos,f,sr,draws,toler,normalization_)
+%IRESPONSE_ZEROS_SIGNS Responses with zero (short and long run) and impact sign restrictions.
+%
+%   [ir,Omeg] = IRESPONSE_ZEROS_SIGNS(Phi,Sigma,hor,lag,var_pos,f,sr)
+%   [ir,Omeg] = IRESPONSE_ZEROS_SIGNS(...,draws,toler,normalization_)
+%
+%   Uses the algorithm of Binning (2013): each candidate rotation satisfies
+%   the zero restrictions by construction and is kept if the impact signs
+%   are right. Used by BVAR_ with options.zeros_signs.
+%
+%   Inputs
+%     Phi             (ny*lag+nx) x ny  VAR coefficients, lag-1 block first
+%     Sigma           ny x ny   covariance of the reduced-form residuals
+%     hor             scalar    number of horizons
+%     lag             scalar    number of lags
+%     var_pos         1 x ny    for each shock, the variable whose impact
+%                               response is normalised to be positive
+%                               (used only if normalization_ = 1)
+%     f, sr           restriction matrices from SIGN2MATRIX
+%     draws           scalar    accepted rotations to return (default 1)
+%     toler           scalar    max number of candidates (default 10000)
+%     normalization_  0 or 1    sign normalisation by var_pos (default 0)
+%
+%   Outputs
+%     ir     ny x hor x ny x draws   responses (variable x horizon x shock
+%                                    x draw); NaN if no rotation is found
+%     Omeg   ny x ny                 last accepted rotation of
+%                                    chol(Sigma,'lower')
+%
+%   The importance weight of Arias, Rubio-Ramirez and Waggoner (2018) is
+%   not applied. Errors if the zero restrictions over-identify the model.
+%
+%   See also SIGN2MATRIX, FINDQS, FINDP, GENERATEDRAW, IRESPONSE_SET.
+%
+%   References: Arias, J. E., J. F. Rubio-Ramirez and D. F. Waggoner (2018),
+%   Econometrica 86(2), 685-720. Binning, A. (2013), "Underidentified SVAR
+%   models: A framework for combining short and long-run restrictions with
+%   sign-restrictions", Norges Bank Working Paper 2013/14.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_zeros_sign' computes the impulse response functions using zero
-% and sign restrictions on the endogenous variables
-% References: 
-% Arias, J. E., Rubio-Ram?rez, J. F. and Waggoner, D. F.: 2018, Inference
-% Based on SVARs Identified with Sign and Zero Restrictions: Theory and
-% Applications, Econometrica 86, 685–720. 
-% Binning, A.: 2013, Underidentified SVAR models: A framework for combining
-% short and long-run restrictions with sign-restrictions, Working Paper
-% 2013/14, Norges Bank.  
-
-% Inputs:
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-% - unit, 1 shock STD or 1 percent increase
-% - (var_pos,f,sr) inputs for the zero and sign restrictions see bvar.m and
-% tutorial_.m 
-
-% Output:
-% - ir contains the IRF 
-% 1st dimension:   variable 
-% 2st dimension:   horizon 
-% 3st dimension:   shock
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 if nargin < 8
     draws = 1; % Number of draws

@@ -1,4 +1,23 @@
 function plot_statistics_all(y,options)
+%PLOT_STATISTICS_ALL Histograms and robust skewness and kurtosis of each series.
+%
+%   PLOT_STATISTICS_ALL(y)
+%   PLOT_STATISTICS_ALL(y,options)
+%
+%   Used to inspect the non-Gaussianity of residuals or shocks.
+%
+%   Inputs
+%     y        T x ny   series, e.g. residuals
+%     options  struct (optional)
+%       .varnames     cell, one name per series
+%       .Kappa        number of histogram bins (default 1+log2(T))
+%       .typek, .types   estimator of kurtosis and skewness (1 to 4, see
+%                        KURTOSIS_ and SKEWNESS_; default 4)
+%       .nplots       1 x 2   subplot grid
+%       .TT, .set_x_ticks, .step_plot   dates and ticks of the time plots
+%       .saveas_dir (or .dirname), .tag   saving
+%
+%   See also SKEWNESS_, KURTOSIS_, PLOT_STATISTICS_.
 
 [T,ny] = size(y);
 TT     = [1:1:T];

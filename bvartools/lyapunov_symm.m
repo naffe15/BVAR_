@@ -1,6 +1,23 @@
-% Copyright (C) 2006-2017 Dynare Team
-% solves x-a*x*a'=b for b (and then x) symmetrical
 function [x,info]=lyapunov_symm(a,b)
+%LYAPUNOV_SYMM Solves the symmetric Lyapunov equation x - a*x*a' = b.
+%
+%   [x,info] = LYAPUNOV_SYMM(a,b)
+%
+%   Used for the unconditional covariance of a stationary state vector.
+%
+%   Inputs
+%     a     n x n   transition matrix (stable)
+%     b     n x n   symmetric matrix
+%
+%   Outputs
+%     x     n x n   symmetric solution
+%     info  0
+%
+%   See also KFILTERNAN, P2P.
+
+%   Copyright (C) 2006-2017 Dynare Team. Dynare is free software released
+%   under the GNU General Public License, version 3 or later.
+
   info = 0;
   n = size(b,1);
   if n == 1

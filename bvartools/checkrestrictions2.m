@@ -1,6 +1,20 @@
 function [d,fsign] = checkrestrictions2(restriction,y)
+%CHECKRESTRICTIONS2 Checks sign restrictions, allowing a sign flip of the shocks.
+%
+%   [d,fsign] = CHECKRESTRICTIONS2(restriction,y)
+%
+%   Inputs
+%     restriction  cell array of strings, each a MATLAB expression in y,
+%                  e.g. 'y(1,1:4,2)>0'
+%     y            ny x hor x nshocks   impulse responses
+%
+%   Outputs
+%     d            1 if all restrictions hold for y or for -y, 0 otherwise
+%     fsign        1, or -1 when they hold for -y (the rotation must then
+%                  be multiplied by -1)
+%
+%   See also CHECKRESTRICTIONS, IRESPONSE_SIGN.
 
-% Check the restrictions 
 d     = 0; 
 count = 0;
 fsign = 1;

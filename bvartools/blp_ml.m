@@ -1,21 +1,19 @@
-% function [log_dnsty] = blp_ml(shrinkage,hh,prior,olsreg_,F,G,Fo,positions_nylags,position_constant)
 function [log_dnsty] = blp_ml(shrinkage,hh,prior,olsreg_,F,G,Fo,positions_nylags,position_constant)
+%BLP_ML Log marginal likelihood of a Bayesian local projection.
+%
+%   log_dnsty = BLP_ML(shrinkage,hh,prior,olsreg_,F,G,Fo,positions_nylags,position_constant)
+%
+%   Inputs     as in P2P
+%   Output     log_dnsty   scalar
+%
+%   See also P2P, BLP_OPT_HYPERPARA, MNIW_LOG_DNSTY, DIRECTMETHODS.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'blp_ml' computes the marginal likelihood for the NMIW LP
-
-% Inputs:
-% - hyperpara, shrinkage hyperpara over which maximize the marginal
-% likelihood
-
-% Output: marginal data density
-
-% Filippo Ferroni, 3/21/2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 3/21/2020.
 
 %********************************************************
 % SETTINGS
 %********************************************************
+
 ny   = size(G,2);
 lags = size(G,2)/ny;
 %********************************************************

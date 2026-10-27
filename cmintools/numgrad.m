@@ -1,7 +1,12 @@
 function [g, badg] = numgrad(fcn,x,varargin)
+%NUMGRAD Numerical gradient by forward differences, used by CSMINWEL.
+%
+%   Code by Christopher A. Sims; original help below.
+%
 % function [g badg] = numgrad(fcn,x,varargin)
 %
 %delta = 1e-6;
+
 delta=1e-6;
 n=length(x);
 tvec=delta*eye(n);

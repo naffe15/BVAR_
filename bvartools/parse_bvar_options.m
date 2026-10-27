@@ -1,39 +1,34 @@
 function opt = parse_bvar_options(y, lags, options)
-%PARSE_BVAR_OPTIONS Default settings, options parsing, and mixed-frequency
-% interpolation for bvar_.
+%PARSE_BVAR_OPTIONS Defaults, options parsing and mixed-frequency setup for BVAR_.
 %
-% opt = parse_bvar_options(y, lags, options)
-% opt = parse_bvar_options(y, lags)              % no options given
+%   opt = PARSE_BVAR_OPTIONS(y,lags)
+%   opt = PARSE_BVAR_OPTIONS(y,lags,options)
 %
-% This is a near-verbatim relocation of what used to be the first ~640
-% lines of bvar_.m (everything between the nargin/lags validity checks
-% and the "Consistency Checks" section). It existed there because that's
-% where the data first arrives, not because the logic itself depends on
-% anything else in bvar_ -- so it was safe to move as a unit. Nothing in
-% the ~1300 lines that follow in bvar_.m had to change: every variable
-% this function used to set as a bare local is returned here as a field
-% of OPT instead, and bvar_.m unpacks them back into the same names right
-% after calling this.
+%   Called once by BVAR_. It sets the defaults, reads every field of
+%   options, and returns the settings as fields of opt, which BVAR_ unpacks
+%   into local variables of the same names.
 %
-% A few things this function does that are worth knowing if you're
-% tracing a bug back to here:
-%   - It can MUTATE the data: if y contains NaNs, it's treated as mixed-
-%     frequency/irregularly sampled and interpolated in place (opt.y is
-%     the interpolated series; opt.yoriginal is the unmodified input).
-%   - 'prior' (singular) and 'priors' (plural) are different variables.
-%     'priors' is just a name tag ('Minnesota'/'Conjugate'/'N/A'). 'prior'
-%     only gets populated here under the Conjugate-prior branch
-%     (prior.Phi.mean/cov, prior.Sigma.scale/df) and isn't read again
-%     until deep inside bvar_'s posterior computation -- easy to miss if
-%     you're scanning for where it's used.
-%   - The original code called a tiny nested function 'priors_()' (just
-%     `priors.name = 'N/A'`) defined inside bvar_.m. Nested functions
-%     can't be called from a separate file, so that single line is
-%     inlined directly below instead -- behaviorally identical.
+%   Inputs
+%     y        T x ny (x nunits)   data, as passed to BVAR_
+%     lags     scalar              number of lags
+%     options  struct              as documented in BVAR_
 %
-% See bvar_.m for the full list of supported options.* fields.
+%   Output
+%     opt      struct with all settings used by BVAR_
+%
+%   Things to know when tracing a problem back here:
+%   - It can change the data: if y contains NaN, it is treated as mixed
+%     frequency or irregularly sampled and interpolated (opt.y is the
+%     interpolated series, opt.yoriginal the input).
+%   - prior and priors are different variables. priors is a name tag
+%     ('Minnesota', 'Conjugate', 'PLR' or 'N/A'); prior is filled only for
+%     the Conjugate prior (prior.Phi.mean/cov, prior.Sigma.scale/df) and is
+%     read again only in the posterior computation of BVAR_.
+%   - The code was moved here from the first ~640 lines of BVAR_ without
+%     changes in logic.
+%
+%   See also BVAR_.
 
-% number of observable variables
 ny                  = size(y, 2);
 % number of units (for panels)
 nunits              = size(y, 3);
@@ -77,6 +72,7 @@ heterosked          = 0;
 signs_irf           = 0;
 narrative_signs_irf = 0;
 zeros_signs_irf     = 0;
+setrestr_irf        = 0;   % options.set: signs, zeros, narrative (iresponse_set)
 proxy_irf           = 0;
 heterosked_irf      = 0;
 hmoments_signs_irf  = 0;
@@ -416,7 +412,7 @@ if nargin > 2
                 if length(prior.Sigma.df) ~= 1
                     error('Size mismatch')
                 end
-                if prior.Sigma.df/2 <= ny-1
+                if prior.Sigma.df <= ny-1
                     error('Too few degrees of freedom - Increase prior df')
                 end
             else
@@ -503,6 +499,7 @@ if nargin > 2
         end
         dummy = 3;
         flat  = 0;
+        timetrend = 0;
         priors.name = 'PLR';
         % PLR replaces the co-persistence ("lambda") and sum-of-coefficients
         % ("mu") dummies: stacking both double-counts the long-run information
@@ -517,11 +514,55 @@ if nargin > 2
         if minn_prior_lambda ~= 0 || minn_prior_mu ~= 0
             warning('PLR combined with sum-of-coefficients/co-persistence dummies double-counts long-run information (GLP 2019, Sec. 2)');
         end
-        % phi is tuned by calling bvar_max_hyper directly with the extended
-        % hyper-vector (see the PLR documentation); options.max_minn_hyper
-        % would have tuned the five Minnesota hyperparameters only.
         if isfield(options,'max_minn_hyper')==1 && options.max_minn_hyper == 1
-            error('PLR prior: options.max_minn_hyper tunes the Minnesota hyperparameters only. To tune phi, call bvar_max_hyper with the extended hyper-vector.');
+            error('PLR prior: options.max_minn_hyper tunes the Minnesota hyperparameters only. To tune phi, set options.max_plr_hyper = 1, or call bvar_max_hyper with options.objective_function = ''bvar_opt_plr'' (see bvar_opt_plr.m).');
+        end
+        if isfield(options,'max_plr_hyper')==1 && options.max_plr_hyper == 1 && mixed_freq_on == 0
+            % maximize the marginal likelihood (GLP hyperprior on) over phi
+            if isfield(options.priors.PLR,'phi')==1 && isscalar(options.priors.PLR.phi)
+                phi0 = phi(1);      % one phi for all the rows of H
+            else
+                phi0 = phi';
+            end
+            hyperpara = [minn_prior_tau minn_prior_decay minn_prior_lambda ...
+                minn_prior_mu minn_prior_omega phi0];
+            if isfield(options,'index_est')==0
+                options.index_est = 5 + find(isfinite(phi0));
+            end
+            % fminsearch does not move from a start at 1, i.e. 0 in logs
+            start1 = options.index_est(abs(log(hyperpara(options.index_est))) < 1e-2);
+            hyperpara(start1) = 2;
+            if isfield(options,'max_compute')==0
+                options.max_compute = 7;
+            end
+            if isfield(options,'hyperpara_names')==0
+                options.hyperpara_names = [{'tau','decay','lambda','mu','omega'}, ...
+                    arrayfun(@(i) sprintf('phi_%d',i), 1:length(phi0), 'UniformOutput', false)];
+            end
+            index_phi = intersect(options.index_est, 6:length(hyperpara));
+            if any(hyperpara(index_phi) < 1e-5) || any(hyperpara(index_phi) > 50)
+                error('PLR prior: the estimated phi must start in [1e-5, 50], the bounds of GLP (2019). Set options.priors.PLR.phi inside them.');
+            end
+            options.objective_function = 'bvar_opt_plr';
+            postmode = bvar_max_hyper(hyperpara,y,lags,options);
+
+            hyperpara(options.index_est) = postmode;
+            for i = index_phi(hyperpara(index_phi) < 2*1e-5)
+                warning('PLR prior: %s = %.3g is at its lower bound, 1e-5: the data want that combination dogmatic.', options.hyperpara_names{i}, hyperpara(i));
+            end
+            for i = index_phi(hyperpara(index_phi) > 50/2)
+                warning('PLR prior: %s = %.3g is at its upper bound, 50: the data want that combination switched off.', options.hyperpara_names{i}, hyperpara(i));
+            end
+            minn_prior_tau   = hyperpara(1);
+            minn_prior_decay = hyperpara(2);
+            minn_prior_omega = hyperpara(5);
+            phi              = hyperpara(6:end)';
+            if isscalar(phi)
+                phi = phi*ones(ny,1);
+            end
+            plr.phi = phi;
+            disp('                       ')
+            disp('Maximization Successful: I will use the mode values.')
         end
         % near-unit-root draws: warn on features that invert (I - B(1))
         if isfield(options,'long_run_irf')==1 && options.long_run_irf == 1
@@ -626,6 +667,28 @@ if nargin > 2
         else
             var_pos = options.var_pos;
         end
+    end
+    if isfield(options,'set')==1
+        % Activating set identification with iresponse_set: sign, zero
+        % (short and long run), magnitude, narrative and dominance
+        % restrictions. It takes precedence over the other set-identified
+        % options.
+        if signs_irf == 1 || narrative_signs_irf == 1 || zeros_signs_irf == 1
+            warning(['options.set is used: options.signs, options.narrative ' ...
+                'and options.zeros_signs are ignored.'])
+        end
+        signs_irf           = 0;
+        narrative_signs_irf = 0;
+        zeros_signs_irf     = 0;
+        setrestr_irf        = 1;
+        setrestr            = options.set;
+        if ischar(setrestr), setrestr = {setrestr}; end
+        if iscellstr(setrestr) == 0
+            error(['options.set should be a cell array of strings, e.g.' ...
+                '\n''y(a,b,c)>0'', ''y(a,b,c)=0'', ''y(a,inf,c)=0'', ''v(tau,n)>0'', ''most(tau,n,a)''.'])
+        end
+        setrestr_opt = struct();
+        if isfield(options,'set_opt'), setrestr_opt = options.set_opt; end
     end
     if isfield(options,'proxy')==1
         % Activating IRF with provy
@@ -848,6 +911,7 @@ opt.heterosked                = heterosked;
 opt.signs_irf                = signs_irf;
 opt.narrative_signs_irf      = narrative_signs_irf;
 opt.zeros_signs_irf          = zeros_signs_irf;
+opt.setrestr_irf             = setrestr_irf;
 opt.proxy_irf                = proxy_irf;
 opt.heterosked_irf           = heterosked_irf;
 opt.hmoments_signs_irf       = hmoments_signs_irf;
@@ -885,6 +949,8 @@ if exist('heterosked_regimes', 'var'),  opt.heterosked_regimes   = heterosked_re
 if exist('signs', 'var'),               opt.signs                = signs;               end
 if exist('narrative', 'var'),           opt.narrative            = narrative;           end
 if exist('zeros_signs', 'var'),         opt.zeros_signs          = zeros_signs;         end
+if exist('setrestr', 'var'),            opt.setrestr             = setrestr;            end
+if exist('setrestr_opt', 'var'),        opt.setrestr_opt         = setrestr_opt;        end
 if exist('f', 'var'),                   opt.f                    = f;                   end
 if exist('sr', 'var'),                  opt.sr                   = sr;                  end
 if exist('var_pos', 'var'),             opt.var_pos              = var_pos;             end

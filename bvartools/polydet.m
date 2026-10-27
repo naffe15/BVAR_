@@ -1,13 +1,24 @@
 function [dyc, dyt]=polydet(Y,ck, fig, timeplot, nameplot)
-
-% deterministically  detrending  with  polynomials
-% regression: y(t)= c+ a1*t +a2*t^2+...+ a4*t^4+ e(t)
-% the cycle  is  e(t)
-% the trend is hat(c}+ hat(a1)*t+hat(a2)*t^2 +..+hat(a4)*t^4
-
-% ck= order of  the  polynomial
-% dyc = estimated cycle
-% dyt = estimated trend
+%POLYDET Polynomial detrending.
+%
+%   [dyc,dyt] = POLYDET(Y,ck,fig)
+%   [dyc,dyt] = POLYDET(Y,ck,fig,timeplot,nameplot)
+%
+%   Regresses each series on a polynomial in time of order ck:
+%   y(t) = c + a1*t + ... + ack*t^ck + e(t).
+%
+%   Inputs
+%     Y         T x n    series, one per column
+%     ck        1 to 4   order of the polynomial
+%     fig       1 or 0   1 plots each series (pauses after each)
+%     timeplot  T x 1    dates for the plots (default 1:T)
+%     nameplot  cell     names of the series
+%
+%   Outputs
+%     dyc       T x n    cycle (residual)
+%     dyt       T x n    trend (fitted polynomial)
+%
+%   See also POLYDET_BREAK, HAMFILTER.
 
 enddT=length(Y);
 T = 1:1:enddT;

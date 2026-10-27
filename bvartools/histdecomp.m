@@ -1,14 +1,34 @@
 function [histdec,ierror] = histdecomp(bvar_,options)
+%HISTDECOMP Historical decomposition of the data into structural shocks.
+%
+%   [histdec,ierror] = HISTDECOMP(BVAR)
+%   [histdec,ierror] = HISTDECOMP(BVAR,options)
+%
+%   Uses the posterior mean of the parameters and residuals unless options
+%   say otherwise. If the components do not add up to the data (up to
+%   options.tol), it warns and returns histdec = [].
+%
+%   Inputs
+%     BVAR     output of BVAR_
+%     options  struct (optional)
+%       .Omega   ny x ny rotation of chol(Sigma,'lower') (default eye:
+%                recursive shocks)
+%       .draw    use posterior draw number draw instead of the mean
+%       .median  1 uses the posterior median instead of the mean
+%       .yo      0 sets the initial conditions to zero
+%       .tol     tolerance of the adding-up check (default 1e-7)
+%
+%   Outputs
+%     histdec  T x ny x (ny+nexo+1)   contribution of each structural shock,
+%                                     then of each exogenous variable, then
+%                                     of the constant and initial
+%                                     conditions; the slices add up to the
+%                                     data
+%     ierror   T x ny                 structural shocks
+%
+%   See also PLOT_SDCMP_, BVAR_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'histdecomp' computes decomposition of the observable variables in
-% terms of structural VAR shocks and initial condition
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 % tolerance
 tol =  10^(-7);
@@ -155,9 +175,10 @@ histdec             = E_; % stochastic part
 if exogenous_
     histdec(:,:, N+1 : N+nexogenous)    = Q_; % exogenous part
 end
-if constant_ 
-    histdec(:,:, N+nexogenous+1 )    = B_; % deterministic part
-end
+% if constant_     % old: without a constant the initial conditions were dropped
+%     histdec(:,:, N+nexogenous+1 )    = B_; % deterministic part
+% end
+histdec(:,:, N+nexogenous+1 )    = B_; % deterministic part: constant and initial conditions
 
 
 end

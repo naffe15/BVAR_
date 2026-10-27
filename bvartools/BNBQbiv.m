@@ -1,21 +1,38 @@
 function [BNperc, BNtra, BQperc, BQtra]=BNBQbiv(Y,nlags,ck,ccorr,stat,fig,spp,timeplot,varname)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Beveridge-Nelson and Blancahrd-Quah decomposition, see Canova(2007)
+%BNBQBIV Bivariate Beveridge-Nelson and Blanchard-Quah decompositions.
+%
+%   [BNperc,BNtra,BQperc,BQtra] = BNBQBIV(Y,nlags,ck,ccorr,stat,fig,spp)
+%   [...] = BNBQBIV(...,timeplot,varname)
+%
+%   Fits a bivariate VAR to the first difference of the first variable and
+%   to the second variable (in levels or differences) and splits the first
+%   variable into permanent and transitory components.
+%
+%   Inputs
+%     Y         T x 2    first column I(1) (e.g. log output); second column
+%                        e.g. hours or unemployment
+%     nlags     scalar   lags of the VAR
+%     ck        1 or 0   constant in the VAR
+%     ccorr     1 or 0   1 permanent and transitory shocks correlated
+%     stat      1 or 0   0 second variable stationary, 1 second variable I(1)
+%     fig       1 or 0   plot the components
+%     spp       1 or 0   plot the spectral densities of the components
+%     timeplot  T x 1    dates for the plots (default 1:T)
+%     varname   cell     name of the first variable (default 'log output')
+%
+%   Outputs
+%     BNperc, BNtra   T x 2   Beveridge-Nelson permanent and transitory
+%                             components
+%     BQperc, BQtra   T x 2   Blanchard-Quah permanent and transitory
+%                             components
+%
+%   See also BNUNIV, IRESPONSE_LONGRUN.
+%
+%   Reference: Canova, F. (2007), Methods for Applied Macroeconomic
+%   Research, Princeton University Press, Chapter 3.
 
-% nlags= numbers  of  lags  in VAR
-% ck if =1 constant; if =0  no constant
-% corr if=1 shocks correlated;  if=0  shocks  uncorrelated
-% stat if =1 second variable I(1); if=0 second variable  stationary
-% spp  if=1 plot  spectral densities  of  the components
-
-% BNperc  and  BNtra: permanent and  transitory components BN
-% BQperc  and  BQtra: permanent and  transitory components BQ
-
-% Fabio Canova,
-% latest revision 28-01-2020: fixed loading  on BQ permanent  and  a  few
-%                             bugs
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%   Fabio Canova. Revised 28-01-2020: fixed the loading on the BQ
+%   permanent component and a few bugs.
 
 enddT=length(Y);
 ddatax1=squeeze(Y(2:enddT,1)-Y(1:enddT-1,1)); % nonstationary 1 variable

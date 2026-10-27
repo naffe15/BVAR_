@@ -1,4 +1,20 @@
 function d = checkmrestrictions(hmoments,v,f)
+%CHECKMRESTRICTIONS Checks restrictions on the higher moments of the shocks.
+%
+%   d = CHECKMRESTRICTIONS(hmoments,v,f)
+%
+%   Inputs
+%     hmoments  cell array of strings in hm, e.g. 'hm(1,2,2) > 0.5', where
+%               hm(a,b,c) is the excess skewness (c = 1) or excess kurtosis
+%               (c = 2) of shock a computed with estimator b (1 sample
+%               moments, 2-4 robust estimators; see SKEWNESS_, KURTOSIS_)
+%     v         T x nshocks   structural shocks
+%     f         ny x 4 x 2    from HMOMENTS2MATRIX: which estimators to compute
+%
+%   Output
+%     d         1 if every restriction holds, 0 otherwise
+%
+%   See also HMOMENTS2MATRIX, IRESPONSE_SIGN_HMOMENTS.
 
 d = 0;
 % set of higher moments - contains the moments of 

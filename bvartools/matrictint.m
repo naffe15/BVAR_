@@ -1,24 +1,27 @@
 function w = matrictint(S, df, XXi)
+%MATRICTINT Log integral of a normal-inverse-Wishart kernel.
+%
+%   w = MATRICTINT(S,df,XXi)
+%
+%   Computes the log of the integral over (Phi,Sigma) of
+%     det(Sigma)^(-k/2) * exp(-0.5*tr((Phi-PhiHat)'*inv(XXi)*(Phi-PhiHat)*inv(Sigma)))
+%     * det(Sigma)^(-(df+ny+1)/2) * exp(-0.5*tr(inv(Sigma)*S))
+%   where k is the size of XXi and ny the size of S.
+%
+%   Inputs
+%     S     ny x ny   scale of the inverse-Wishart
+%     df    scalar    degrees of freedom of the inverse-Wishart
+%     XXi   k x k     first component of the covariance of the
+%                     matrix-normal part
+%
+%   Output
+%     w     scalar    log of the integral
+%
+%   See also BVAR_ML, MNIW_LOG_DNSTY.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Computes the log of the integral of the kernel of the PDF of a
-% normal-inverse-Wishart distribution.
-%
-% S:   parameter of inverse-Wishart distribution
-% df:  number of degrees of freedom of inverse-Wishart distribution
-% XXi: first component of VCV matrix of matrix-normal distribution
-% 
-% Computes the integral over (Phi, Sigma) of:
-%
-% det(Sigma)^(-k/2)*exp(-0.5*Tr((Phi-PhiHat)'*(XXi)^(-1)*(Phi-PhiHat)*Sigma^(-1)))*
-% det(Sigma)^((df+ny+1)/2)*exp(-0.5*Tr(Sigma^(-1)*S))
-%
-% (where k is the dimension of XXi and ny is the dimension of S and
-% Sigma)
+%   Original file by Christopher A. Sims, downloaded from
+%   http://sims.princeton.edu/yftp/VARtools/matlab/matrictint.m
 
-% Original file downloaded from:
-% http://sims.princeton.edu/yftp/VARtools/matlab/matrictint.m
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 k=size(XXi,1);
 ny=size(S,1);
 [cx,p]=chol(XXi);

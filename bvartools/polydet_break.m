@@ -1,14 +1,23 @@
 function [dyc, dyt]=polydet_break(Y,ck, tt,fig)
-
-% deterministically breaking detrending  with  polynomials
-% regressions:
-% y(t)= c+ a1*t +a2*t^2+...+ a4*t^4+ e(t) if  t< tt
-% y(t)= c+b a1b*(t-tt) +a2b*(t-tt)^2+...+ a4b*(t-tt)^4+ e(t) if  t>= tt(t)
-
-% tt= break date
-% ck= order of  the  polynomial
-% dyc = estimated cycle
-% dyt = estimated trend
+%POLYDET_BREAK Polynomial detrending with a break.
+%
+%   [dyc,dyt] = POLYDET_BREAK(Y,ck,tt,fig)
+%
+%   Fits separate polynomials of order ck before and after period tt.
+%   Both use the same time index t (not t-tt); the second regression adds
+%   a small ridge penalty (0.01).
+%
+%   Inputs
+%     Y     T x n    series, one per column
+%     ck    1 to 4   order of the polynomial
+%     tt    scalar   last period of the first regime
+%     fig   1 or 0   1 plots each series (pauses after each)
+%
+%   Outputs
+%     dyc   T x n    cycle (residual)
+%     dyt   T x n    trend
+%
+%   See also POLYDET.
 
 enddT=length(Y);
 T = 1:1:tt;

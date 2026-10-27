@@ -1,8 +1,17 @@
 function [fis,fpt]= isdate(y,turnphase)
-%  [fis,fpt]= isdate(y)
+%ISDATE Checks whether the centre of a window is a local peak or trough.
 %
-%  Determines if a data point is a potential turning point
-
+%   [fis,fpt] = ISDATE(y,turnphase)
+%
+%   Inputs
+%     y          (2*turnphase+1) x 1   window of the series
+%     turnphase  scalar                half-width of the window
+%
+%   Outputs
+%     fis   1 if the centre is a turning point, 0 otherwise
+%     fpt   1 peak, -1 trough, 0 neither
+%
+%   See also RAWALL, DATE_.
 
 adf=zeros(turnphase*2,1);
 

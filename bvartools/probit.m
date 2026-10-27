@@ -1,5 +1,12 @@
 function [estimator,cov_Hessian,ME1,ME2,ME1_std] = probit(Y,X,method_flag)
-
+%PROBIT Probit model by maximum likelihood, with marginal effects.
+%
+%   [estimator,cov_Hessian,ME1,ME2,ME1_std] = PROBIT(Y,X,method_flag)
+%
+%   Requires the Statistics Toolbox.
+%
+%   Third-party code by Hang Qian; original help below.
+%
 % Purpose: 
 % Estimate Probit model and the marginal effects
 % -----------------------------------
@@ -32,8 +39,6 @@ function [estimator,cov_Hessian,ME1,ME2,ME1_std] = probit(Y,X,method_flag)
 % 
 % Written by Hang Qian, Iowa State University
 % Contact me:  matlabist@gmail.com
-
-
 
 if nargin < 2;  error('Incomplete data');   end
 if nargin < 3;  method_flag = 2;    end

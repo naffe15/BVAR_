@@ -1,26 +1,29 @@
 function [ir,Q]=iresponse_longrun(alpha,Sigma,hor,lags)
+%IRESPONSE_LONGRUN Impulse responses with long-run (Blanchard-Quah) restrictions.
+%
+%   [ir,Q] = IRESPONSE_LONGRUN(alpha,Sigma,hor,lags)
+%
+%   The long-run impact matrix is lower triangular, so only the first shock
+%   has a permanent effect on the first variable. The impact of the first
+%   shock on the first variable is normalised to be positive.
+%
+%   Inputs
+%     alpha   (ny*lags+nx) x ny  VAR coefficients, lag-1 block first
+%     Sigma   ny x ny            covariance of the reduced-form residuals
+%     hor     scalar             number of horizons (horizon 1 is the impact)
+%     lags    scalar             number of lags
+%
+%   Outputs
+%     ir      ny x hor x ny      responses (variable x horizon x shock)
+%     Q       ny x ny            impact matrix
+%
+%   See also IRESPONSE, IRESPONSE_SET.
+%
+%   Reference: Blanchard, O. J. and D. Quah (1989), "The Dynamic Effects
+%   of Aggregate Demand and Supply Disturbances", American Economic Review
+%   79(4), 655-673.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_longrun' computes the impulse response functions to a long run shock
-% ordered first 
-
-% Inputs:
-% - alpha, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-% - unit, 1 shock STD or 1 percent increase
-
-% Output:
-% - ir contains the IRF 
-% 1st dimension:   variable 
-% 2st dimension:   horizon 
-% 3st dimension:   shock
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 N            = size(Sigma,1);
 ir          = zeros(N,hor,N); % variables, horizon, shock

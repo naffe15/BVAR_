@@ -1,19 +1,24 @@
 function minus_log_dnsty = uc_opt_hyperpara(hyperpara,y,lags,options)
+%UC_OPT_HYPERPARA Objective for UC2_: minus the log likelihood of the UC model.
+%
+%   minus_log_dnsty = UC_OPT_HYPERPARA(hyperpara,y,lags,options)
+%
+%   Inputs
+%     hyperpara  estimated parameters as seen by the optimiser: the lags AR
+%                coefficients of the cycle in levels, then the three shock
+%                variances in logs
+%     y          T x 1    series
+%     lags       scalar   order of the cycle
+%     options    struct   .index_est, .index_fixed, .hyperpara_fidex (fixed
+%                         values, same scale as hyperpara), plus the
+%                         KFILTERNAN options
+%
+%   Output
+%     minus_log_dnsty   scalar
+%
+%   See also UC2_, UC2SS, KFILTERNAN.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% computes the likelihood of the US system
-% a(t)  = a1 a(t-1) + ... + ap a(t-p) + ea(t )    [transition 1]
-% b(t)  = c(t-1)    + b(t-1) + eb(t);             [transition 2]
-% c(t)  = c(t-1)             + ec(t);             [transition 3]
-% y(t)  = a(t)      + b(t);                       [transistion 4]
-
-% to a state space of the form
-% x(t) = A x(t-1) + B Sigma' u(t) ~ N(0,I)
-% y(t) = C*(cons + x(t-1))
-% where A is the companion form of the lag struture
-
-% Filippo Ferroni, 6/1/2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2020.
 
 % options.state_space_model = 2;
 % 
@@ -23,10 +28,18 @@ function minus_log_dnsty = uc_opt_hyperpara(hyperpara,y,lags,options)
 % options.aZero(end-2) = y(1);
 % options.pZero        = 10*eye();
 
-hyperpara(options.index_est)   = exp(hyperpara);
+% hyperpara(options.index_est)   = exp(hyperpara);   % old: everything in logs, so
+% if isempty(options.index_fixed) == 0                 % the AR coefficients were
+%     hyperpara(options.index_fixed) = exp(options.hyperpara_fidex);   % forced positive
+% end
+xopt      = hyperpara;
+hyperpara = zeros(lags+3,1);
+hyperpara(options.index_est) = xopt;
 if isempty(options.index_fixed) == 0
-    hyperpara(options.index_fixed) = exp(options.hyperpara_fidex);
+    hyperpara(options.index_fixed) = options.hyperpara_fidex;
 end
+islog            = (1:lags+3)' > lags;    % AR coefficients (1:lags) in levels, variances in logs
+hyperpara(islog) = exp(hyperpara(islog));
 
 phi   = (hyperpara(1:lags));
 sigma = diag((hyperpara(1+lags:3+lags)));

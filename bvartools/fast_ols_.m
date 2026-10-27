@@ -1,18 +1,19 @@
 function out = fast_ols_(y, X)
-% FAST_OLS_  SVD-based OLS: returns coefficients, residuals, and (X'X)^{-1}.
+%FAST_OLS_ OLS by singular value decomposition.
 %
-%   out = fast_ols_(y, X)
+%   out = FAST_OLS_(y,X)
 %
 %   Inputs
-%     y  -- (T x ny) matrix of dependent variables
-%     X  -- (T x nk) matrix of regressors
+%     y   T x ny   dependent variables
+%     X   T x nk   regressors
 %
-%   Output fields
-%     out.B    -- (nk x ny) OLS coefficient matrix
-%     out.u    -- (T  x ny) residuals
-%     out.xxi  -- (nk x nk) (X'X)^{-1} computed via SVD
-%     out.y    -- y  (passed through)
-%     out.X    -- X  (passed through)
+%   Output
+%     out.B     nk x ny   coefficients
+%     out.u     T x ny    residuals
+%     out.xxi   nk x nk   inv(X'X), computed from the SVD
+%     out.y, out.X        the inputs
+%
+%   See also RFVAR3, YXB_.
 
 [vl, d_, vr] = svd(X, 0);
 di  = 1./diag(d_);

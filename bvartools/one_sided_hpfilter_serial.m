@@ -1,4 +1,12 @@
 function [ytrend,ycycle]=one_sided_hpfilter_serial(y,lambda,discard)
+%ONE_SIDED_HPFILTER_SERIAL One-sided Hodrick-Prescott filter.
+%
+%   [ytrend,ycycle] = ONE_SIDED_HPFILTER_SERIAL(y,lambda,discard)
+%
+%   See also HPFILTER.
+%
+%   Third-party code by Alexander Meyer-Gohde; original help below.
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % I am grateful to Martin Kliem for pointing out this alternative to the
@@ -67,7 +75,7 @@ function [ytrend,ycycle]=one_sided_hpfilter_serial(y,lambda,discard)
 %  expanding matrix A. This program uses sparse matrices and exploits the
 %  patter in A as t progresses.
 %
-
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if nargin < 2,  lambda = 1600; end%If the user does not provide lambda, set it to 1600

@@ -1,29 +1,40 @@
 function [sims_with_endopath,EPSn] = cforecasts2(endo_path,endo_index,exo_index,forecast_data,Phi,Sigma,Omega,EPSi,epslags_)
+%CFORECASTS2 Forecast conditional on the path of some variables, using selected structural shocks.
+%
+%   [sims_with_endopath,EPSn] = CFORECASTS2(endo_path,endo_index,exo_index,forecast_data,Phi,Sigma)
+%   [...] = CFORECASTS2(...,Omega,EPSi,epslags_)
+%
+%   Only the structural shocks in exo_index are chosen to hit the path;
+%   the other shocks are drawn at random (or given in EPSi).
+%
+%   Inputs
+%     endo_path      fhor x nc   path of the conditioning variables
+%     endo_index     1 x nc      their positions in y (row vector)
+%     exo_index      1 x nc      structural shocks used to hit the path,
+%                                as many as conditioning variables
+%     forecast_data  struct with .initval and .xdata; see FORECASTS
+%     Phi            (ny*lags+nx) x ny   VAR coefficients
+%     Sigma          ny x ny             residual covariance
+%     Omega          ny x ny     rotation of chol(Sigma,'lower')
+%                                (default eye: recursive shocks)
+%     EPSi           fhor x ny   values of the other structural shocks
+%                                (default: N(0,1) draws)
+%     epslags_       0 (default), 1, 2 or 3: use the response k periods
+%                    after the shock, instead of the impact response, to
+%                    compute the conditioning shocks
+%
+%   Outputs
+%     sims_with_endopath  fhor x ny   conditional forecast
+%     EPSn                fhor x ny   structural shocks, with the
+%                                     conditioning ones in exo_index
+%
+%   See also CFORECASTS, FORECASTS, BVAR_.
+%
+%   References: Waggoner and Zha (1999); Maih, J. (2010), "Conditional
+%   Forecasts in DSGE Models", Norges Bank Working Paper 2010/07; Dynare
+%   reference manual.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'cforecasts' performs the forecast conditional on a path for one or more
-% endogenous variables using some of teh STRUCTURAL shocks of the VAR
-% references: Waggoner and Zha (1999), Maih (2010), Dynare reference manual
-% Inputs:
-% - endo_path, path for the endogenous variables 
-% - endo_index, order of the endogenous variables with a contional path
-% - exo_index, order of the structural VAR shocks to use
-% - forecast_data, last data
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - Omega, Rotation for identification
-
-% Output:
-% - sims_with_endopath
-% 1st dimension:   horizon 
-% 2nd dimension:   variable 
-% - EPSn, shocks generating the path
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 [fhor,Ncondvar] = size(endo_path);
 Nvar            = size(Sigma,2);

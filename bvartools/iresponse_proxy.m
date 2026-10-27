@@ -1,18 +1,41 @@
 function in = iresponse_proxy(in)
+%IRESPONSE_PROXY Impulse responses to a shock identified with external instruments.
+%
+%   in = IRESPONSE_PROXY(in)
+%
+%   Identifies one structural shock, ordered first, with one or more
+%   proxies, and computes its responses. All inputs and outputs are fields
+%   of the structure in, which BVAR_ fills from options.proxy.
+%
+%   Input fields
+%     .vars            T x ny        data
+%     .p               scalar        number of lags
+%     .res             (T-p) x ny    reduced-form residuals
+%     .Phi             (ny*p+nx) x ny  VAR coefficients
+%     .Sigma           ny x ny       covariance of the residuals
+%     .proxies         T_m x n_m     instruments
+%     .T_m_end         scalar        periods between the end of the
+%                                    instruments and the end of the data
+%                                    (0 if they end together)
+%     .irhor           scalar        number of horizons
+%     .compute_F_stat  0 or 1        1 also computes first-stage statistics
+%
+%   Output fields (added to in)
+%     .irs      irhor x ny   responses to a one-standard-deviation shock
+%     .b1       ny x 1       impact column of the identified shock
+%     .Phib     first-stage coefficients; .uhat1 fitted residuals
+%     .F_m, .F_m_rob, .R2_m, .R2adj_m   first-stage F statistics (standard
+%               and heteroskedasticity-robust) and R2, if compute_F_stat = 1
+%
+%   See also BVAR_.
+%
+%   Adapted from the code of Mertens and Ravn (2013) to allow a VAR and
+%   instruments of different length and several instruments for one shock.
+%   Reference: Mertens, K. and M. O. Ravn (2013), "The Dynamic Effects of
+%   Personal and Corporate Income Tax Changes in the United States",
+%   American Economic Review 103(4), 1212-1247.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_proxy' computes the impulse response functions to shock
-% identified via instrumental variables 
-% Codes are written based on the Mertens Ravn (2013, AER) source codes,
-% modified to  
-%1) handle different length of VAR and factors
-%2) Multiple instruments to explain the same shock
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 Y         = in.vars(in.p+1:end,:);
 [T,n]     = size(Y);

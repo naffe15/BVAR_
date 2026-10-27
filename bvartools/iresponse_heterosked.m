@@ -1,26 +1,30 @@
 function [ir,Omeg] = iresponse_heterosked(Phi,errors,hor,delta,cont)
+%IRESPONSE_HETEROSKED Responses identified through heteroskedasticity (two regimes).
+%
+%   [ir,Omeg] = IRESPONSE_HETEROSKED(Phi,errors,hor,delta)
+%   [ir,Omeg] = IRESPONSE_HETEROSKED(Phi,errors,hor,delta,cont)
+%
+%   The rotation comes from the singular value decomposition of
+%   inv(S0)*S1, where S0 and S1 are the residual covariances in the two
+%   regimes. Used by BVAR_ with options.heterosked_regimes.
+%
+%   Inputs
+%     Phi      (ny*lags+nx) x ny   VAR coefficients (see IRESPONSE)
+%     errors   T x ny    reduced-form residuals
+%     hor      scalar    number of horizons
+%     delta    T x 1     regime indicator: 0 first regime, 1 second regime
+%     cont     nobs x ny FAVAR only: loadings of the observables
+%
+%   Outputs
+%     ir       ny x hor x ny   responses (nobs x hor x ny with cont)
+%     Omeg     ny x ny         rotation
+%
+%   See also IRESPONSE.
+%
+%   Reference: Sims, C. A. (2020), "SVAR Identification Through
+%   Heteroskedasticity with Misspecified Regimes", Princeton University.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_heterosked' computes the impulse response functions with
-% Volatility-identified SVAR 
-% Reference: Sims, C. A. (2020): "SVAR Identification Through Heteroskedasticity
-% with Misspecified Regimes," Discussion paper, Princeton University,
-% http://sims.princeton.edu/yftp/bpss/IDHmsspcfdRgms.pdf.
-
-% Inputs:
-% - errors, VAR reduced form errors (T x n)
-% - Phi, AR parameters of the VAR
-% - hor, horizon of the IRF
-% - delta, binary variable with the regimes
-
-% Output:
-% - ir contains the IRF
-% 1st dimension:   variable
-% 2st dimension:   horizon
-% 3st dimension:   shock
-
-% Filippo Ferroni, 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni.
 
 [~,n]   = size(Phi);
 favar   = 1;

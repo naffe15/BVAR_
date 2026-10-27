@@ -1,10 +1,15 @@
 function H = bfgsi(H0,dg,dx)
+%BFGSI BFGS update of the inverse Hessian, used by CSMINWEL.
+%
+%   Code by Christopher A. Sims; original help below.
+%
 % H = bfgsi(H0,dg,dx)
 % dg is previous change in gradient; dx is previous change in x;
 % 6/8/93 version that updates inverse hessian instead of hessian
 % itself.
 % Copyright by Christopher Sims 1996.  This material may be freely
 % reproduced and modified.
+
 if size(dg,2)>1
    dg=dg';
 end

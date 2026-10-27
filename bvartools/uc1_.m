@@ -1,17 +1,36 @@
 function [ytrend,ycycle] =uc1_(y,options)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This function estimates the UC model with correlated errors.
-
-% Reference:
-% Grant, A.L. and Chan, J.C.C. (2017). A Bayesian Model Comparison for
-% Trend-Cycle Decompositions of Output, Journal of Money, Credit and Banking,
-% 49(2-3): 525-552
-% UC model
-% y(t) = tau(t) + c(t), (1)
-% where tau(t) is the trend and c(t) is the stationary, cyclical component.
-% tau(t) = µ + tau(t-1) + utau(t)               (2)
-% c(t)   = ph1 c(t-1) + phi2 c(t-2) + uc(t)     (3)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%UC1_ Bayesian unobserved-components model with a random-walk trend and AR(2) cycle.
+%
+%   [ytrend,ycycle] = UC1_(y)
+%   [ytrend,ycycle] = UC1_(y,options)
+%
+%   Model:  y(t)   = tau(t) + c(t)
+%           tau(t) = mu + tau(t-1) + utau(t)
+%           c(t)   = phi1 c(t-1) + phi2 c(t-2) + uc(t)
+%   with utau and uc possibly correlated, estimated by MCMC. The default
+%   priors are calibrated to US real GDP (100 x log).
+%
+%   Inputs
+%     y        T x 1   series
+%     options  struct (optional)
+%       .mu0, .Vmu         prior mean and variance of mu
+%       .tau00, .Vtau0     prior mean and variance of tau(0)
+%       .phi0, .Vphi       prior of (phi1, phi2)
+%       .sigc2, .sigtau2   upper bounds of the shock variances
+%       .rhoyes            1 allows correlated shocks (default 0)
+%       .nsims, .burnin    MCMC draws kept and discarded
+%                          (defaults 5000 and 30000)
+%       .figg, .noprint, .time, .varname   output controls
+%
+%   Outputs
+%     ytrend   trend (posterior mean)
+%     ycycle   cycle (posterior mean)
+%
+%   See also UC2_, HPFILTER.
+%
+%   Reference: Grant, A. L. and J. C. C. Chan (2017), "A Bayesian Model
+%   Comparison for Trend-Cycle Decompositions of Output", Journal of Money,
+%   Credit and Banking 49(2-3), 525-552.
 
 T = length(y);
 time = 1:T;

@@ -1,6 +1,15 @@
 function D = duplicationmatrix(n)
-% Duplication matrix: vec(P)=Dvech(P)
+%DUPLICATIONMATRIX Duplication matrix D such that vec(P) = D*vech(P).
+%
+%   D = DUPLICATIONMATRIX(n)
+%
+%   Input    n   size of the symmetric matrix P
+%   Output   D   n^2 x n(n+1)/2
+%
+%   See also VECH, COMMUTATIONMATRIX.
+
 % tic
+
 m=1/2*n*(n+1);
 nsq=n^2;
 DT=sparse(m,nsq);

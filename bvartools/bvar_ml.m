@@ -1,21 +1,27 @@
 function log_dnsty = bvar_ml(hyperpara,y,lags,options)
+%BVAR_ML Log marginal likelihood of a VAR with the Minnesota (dummy observation) prior.
+%
+%   log_dnsty = BVAR_ML(hyperpara,y,lags)
+%   log_dnsty = BVAR_ML(hyperpara,y,lags,options)
+%
+%   Inputs
+%     hyperpara  [tau decay lambda mu omega]   Minnesota hyperparameters
+%                (tightness, lag decay, co-persistence, own-persistence,
+%                weight of the covariance prior); further elements are
+%                ignored here
+%     y          T x ny   data
+%     lags       scalar   number of lags
+%     options    struct (optional)
+%       .first_obs (or .firstobs), .presample, .noconstant, .unit_root_
+%       .heterosked_weights   rescaling of the observations (see RFVAR3)
+%       .plr                  Prior for the Long Run (see RFVAR3)
+%
+%   Output
+%     log_dnsty  scalar   log marginal likelihood
+%
+%   See also BVAR_OPT_HYPERPARA, BVAR_MAX_HYPER, VARPRIOR, RFVAR3, MATRICTINT.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bvar_ml' computes the marginal likelihood for the minnesota prior 
-
-% Inputs:
-% - hyperpara, Minnesota hyperpara over which maximize the marginal
-% likelihood
-% - y, data columns variables
-% - lags, lag order of the VAR
-% - options, see below for details
-
-% Output: marginal data density 
-
-
-% Filippo Ferroni, 6/1/2017
-% Revised, 3/21/2018
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2017.
 
 %******************************************************** 
 % SETTINGS
@@ -25,6 +31,7 @@ function log_dnsty = bvar_ml(hyperpara,y,lags,options)
 % randn('state',999);
 % rand('state',999);
 % 
+
 ny                  = size(y, 2);
 first_obs           = lags+1; 
 presample           = 0;
@@ -38,6 +45,7 @@ bvar_prior_omega    = hyperpara(5);%1;
 unit_root_          = ones(ny,1);
 flat                = 0; 
 heterosked          = 0;
+plr                 = [];
 
 esse = ones(size(y,1),ny);
 
@@ -60,11 +68,15 @@ if nargin > 3
     if isfield(options,'first_obs')==1
         first_obs = options.first_obs;
     end
+    if isfield(options,'firstobs')==1
+        first_obs = options.firstobs;
+    end
     if isfield(options,'presample')==1
         presample = options.presample;
     end
     if isfield(options,'noconstant')==1
-        noconstant = options.nocostant;
+        % noconstant = options.nocostant;   % old: misspelled field name
+        noconstant = options.noconstant;
         %  MINNESOTA PRIOR
     end    
     if isfield(options,'unit_root_')==1
@@ -79,6 +91,9 @@ if nargin > 3
         ww  = options.heterosked_weights;
         heterosked = 1;
     end    
+    if isfield(options,'plr')==1
+        plr = options.plr;
+    end
 
 
 end
@@ -100,6 +115,10 @@ if first_obs + presample  <= lags
 end
 
 idx = first_obs+presample-lags:first_obs+nobs-1;
+if isempty(plr) == 0
+    % y_bar_0 of the PLR, as in bvar_
+    plr.ybar = mean(y(first_obs-lags : first_obs-1, :), 1);
+end
 
 
 if noconstant
@@ -125,9 +144,9 @@ T     =  size(ydata, 1);
 xdata = ones(T,nx);
 % posterior density
 if heterosked == 0
-    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu);
+    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, [], plr);
 else
-    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww);
+    var = rfvar3([ydata; ydum], lags, [xdata; xdum], [T; T+pbreaks], lambda, mu, ww, plr);
 end
 Tu = size(var.u, 1);
 
@@ -138,7 +157,7 @@ if nx
 else
     xdata = [];
 end
-varp = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
+varp = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu, [], plr);
 Tup = size(varp.u, 1);
 
 prior.df        = Tup - ny*lags - nx - flat*(ny+1);

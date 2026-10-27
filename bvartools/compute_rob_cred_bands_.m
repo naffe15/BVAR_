@@ -1,21 +1,27 @@
 function bands = compute_rob_cred_bands_(lower_draws, upper_draws, ny, opt)
-% COMPUTE_ROB_CRED_BANDS_  Giacomini-Kitagawa robust credible bands.
+%COMPUTE_ROB_CRED_BANDS_ Robust credible bands for all shocks.
 %
-%   bands = compute_rob_cred_bands_(lower_draws, upper_draws, ny, opt)
+%   bands = COMPUTE_ROB_CRED_BANDS_(lower_draws,upper_draws,ny,opt)
 %
-%   Loops over variables (ss = 1:ny), permutes the lower/upper draw arrays
-%   into the shape expected by credibleRegion(), and stacks the resulting
-%   credible-band matrices into output struct fields .u and .l.
+%   Calls CREDIBLEREGION shock by shock on the lower and upper bounds of
+%   the identified sets, e.g. BVAR.irsign_lower_draws and
+%   BVAR.irsign_upper_draws.
 %
 %   Inputs
-%     lower_draws  -- (ny x hor x ny x K) lower-bound IRF draws
-%     upper_draws  -- (ny x hor x ny x K) upper-bound IRF draws
-%     ny           -- number of variables
-%     opt          -- options struct passed to credibleRegion()
+%     lower_draws  ny x hor x ny x K   lower bounds (variable x horizon x
+%                                      shock x draw)
+%     upper_draws  ny x hor x ny x K   upper bounds, same layout
+%     ny           scalar              number of shocks
+%     opt          struct passed to CREDIBLEREGION (.aalpha, .gridLength)
 %
 %   Output
-%     bands.u(:,:,ss)  -- upper credible band for variable ss
-%     bands.l(:,:,ss)  -- lower credible band for variable ss
+%     bands.l      ny x hor x ny   lower band (variable x horizon x shock)
+%     bands.u      ny x hor x ny   upper band
+%
+%   See also CREDIBLEREGION, BVAR_.
+%
+%   Reference: Giacomini, R. and T. Kitagawa (2021), Econometrica 89(4),
+%   1519-1556.
 
 bands = struct('u', [], 'l', []);
 for ss = 1 : ny

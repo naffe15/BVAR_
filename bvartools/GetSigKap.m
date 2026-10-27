@@ -1,7 +1,18 @@
 function [Sig,Kap] = GetSigKap(A,C,Sigma1,Sigma2)
-%GetSigKap computes the steady state Kalmna gain
-% x(t) = A x(t-1) + e1(t) ~ (0,Sigma1)
-% y(t) = C x(t-1) + e2(t) ~ (0,Sigma2)
+%GETSIGKAP Steady-state Kalman gain and state covariance.
+%
+%   [Sig,Kap] = GETSIGKAP(A,C,Sigma1,Sigma2)
+%
+%   State space:  x(t) = A x(t-1) + e1(t),  e1 ~ (0,Sigma1)
+%                 y(t) = C x(t-1) + e2(t),  e2 ~ (0,Sigma2)
+%   Iterates the Riccati equation until gain and covariance change by less
+%   than 1e-6.
+%
+%   Outputs
+%     Sig   ns x ns   steady-state covariance of the state prediction
+%     Kap   ns x ny   steady-state Kalman gain
+%
+%   See also BDFM_.
 
 ny = size(C,1);
 ns = size(A,1);

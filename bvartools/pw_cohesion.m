@@ -1,4 +1,10 @@
 function [f_hat_save,f_hat_save_separate, grid, step] = pw_cohesion(dY,q_low, q_high,factor,idx)
+%PW_COHESION Power cohesion of a set of series (spectral co-movement).
+%
+%   [f_hat_save,f_hat_save_separate,grid,step] = PW_COHESION(dY,q_low,q_high,factor,idx)
+%
+%   Original help below.
+%
 % Purpose: Computes Power Cohesion
 %--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
@@ -25,10 +31,11 @@ function [f_hat_save,f_hat_save_separate, grid, step] = pw_cohesion(dY,q_low, q_
 % f_hat_save_separate - cross-spectra for the chosen variables.
 % grid - designed grid (to be useful for graphs & tables)
 % step - step (for frequency resolution in graphs).
+%
+%--------------------------------------------------------------------------
+%--------------------------------------------------------------------------
+%--------------------------------------------------------------------------
 
-%--------------------------------------------------------------------------
-%--------------------------------------------------------------------------
-%--------------------------------------------------------------------------
 if nargin < 5
     idx = ones(size(dY,2),1);
 end

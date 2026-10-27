@@ -1,4 +1,8 @@
 function hhh=vline(x,in1,in2)
+%VLINE Draws vertical lines, with optional labels, on the current axes.
+%
+%   Third-party code by Brandon Kuczenski; original help below.
+%
 % function h=vline(x, linetype, label)
 % 
 % Draws a vertical line on the current axes at the location specified by 'x'.  Optional arguments are

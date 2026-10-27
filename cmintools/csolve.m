@@ -1,4 +1,8 @@
 function [x,rc] = csolve(FUN,x,gradfun,crit,itmax,varargin)
+%CSOLVE Solves a system of nonlinear equations (not used by the toolbox).
+%
+%   Code by Christopher A. Sims; original help below.
+%
 %function [x,rc] = csolve(FUN,x,gradfun,crit,itmax,varargin)
 % FUN should be written so that any parametric arguments are packed in to x,
 % and so that if presented with a matrix x, it produces a return value of
@@ -19,6 +23,7 @@ function [x,rc] = csolve(FUN,x,gradfun,crit,itmax,varargin)
 %           termination.
 %---------- delta --------------------
 % differencing interval for numerical gradient
+
 delta = 1e-6;
 %-------------------------------------
 %------------ alpha ------------------

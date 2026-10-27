@@ -53,10 +53,11 @@ function colors = distinguishable_colors(n_colors,bg,func)
 % Example using the file exchange's 'colorspace':
 %   func = @(x) colorspace('RGB->Lab',x);
 %   c = distinguishable_colors(25,'w',func);
-
+%
 % Copyright 2010-2011 by Timothy E. Holy
-
+%
 % Parse the inputs
+
 if (nargin < 2)
     bg = [1 1 1];  % default white background
 else

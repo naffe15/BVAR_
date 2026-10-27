@@ -1,11 +1,27 @@
 function  plot_sdcmp_(input,BVAR,options)
+%PLOT_SDCMP_ Plots a historical (shock) decomposition as stacked bars.
+%
+%   PLOT_SDCMP_(input,BVAR)
+%   PLOT_SDCMP_(input,BVAR,options)
+%
+%   Inputs
+%     input    T x ny x (nshocks+nexo+1)   decomposition from HISTDECOMP;
+%              the last slice is the constant and initial conditions
+%     BVAR     output of BVAR_ (for the variable names and dimensions)
+%     options  struct (optional)
+%       .plotvar_       cell, names of the variables to plot (default all)
+%       .plotvarnames   cell, titles of those plots
+%       .snames_        cell of cells, shocks grouped together; requires
+%                       .stag_, the legend labels (groups + initial
+%                       condition)
+%       .time, .Tlim    dates and the window to plot
+%       .dcmp_grouped   1 grouped bars instead of stacked
+%       .colors_decomp  1, 2 or 3   alternative colour maps
+%       .saveas_dir, .save_strng    folder and name tag for saving
+%
+%   See also HISTDECOMP, BVAR_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 nparams = size(BVAR.Phi_draws,1);
 nshocks = BVAR.N;

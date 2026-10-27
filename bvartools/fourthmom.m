@@ -1,4 +1,20 @@
 function [K] = fourthmom(x,flag)
+%FOURTHMOM Fourth co-moments of a set of series.
+%
+%   K = FOURTHMOM(x)
+%   K = FOURTHMOM(x,flag)
+%
+%   Average over t of vech(x(t)*x(t)')*vech(x(t)*x(t)')' (or vec with
+%   flag = 1); the series are not demeaned.
+%
+%   Inputs
+%     x      T x N    series, e.g. standardized residuals
+%     flag   0 (default) vech, 1 vec
+%
+%   Output
+%     K      N(N+1)/2 x N(N+1)/2   (N^2 x N^2 with flag = 1)
+%
+%   See also THIRDMOM, IRESPONSE_SIGN_HMOMENTS_EIG.
 
 [T,N] = size(x);
 
