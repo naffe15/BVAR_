@@ -1,8 +1,9 @@
-function build_function_map(root)
-%BUILD_FUNCTION_MAP Rebuilds docs/function_map.html from the toolbox code.
+function build_function_map(root, outdir)
+%BUILD_FUNCTION_MAP Rebuilds function_map.html from the toolbox code.
 %
 %   BUILD_FUNCTION_MAP
 %   BUILD_FUNCTION_MAP(root)
+%   BUILD_FUNCTION_MAP(root, outdir)
 %
 %   Scans every .m file in bvartools/, cmintools/ and examples/, finds which
 %   toolbox functions each file calls, works out which functions are used
@@ -11,8 +12,14 @@ function build_function_map(root)
 %   Run it after adding, removing or renaming functions, or after editing
 %   their help, and commit the new page.
 %
-%   Input
-%     root   folder of the toolbox (default: the parent of this file's folder)
+%   Inputs
+%     root     folder of the toolbox (default: the parent of this file's folder)
+%     outdir   folder where function_map.html is written, or a cell array of
+%              folders to write it to several places (default: root/docs).
+%              The folders must exist. Example, toolbox and personal site:
+%                build_function_map('C:\Users\Filippo\Documents\BVAR_', ...
+%                  {'C:\Users\Filippo\Documents\BVAR_\docs', ...
+%                   'C:\Users\Filippo\Documents\naffe15.github.io\_pages'})
 %
 %   How a call is detected
 %     - comments and strings are removed from each line before matching;
@@ -36,7 +43,8 @@ function build_function_map(root)
 %   Files
 %     docs/function_map_template.html   page layout; the data are inserted
 %                                       at /*__DATA__*/ and /*__META__*/
-%     docs/function_map.html            the page written by this function
+%     function_map.html                 the page written by this function,
+%                                       in each folder of outdir
 %
 %   Works in MATLAB (R2016b or later) and GNU Octave.
 
@@ -45,7 +53,17 @@ function build_function_map(root)
 if nargin < 1 || isempty(root)
     root = fileparts(fileparts(mfilename('fullpath')));
 end
-docs = fullfile(root, 'docs');
+docs = fullfile(root, 'docs');                % the template is read from here
+if nargin < 2 || isempty(outdir)
+    outdir = {docs};
+elseif ischar(outdir)
+    outdir = {outdir};
+end
+for k = 1 : numel(outdir)
+    if exist(outdir{k}, 'dir') ~= 7
+        error('build_function_map: output folder not found: %s', outdir{k});
+    end
+end
 
 % ------------------------------------------------------------------ files
 groups = {'bvartools', 'cmintools', 'examples'};
@@ -211,11 +229,18 @@ if isempty(strfind(page, '/*__DATA__*/')) || isempty(strfind(page, '/*__META__*/
 end
 page = strrep(page, '/*__DATA__*/', strrep(tojson(rows), '</', '<\/'));
 page = strrep(page, '/*__META__*/', strrep(tojson(meta), '</', '<\/'));
-fid  = fopen(fullfile(docs, 'function_map.html'), 'w');
-fwrite(fid, page);
-fclose(fid);
-fprintf('build_function_map: %d entry, %d internal, %d dead, %d orphan -> %s\n', ...
-    nst.E, nst.I, nst.D, nst.O, fullfile(docs, 'function_map.html'));
+fprintf('build_function_map: %d entry, %d internal, %d dead, %d orphan\n', ...
+    nst.E, nst.I, nst.D, nst.O);
+for k = 1 : numel(outdir)
+    out = fullfile(outdir{k}, 'function_map.html');
+    fid = fopen(out, 'w');
+    if fid < 0
+        error('build_function_map: cannot write %s', out);
+    end
+    fwrite(fid, page);
+    fclose(fid);
+    fprintf('build_function_map: written %s\n', out);
+end
 end
 
 
