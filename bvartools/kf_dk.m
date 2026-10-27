@@ -1,25 +1,32 @@
 function   [shatnew,signew,lh,yhat,fin,kgpart,yforc]=kf_dk(y,H,shat,sig,G,M)
-
-% =========================================================================
-% KF_DK  
-% function [shatnew,signew,lh,yhat,fin,kgain,yforc]=kf_dk(y,H,shat,sig,G,M)
-% 
-% This is Chris Sims's KF with a couple of added outputs 
-% 1) The (Partial) Kalman Gain and F^(-1) matrices obtained using the 
-%     Generalized Inverse are part of the output
-% s(t) = G*s(t-1) + R*n(t)  V( n(t) ) = Q 
-% then   M=R*Chol(Q)'=R( CQ') 
-%        M*M'=R*( CQ'*CQ )*R'
-% 
-% See KF_MOD. for a related filter 
-% NOTE: KGPART is NOT the appropriate Kalman Gain 
-% KG=G*KGPART such that 
-% KGPART=(P(t)|t-1)*(H')*(F^-1) 
-% Use this version when the G matix is time varying and adjust to the 
-% timing in DK which have a different timing in the state equation 
-% =======================================================================
-% Revised, 2/15/2017
-% Revised, 3/21/2018
+%KF_DK One step of the Kalman filter, robust to singular covariances.
+%
+%   [shatnew,signew,lh,yhat,fin,kgpart,yforc] = KF_DK(y,H,shat,sig,G,M)
+%
+%   State space:  s(t) = G s(t-1) + M e(t),  e(t) ~ N(0,I);  y(t) = H s(t)
+%   (M = R*chol(Q)' when s(t) = G s(t-1) + R n(t) with V(n(t)) = Q).
+%
+%   Inputs
+%     y      ny x 1   observations at t
+%     H      ny x ns  observation matrix
+%     shat   ns x 1   state estimate at t-1
+%     sig    ns x ns  its covariance
+%     G      ns x ns  transition matrix
+%     M      ns x nm  loading of the shocks
+%
+%   Outputs
+%     shatnew, signew   updated state estimate and covariance
+%     lh                log likelihood contribution
+%     yhat              forecast error, y - yforc
+%     fin               inverse of the forecast error covariance
+%                       (generalised inverse)
+%     kgpart            partial Kalman gain; the gain is G*kgpart
+%     yforc             one-step forecast of y
+%
+%   See also KFILTERNAN.
+%
+%   Based on the Kalman filter of Christopher A. Sims, with added outputs
+%   and the timing of Durbin and Koopman.
 
 lh=zeros(1,2);
 omega=G*sig*G'+M*M';

@@ -1,8 +1,18 @@
 function FE = fe_(hor,errors,Phi)
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% computes the in-sample forecast error at horizon h
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%FE_ In-sample h-step-ahead forecast errors implied by the residuals.
+%
+%   FE = FE_(hor,errors,Phi)
+%
+%   Inputs
+%     hor      scalar      largest horizon
+%     errors   T x ny      reduced-form residuals
+%     Phi      (ny*lags) x ny   autoregressive coefficients only (no constant)
+%
+%   Output
+%     FE       T x ny x hor   forecast error at horizon h for the forecast
+%                             made h periods before t; NaN when not available
+%
+%   See also VAR2MA, BVAR_.
 
 [T , N]     = size(errors);
 [m , k]     = size(Phi);

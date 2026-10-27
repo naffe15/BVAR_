@@ -1,5 +1,8 @@
 function G = rand_inverse_wishart(m, v, H_inv_upper_chol)
-
+%RAND_INVERSE_WISHART Draw from an inverse-Wishart distribution.
+%
+%   From Dynare; original help below.
+%
 % function G = rand_inverse_wishart(m, v, H_inv_upper_chol)
 % rand_inverse_wishart  Pseudo random matrices drawn from an
 % inverse Wishart distribution
@@ -23,7 +26,7 @@ function G = rand_inverse_wishart(m, v, H_inv_upper_chol)
 % SPECIAL REQUIREMENT
 %     none
 %    
-
+%
 % Copyright (C) 2003-2009 Dynare Team
 %
 % This file is part of Dynare.

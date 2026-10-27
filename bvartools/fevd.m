@@ -1,9 +1,23 @@
 function FEVD = fevd(hor,Phi,Sigma,Omega)
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% computes the forecast error variance decomposition using the VAR
-% representation
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%FEVD Forecast error variance decomposition of a VAR.
+%
+%   FEVD = FEVD(hor,Phi,Sigma)
+%   FEVD = FEVD(hor,Phi,Sigma,Omega)
+%
+%   Inputs
+%     hor     scalar   horizon; the variance of the hor-step-ahead forecast
+%                      error is decomposed
+%     Phi     (ny*lags+nx) x ny   VAR coefficients, lag-1 block first
+%     Sigma   ny x ny  residual covariance
+%     Omega   ny x ny  rotation of chol(Sigma,'lower') (default eye:
+%                      recursive identification)
+%
+%   Output
+%     FEVD    ny x ny  share, in percent, of the forecast error variance of
+%                      variable i (row) due to shock j (column); rows sum
+%                      to 100
+%
+%   See also FEVD_, MAX_FEVD, IRESPONSE.
 
 N           = size(Sigma,1);
 [m , k]     = size(Phi);

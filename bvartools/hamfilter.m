@@ -1,17 +1,30 @@
 function [dyc, dyt]=hamfilter(X,h,d,ck,fig,timeplot, nameplot)
-
-% local projections (direct  forecast) to  perform detrending
-% regressions
-% y(t+h)= a*y(t)+b*y(t-1)+c*y(t-2)+...+d*y(t-d)+ e(t+h)
-% cycle  is  e(t+h)
-% trend  is  hat(a)*y(t)+hat(b)*y(t-1)+hat(c)*y(t-2)+...+hat(d)*y(t-d)
-
-% h= horizon of  the  projection
-% d= number  of  lags  used
-% ck if=1 constant  if =0 no constant in  the projection
-
-% dyc = estimated cycle
-% dyt = estimated trend
+%HAMFILTER Hamilton (2018) regression filter.
+%
+%   [dyc,dyt] = HAMFILTER(X,h,d,ck,fig)
+%   [dyc,dyt] = HAMFILTER(X,h,d,ck,fig,timeplot,nameplot)
+%
+%   For each series, regresses y(t) on y(t-h), ..., y(t-h-d+1); the
+%   fitted value is the trend and the residual the cycle.
+%
+%   Inputs
+%     X         T x n    series, one per column
+%     h         scalar   horizon of the projection (e.g. 8 for quarterly)
+%     d         scalar   number of lags (e.g. 4 for quarterly)
+%     ck        1 or 0   constant in the regression
+%     fig       1 or 0   1 plots each series (pauses after each)
+%     timeplot  T x 1    dates for the plots (default 1:T)
+%     nameplot  cell     names of the series
+%
+%   Outputs
+%     dyc       T x n    cycle; zeros in the first d+h-1 periods
+%     dyt       T x n    trend; zeros in the first d+h-1 periods
+%
+%   See also POLYDET, BNUNIV, HPFILTER.
+%
+%   Reference: Hamilton, J. D. (2018), "Why You Should Never Use the
+%   Hodrick-Prescott Filter", Review of Economics and Statistics 100(5),
+%   831-843.
 
 [enddT,QQ]=size(X);
 yc=zeros(enddT,QQ); yt=zeros(enddT,QQ);
@@ -36,6 +49,7 @@ end
 
 for qq=1:QQ
     yh=squeeze(X(d+h:enddT,qq)); %    independent  variable
+    R=[];   % reset for each series (old: R kept the lags of the previous series when ck = 0)
     if  ck==1
         R=ones(enddT-d-h+1,1);     % constant
     end

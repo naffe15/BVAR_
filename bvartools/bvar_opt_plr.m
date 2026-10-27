@@ -1,25 +1,32 @@
 function minus_log_dnsty = bvar_opt_plr(hyperpara,y,lags,options)
+%BVAR_OPT_PLR Objective for the Minnesota and Prior-for-the-Long-Run hyperparameters.
+%
+%   minus_log_dnsty = BVAR_OPT_PLR(hyperpara,y,lags,options)
+%
+%   Pass it to BVAR_MAX_HYPER with options.objective_function =
+%   'bvar_opt_plr'.
+%
+%   Inputs
+%     hyperpara  log of the estimated elements of [tau decay lambda mu
+%                omega phi]; one phi for all rows of H or one per row;
+%                lambda and mu must be 0
+%     y, lags    as in BVAR_ML
+%     options    as in BVAR_OPT_HYPERPARA, plus
+%       .priors.PLR.H           ny x ny invertible matrix (required)
+%       .priors.PLR.hyperprior  1 (default) Gamma hyperprior on phi with
+%                               mode 1 and std 1; 0 none
+%
+%   Output
+%     minus_log_dnsty   minus (log marginal likelihood + log hyperprior);
+%                       1e10 when an estimated phi leaves [1e-5, 50]
+%
+%   See also BVAR_MAX_HYPER, BVAR_ML, RFVAR3.
+%
+%   Reference: Giannone, D., M. Lenza and G. E. Primiceri (2019), "Priors
+%   for the Long Run", Journal of the American Statistical Association
+%   114(526), 565-580.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bvar_opt_plr' computes the marginal likelihood over the hyperparameters
-% of the Minnesota prior and the tightness phi of the Prior for the Long
-% Run (Giannone, Lenza and Primiceri, 2019)
-% Bridge function between 'bvar_ml' and the minimization routine
-% 'bvar_max_hyper' (options.objective_function = 'bvar_opt_plr')
-
-% Inputs:
-% - hyperpara, [tau decay lambda mu omega phi], with one phi for all the
-% rows of H or one per row; lambda and mu must be 0
-% - y, data columns variables
-% - lags, lag order of the VAR
-% - options, as in bvar_max_hyper, plus options.priors.PLR.H (required) and
-% options.priors.PLR.hyperprior (1, default: Gamma hyperprior on phi; 0 none)
-
-% Output: minus the log marginal data density (plus the log hyperprior);
-% the estimated phi are kept in [1e-5, 50]
-
-% Gianluca Tisci, 9/26/2026
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Gianluca Tisci, 9/26/2026.
 
 hyperpara(options.index_est)   = exp(hyperpara);
 if isempty(options.index_fixed) == 0

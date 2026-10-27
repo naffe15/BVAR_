@@ -1,9 +1,20 @@
 function [st] = states(bcp5,bct5,nbp,nbt,nd)
-%  
+%STATES Expansion and contraction indicator from peaks and troughs.
 %
-%  Add brief description for function in line above for Matlab help searches
+%   st = STATES(bcp5,bct5,nbp,nbt,nd)
+%
+%   Inputs
+%     bcp5, bct5   positions of the peaks and of the troughs (from RAWALL)
+%     nbp, nbt     number of peaks and of troughs
+%     nd           number of observations
+%
+%   Output
+%     st           nd x 1   1 expansion, 0 contraction
+%
+%   See also DATE_, RAWALL.
 
 % 1=expansion;0=contraction  
+
 st=zeros(nd,1);
 
 if bcp5(1)<bct5(1)

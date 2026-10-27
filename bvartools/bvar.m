@@ -1,5 +1,13 @@
 function [BVAR] = bvar(y,lags,options)
-
+%BVAR Backward-compatible name of BVAR_.
+%
+%   BVAR = BVAR(y,lags)
+%   BVAR = BVAR(y,lags,options)
+%
+%   Calls BVAR_ with the same inputs. From MATLAB R2020a a built-in
+%   function called bvar exists, so new code should call BVAR_.
+%
+%   See also BVAR_.
 
 if nargin<3
     BVAR = bvar_(y,lags);

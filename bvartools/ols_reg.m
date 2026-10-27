@@ -1,9 +1,32 @@
 function [output] = ols_reg(Y,X,options)
-
-% this function computes the ols coefficients of Y on X
-% Y TxN
-% X Txk (interepct at the end)
-% Y = XB + E
+%OLS_REG OLS regression with standard errors and fit statistics.
+%
+%   output = OLS_REG(Y,X)
+%   output = OLS_REG(Y,X,options)
+%
+%   Rows with NaN in Y or X are dropped.
+%
+%   Inputs
+%     Y        T x N   dependent variables
+%     X        T x K   regressors (constant last, if any)
+%     options  struct (optional)
+%       .robust_se_  0 OLS (default), 1 Newey-West (Hamilton 1994,
+%                    eq. 10.5.20), 2 Newey-West on the residual covariance,
+%                    5 MATLAB hac (Econometrics Toolbox)
+%       .L           lags of the Newey-West window (default round(T/4))
+%
+%   Output (fields)
+%     beta    K x N   coefficients;  se   K x N standard errors
+%     Ttest   t-statistics;  pvalue   two-sided p-values
+%     Ftest, R2, adjR2
+%     error, e_ols    residuals;  Serror, Sigma_ols   residual covariance
+%     Sols    covariance of vec(beta)
+%     yfit, N, K, X, Y, XX
+%     nindex  rows used;  index  rows dropped
+%     AIC, SIC, HQIC   Akaike, Schwarz (BIC) and Hannan-Quinn criteria, one
+%                      per equation
+%
+%   See also IC, DIRECTMETHODS.
 
 nindex      = find(sum(isnan([Y,X]),2)==0);
 index       = find(sum(isnan([Y,X]),2)>0);
@@ -71,7 +94,8 @@ elseif robust_se_ == 5 % Matlab HAC function
         indexC = find(sum(diff(X,1,1),1)==0);
         for vv = 1: ny
 %             [EstCoeffCov0,se0,~] = hac(X(:,index),Y(:,ny),'display','off','type','HC'); 
-            [EstCoeffCov0,se0,~] = hac(X(:,index),Y(:,ny),'display','off','bandwidth','AR1OLS'); % remove the intercept
+%             [EstCoeffCov0,se0,~] = hac(X(:,index),Y(:,ny),'display','off','bandwidth','AR1OLS'); % old: always the last equation
+            [EstCoeffCov0,se0,~] = hac(X(:,index),Y(:,vv),'display','off','bandwidth','AR1OLS'); % remove the intercept
             se(index,vv)  = se0(2:end);
             se(indexC,vv) = se0(1); %intercept
             Sols((vv-1)*K+1 : vv*K, (vv-1)*K+1 : K*vv ) = EstCoeffCov0; % order is not correct
@@ -108,7 +132,8 @@ output.Serror = Serror;                 % Covariance matrix of Residuals
 output.Sigma_ols = Serror;                 % Covariance matrix of Residuals
 output.Sols   = Sols;                   % Covariance matrix of Bols
 output.Ttest  = Ttest;                  % t-statistics
-output.pvalue = tpdf(Ttest,N-K);        % p-value
+% output.pvalue = tpdf(Ttest,N-K);        % old: t density, not a p-value
+output.pvalue = 2 * tcdf(-abs(Ttest), N-K);  % two-sided p-value
 output.Ftest  = Ftest;                  % F-test
 output.R2     = R2;                     % R2
 output.adjR2  = adjR2;                  % Adjusted R2
@@ -126,7 +151,8 @@ for v = 1 : ny
 %     output.logl(v,1)   = -N/2*log(2*pi*Serror(v,v)) - RSS(v,1)/(2*Serror(v,v));
 %     [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(output, N, K);
     S = Serror(v,v); E = err(:,v);
-    [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(S, E, N, K);
+%     [output.AIC(v,1), output.SIC(v,1), output.HQIC(v,1)] = IC(S, E, N, K); % old: IC returns [AIC,HQIC,BIC]
+    [output.AIC(v,1), output.HQIC(v,1), output.SIC(v,1)] = IC(S, E, N, K);
 end
 
 % if nargin > 2

@@ -1,4 +1,24 @@
 function [krt,krt_normal]  = kurtosis_(y,flags_)
+%KURTOSIS_ Kurtosis of each series with four estimators, three of them robust.
+%
+%   [krt,krt_normal] = KURTOSIS_(y)
+%   [krt,krt_normal] = KURTOSIS_(y,flags_)
+%
+%   Inputs
+%     y        T x ny   series (NaN ignored by the robust estimators)
+%     flags_   ny x 4   1 to compute an estimator (default all):
+%                       1 sample kurtosis, 2 Moors (octiles), 3 Hogg,
+%                       4 Crow-Siddiqui
+%
+%   Outputs
+%     krt          ny x 4   estimates (NaN where not computed)
+%     krt_normal   1 x 4    value of each estimator for a normal
+%                           (3, 1.23, 2.59, 2.90)
+%
+%   The sample kurtosis needs the Statistics Toolbox. References are in
+%   the comments below.
+%
+%   See also SKEWNESS_, CHECKMRESTRICTIONS.
 
 [~,ny] = size(y);
 if nargin<2
@@ -19,9 +39,9 @@ end
 % NORMAL: k2 = 1.23;
 % =====================
 % 3. k3 = (U(0.05)-L(0.05)) / (U(0.5)-L(0.5))
-% See Hoog (1976) More light on the kurtosis and related statistics Journal of the American
+% See Hogg (1972) More light on the kurtosis and related statistics Journal of the American
 % Statistical Association, 67 (1972), pp. 422-424
-% NORMAL: k3 = 2.95;
+% NORMAL: k3 = 2.59;   (old comment said 2.95, a typo; exact value 2.585)
 % =====================
 % 4. k4 = (F^-1(0.975)-F^-1(0.025)) / (F^-1(0.75)-F^-1(0.25))
 % NORMAL: k4= 2.91;

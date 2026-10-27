@@ -1,32 +1,36 @@
 function [ir,Omeg] = iresponse_sign(Phi,Sigma,hor,signrestriction,cont)
+%IRESPONSE_SIGN Impulse responses identified with sign restrictions.
+%
+%   [ir,Omeg] = IRESPONSE_SIGN(Phi,Sigma,hor,signrestriction)
+%   [ir,Omeg] = IRESPONSE_SIGN(Phi,Sigma,hor,signrestriction,cont)
+%
+%   Draws random rotations (up to 30000) until one satisfies all the
+%   restrictions, either as drawn or with all signs flipped.
+%
+%   Inputs
+%     Phi              (ny*lags+nx) x ny   VAR coefficients (see IRESPONSE)
+%     Sigma            ny x ny             covariance of the reduced-form
+%                                          residuals
+%     hor              scalar              number of horizons
+%     signrestriction  cell array of strings, options.signs in BVAR_, e.g.
+%                      'y(a,b,c)>0': shock c raises variable a at horizon
+%                      b (b = 1 is the impact)
+%     cont             nobs x ny           FAVAR only: loadings mapping the
+%                                          VAR variables into the observables
+%
+%   Outputs
+%     ir     ny x hor x ny   responses (nobs x hor x ny with cont), NaN if
+%                            no rotation is found
+%     Omeg   ny x ny         accepted rotation of chol(Sigma,'lower')
+%
+%   See also IRESPONSE_SIGN_NARRATIVE, IRESPONSE_SET, CHECKRESTRICTIONS2,
+%   GENERATEQ.
+%
+%   Reference: Rubio-Ramirez, J. F., D. F. Waggoner and T. Zha (2010),
+%   "Structural Vector Autoregressions: Theory of Identification and
+%   Algorithms for Inference", Review of Economic Studies 77(2), 665-696.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_sign' computes the impulse response functions using sign
-% restrictions on the endogenous variables
-% Reference: Rubio-Ramirez, J. F., Waggoner, D. F. and Zha, T.: 2010,
-% Structural Vector Autoregresions: Theory of Identification and Algorithms
-% for Inference, Review of Economic Studies 77(2), 665–696.
-
-% Inputs:
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-% - unit, 1 shock STD or 1 percent increase
-% - signrestriction, cell array containing the restrictions. Sign
-% restriction can be activated in the toolbox by setting the options
-% options.signs{1} = 'y(a,b,c)>0'; 
-% where a, b and c are integer. The syntax means that shock c has a
-% positive impact on the a-th variable at horizon b.  
-
-% Output:
-% - ir contains the IRF 
-% 1st dimension:   variable 
-% 2st dimension:   horizon 
-% 3st dimension:   shock
-
-% Filippo Ferroni, 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%   Filippo Ferroni.
 
 [m,n]   = size(Sigma);
 d       = 0;

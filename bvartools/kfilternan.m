@@ -1,30 +1,40 @@
 function [logL,outputkf] = kfilternan(Phi,Sigma,y,options)
+%KFILTERNAN Kalman filter and smoother with missing values.
+%
+%   [logL,outputkf] = KFILTERNAN(Phi,Sigma,y)
+%   [logL,outputkf] = KFILTERNAN(Phi,Sigma,y,options)
+%
+%   State space (VAR case, see VAR2SS):
+%     x(t) = A x(t-1) + B Sigma' u(t),   u(t) ~ N(0,I)
+%     y(t) = C (const + x(t))
+%   NaN in y are treated as missing observations.
+%
+%   Inputs
+%     Phi, Sigma   VAR coefficients and residual covariance (state_space_model
+%                  = 1) or UC parameters (state_space_model = 2, see UC2SS)
+%     y            T x ny   data
+%     options      struct (optional)
+%       .index              aggregation of each variable (see VAR2SS)
+%       .initialCond        0 unconditional covariance (default), 1 diffuse
+%                           (10*I), 2 given .aZero and .pZero
+%       .state_space_model  1 VAR (default), 2 unobserved components
+%       .start              first period of the likelihood (default 1)
+%       .only_logL          1 stops after the likelihood
+%       .noprint, .adjustment, .tauVec
+%
+%   Outputs
+%     logL       scalar   log likelihood
+%     outputkf   struct; main fields: filteredSt, smoothSt (deviations from
+%                the steady state), filteredSt_plus_ss, smoothSt_plus_ss
+%                (levels), CovSt, forecastObs, innovations, index_var
+%                (state of each observable)
+%
+%   See also VAR2SS, UC2SS, KF_DK, NOWCAST_BVAR.
+%
+%   Reference: Durbin, J. and S. J. Koopman (2001), Time Series Analysis by
+%   State Space Methods, Oxford University Press.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'kfilternan' runs the Kalman filter and smoother with missing values
-% References: Durbin and Koopman (2003)
-
-% Inputs:
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - y, data
-% - options, various options
-% TVP parameters allowed (3rd dimension of Phi,Sigma and options.tauVec
-% controls the time of the variation)
-
-% outputkf : (see below)
-
-% State Space Model
-% x(t) = A x(t-1) + B Sigma' u(t) ~ N(0,I)
-% y(t) = C*(cons + x(t-1))
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% kfilternan computes the forward Kalman filter with NaN
+%   Filippo Ferroni, 6/1/2015.
 
 [T,var]         = size(y);
 data            = y';
@@ -39,7 +49,8 @@ start           = 1;
 
 if nargin > 3
     if isfield(options,'tauVec') == 1
-        tauVec=optinos.tauVec;
+        % tauVec=optinos.tauVec;   % old: misspelled variable name
+        tauVec=options.tauVec;
     end
     if isfield(options,'initialCond') ==1
         initialCond = options.initialCond;
@@ -81,7 +92,8 @@ switch state_space_model
         %------------------------------------------------------------------
         % VAR
         for jj  = 1 : size(Phi,3)
-            [A(:,:,jj),B(:,:,jj),C(:,:,jj),const(:,jj),Sigma(:,:,jj),~,index_var]=var2ss(Phi,Sigma,index);
+            % [A(:,:,jj),B(:,:,jj),C(:,:,jj),const(:,jj),Sigma(:,:,jj),~,index_var]=var2ss(Phi,Sigma,index);   % old: whole Phi, not slice jj
+            [A(:,:,jj),B(:,:,jj),C(:,:,jj),const(:,jj),Sigma(:,:,jj),~,index_var]=var2ss(Phi(:,:,jj),Sigma(:,:,jj),index);
         end
         %===>>> NOTE Sigma now is the cholesky of Sigma
     case 2

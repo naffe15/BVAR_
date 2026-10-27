@@ -1,72 +1,80 @@
 function [ir,Omeg,w,info] = iresponse_set(errors,Phi,Sigma,hor,setrestr,cont,opt)
+%IRESPONSE_SET Impulse responses of set-identified VARs (options.set).
+%
+%   [ir,Omeg,w,info] = IRESPONSE_SET(errors,Phi,Sigma,hor,setrestr)
+%   [ir,Omeg,w,info] = IRESPONSE_SET(errors,Phi,Sigma,hor,setrestr,cont,opt)
+%
+%   Any combination of sign, magnitude, zero (short and long run),
+%   narrative sign and narrative dominance restrictions, written with the
+%   notation of Section 3.2.3 of the Hitchhiker's Guide.
+%
+%   Inputs
+%     errors    T x ny    reduced-form residuals; needed only with narrative
+%                         restrictions, otherwise []
+%     Phi       (ny*lags+nx) x ny   VAR coefficients (see IRESPONSE)
+%     Sigma     ny x ny   covariance of the reduced-form residuals
+%     hor       scalar    number of horizons
+%     setrestr  cell array of strings (options.set in BVAR_):
+%       'y(a,b,c)>m', 'y(a,b,c)<m'  sign (m = 0) or magnitude restriction on
+%                                   the response of variable a at horizon b
+%                                   to shock c (b = 1 is the impact)
+%       'y(a,b,c)=0'                zero restriction at horizon b
+%       'y(a,inf,c)=0'              long-run zero restriction
+%       'y(a,inf,c)>0'              long-run sign restriction
+%                                   a and b can be vectors, e.g.
+%                                   'y(3,1:3,1)>0'; c is a scalar
+%       any other expression of y   e.g. 'y(1,1,1)/y(2,1,1)>0.5' or
+%                                   'max(cumsum(y(1,:,2),2))<1' (finite
+%                                   horizons only)
+%       'v(tau,n)>0'                narrative sign restriction: shock n is
+%                                   positive in periods tau (rows of
+%                                   errors); any expression of v, e.g.
+%                                   'sum(v(3:5,1))>0'
+%       'most(tau,n,a)'             narrative dominance (Type A in
+%                                   Antolin-Diaz and Rubio-Ramirez, 2018): shock
+%                                   n is the largest contributor to the
+%                                   forecast error of variable a in tau
+%       'overwhelm(tau,n,a)'        narrative dominance (Type B): shock
+%                                   n contributes more than all the others
+%                                   together
+%     cont      nobs x ny FAVAR only: loadings of the observables; [] for a
+%                         standard VAR
+%     opt       struct (optional)
+%       .draws     accepted rotations to return (default 1)
+%       .maxtries  max rotations tried per draw (default 30000)
+%       .perm      1 (default): each rotation is checked against every
+%                  assignment of its columns and signs to the shocks;
+%                  0: sign flips only
+%       .M         Monte Carlo draws for the narrative weight (default 5000)
+%
+%   Outputs
+%     ir     ny x hor x ny x draws   responses (variable x horizon x shock x
+%                                    draw)
+%     Omeg   ny x ny x draws         accepted rotations; the impact matrix is
+%                                    chol(Sigma,'lower')*Omeg
+%     w      draws x 1               importance weight of each draw (0 when no
+%                                    rotation was found); normalise with
+%                                    w/sum(w) across posterior draws. It is
+%                                    the product of (i) the number of valid
+%                                    assignments of columns and signs to the
+%                                    shocks, which keeps the prior on the
+%                                    rotations uniform, and (ii)
+%                                    1/Pr(narrative restrictions hold |
+%                                    Phi,Sigma,Omeg) when narrative
+%                                    restrictions are given. The Arias,
+%                                    Rubio-Ramirez and Waggoner (2018)
+%                                    weight for zero restrictions is not
+%                                    included.
+%     info   struct with fields tries, count (valid assignments), found
+%
+%   See also WQUANTILE, IRESPONSE_SIGN, IRESPONSE_SIGN_NARRATIVE,
+%   IRESPONSE_ZEROS_SIGNS, BVAR_.
+%
+%   References: Rubio-Ramirez, Waggoner and Zha (2010, REStud); Arias,
+%   Rubio-Ramirez and Waggoner (2018, Econometrica); Antolin-Diaz and
+%   Rubio-Ramirez (2018, AER), also for the dominance restrictions.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_set' computes impulse responses of set-identified VARs with
-% any combination of sign, magnitude, zero (short and long run), narrative
-% sign and narrative dominance restrictions, all written with the notation
-% of Section 3.2.3 of the toolbox manual.
-%
-% [ir,Omeg,w,info] = iresponse_set(errors,Phi,Sigma,hor,setrestr)
-% [ir,Omeg,w,info] = iresponse_set(errors,Phi,Sigma,hor,setrestr,cont,opt)
-%
-% Inputs:
-% - errors, VAR reduced form errors (T x n); only needed with narrative
-%   restrictions, otherwise it can be []
-% - Phi, AR parameters of the VAR (as in iresponse.m)
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-% - setrestr, cell array of strings (options.set in bvar_). Allowed:
-%   'y(a,b,c)>m', 'y(a,b,c)<m'   sign (m = 0) or magnitude restriction:
-%                                response of variable a at horizon b to
-%                                shock c (b = 1 is the impact)
-%   'y(a,b,c)=0'                 zero restriction at horizon b
-%   'y(a,inf,c)=0'               long run zero restriction
-%   'y(a,inf,c)>0'               long run sign restriction
-%      a and b can be vectors (e.g. 'y(3,1:3,1)>0'), c is a scalar
-%   any other expression of y    e.g. 'y(1,1,1)/y(2,1,1)>0.5',
-%                                'max(cumsum(y(1,:,2),2))<1' (finite
-%                                horizons only)
-%   'v(tau,n)>0'                 narrative sign restriction: shock n is
-%                                positive in the periods tau (rows of
-%                                errors); any expression of v is allowed,
-%                                e.g. 'sum(v(3:5,1))>0'
-%   'most(tau,n,a)'              narrative dominance (ADRR Type A): shock
-%                                n is the most important contributor to
-%                                the forecast error of variable a in tau
-%   'overwhelm(tau,n,a)'         narrative dominance (ADRR Type B): shock
-%                                n contributes more than all the others
-%                                together
-% - cont, (optional, FAVAR) loadings mapping the VAR variables into the
-%   observables; [] for a standard VAR
-% - opt, (optional) structure
-%   opt.draws      number of accepted rotations to return (default 1)
-%   opt.maxtries   max number of rotations tried per draw (default 30000)
-%   opt.perm       1 (default): each rotation is checked against every
-%                  assignment of its columns (and signs) to the shocks;
-%                  0: only sign flips
-%   opt.M          Monte Carlo draws for the narrative weight (default 5000)
-%
-% Output:
-% - ir, IRF (variable x horizon x shock x draws)
-% - Omeg, accepted rotations (n x n x draws); impact = chol(Sigma,'lower')*Omeg
-% - w, importance weight of each accepted draw (draws x 1); w = 0 when no
-%   rotation was found. Use w/sum(w) across the posterior draws. It is the
-%   product of
-%   (i)  the number of valid assignments of columns and signs to the
-%        shocks (keeps the prior on the rotations uniform when one valid
-%        assignment is picked at random), and
-%   (ii) 1/Pr(narrative restrictions hold | Phi,Sigma,Omeg), Antolin-Diaz
-%        and Rubio-Ramirez (2018), when narrative restrictions are given.
-%   The Arias, Rubio-Ramirez and Waggoner (2018) importance weight for
-%   zero restrictions is NOT included (as in iresponse_zeros_signs.m).
-% - info, structure: tries, count (valid assignments), found
-%
-% References: Rubio-Ramirez, Waggoner and Zha (2010, REStud); Arias,
-% Rubio-Ramirez and Waggoner (2018, Ecta); Antolin-Diaz and Rubio-Ramirez
-% (2018, AER).
-%
-% Filippo Ferroni,
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni.
 
 % ------------------------------------------------------------------ inputs
 n = size(Sigma,1);

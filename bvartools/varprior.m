@@ -1,28 +1,34 @@
 function [ydum,xdum,breaks]=varprior(nv,nx,lags,mnprior,vprior)
-%function [ydum,xdum,breaks]=varprior(nv,nx,lags,mnprior,vprior)
-% ydum, xdum:   dummy observation data that implement the prior
-% breaks:       vector of points in the dummy data after which new dummy obs's start
-%                   Set breaks=T+[0;breaks], ydata=[ydata;ydum], xdum=[xdata;xdum], where 
-%                   actual data matrix has T rows, in preparing input for rfvar3
-% nv,nx,lags: VAR dimensions
-% mnprior.tight:Overall tightness of Minnesota prior
-% mnprior.decay:Standard deviations of lags shrink as lag^(-decay)
-% vprior.sig:   Vector of prior modes for diagonal elements of r.f. covariance matrix
-% vprior.w:     Weight on prior on vcv.  1 corresponds to "one dummy observation" weight
-%                   Should be an integer, and will be rounded if not.  vprior.sig is needed
-%                   to scale the Minnesota prior, even if the prior on sigma is not used itself.
-%                   Set vprior.w=0 to achieve this.
-% Note:         The original Minnesota prior treats own lags asymmetrically, and therefore
-%                   cannot be implemented entirely with dummy observations.  It is also usually
-%                   taken to include the sum-of-coefficients and co-persistence components
-%                   that are implemented directly in rfvar3.m.  The diagonal prior on v, combined
-%                   with sum-of-coefficients and co-persistence components and with the unit own-first-lag
-%                   prior mean generates larger prior variances for own than for cross-effects even in 
-%                   this formulation, but here there is no way to shrink toward a set of unconstrained 
-%                   univariate AR's.
+%VARPRIOR Dummy observations that implement the Minnesota prior.
+%
+%   [ydum,xdum,breaks] = VARPRIOR(nv,nx,lags,mnprior,vprior)
+%
+%   Inputs
+%     nv, nx, lags     number of variables, exogenous variables and lags
+%     mnprior.tight    overall tightness of the Minnesota prior
+%     mnprior.decay    standard deviations of lags shrink as lag^(-decay)
+%     vprior.sig       nv x 1   prior modes of the diagonal of the residual
+%                               covariance (also used to scale the
+%                               Minnesota prior)
+%     vprior.w         weight on the covariance prior; 1 is one dummy
+%                      observation (rounded to an integer); 0 uses sig only
+%                      to scale the Minnesota prior
+%
+%   Outputs
+%     ydum, xdum   dummy observations
+%     breaks       rows of the dummy data after which a new dummy
+%                  observation starts. To prepare RFVAR3 input with T rows
+%                  of data: breaks = T+[0;breaks], ydata = [ydata;ydum],
+%                  xdata = [xdata;xdum].
+%
+%   The original Minnesota prior treats own lags asymmetrically and cannot
+%   be implemented entirely with dummy observations. The sum-of-coefficients
+%   and co-persistence components are implemented in RFVAR3.
+%
+%   See also RFVAR3, PANDEMIC_VARPRIOR, BVAR_ML.
 
-% Original file downloaded from:
-% http://sims.princeton.edu/yftp/VARtools/matlab/varprior.m
+%   Original file by Christopher A. Sims, downloaded from
+%   http://sims.princeton.edu/yftp/VARtools/matlab/varprior.m
 
 if ~isempty(mnprior)
     xdum = zeros(lags+1,nx,lags,nv);

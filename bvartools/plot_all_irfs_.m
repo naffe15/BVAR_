@@ -1,16 +1,24 @@
 function plot_all_irfs_(irfs,options)
+%PLOT_ALL_IRFS_ Plots the responses of all variables to all shocks in one figure.
+%
+%   PLOT_ALL_IRFS_(irfs)
+%   PLOT_ALL_IRFS_(irfs,options)
+%
+%   One subplot per variable (rows) and shock (columns), with median and
+%   credible bands.
+%
+%   Inputs
+%     irfs     ny x hor x nshocks x K   response draws, e.g. BVAR.ir_draws
+%     options  struct (optional): as in PLOT_IRFS_ (.varnames,
+%              .shocksnames, .normz, .conf_sig, .conf_sig_2, .nplots,
+%              .add_irfs, .ylimits, .fontsize, .saveas_dir, .saveas_strng),
+%              plus
+%       .plot_median          1 (default) plots the median line
+%       .SizePositionFigure   figure position (default [50 50 800 650])
+%
+%   See also PLOT_IRFS_, BVAR_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-
-% input : irfs
-% 1st dimension: variable
-% 2nd dimension: horizon
-% 3rd dimension: shock
-% 4th dimension: draws
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 nvar    = size(irfs,1);
 hor     = size(irfs,2);

@@ -1,28 +1,35 @@
 function [sims_with_endopath,EPSn] = cforecasts(endo_path,endo_index,forecast_data,Phi,Sigma)
+%CFORECASTS Forecast conditional on the path of some variables, using all shocks.
+%
+%   [sims_with_endopath,EPSn] = CFORECASTS(endo_path,endo_index,forecast_data,Phi,Sigma)
+%
+%   Draws one path of the VAR that matches the given path of the
+%   conditioning variables. All the (Cholesky) shocks can move; among the
+%   shock sequences that reproduce the path, the minimum-norm part is
+%   combined with a random draw of the remaining directions.
+%
+%   Inputs
+%     endo_path      fhor x nc    path of the conditioning variables
+%     endo_index     1 x nc       their positions in y (row vector)
+%     forecast_data  struct with .initval (lags x ny) and .xdata (fhor x nx);
+%                    see FORECASTS
+%     Phi            (ny*lags+nx) x ny   VAR coefficients
+%     Sigma          ny x ny             residual covariance
+%
+%   Outputs
+%     sims_with_endopath  fhor x ny   conditional forecast (one draw)
+%     EPSn                fhor x ny   orthogonal (Cholesky) shocks that
+%                                     generate it
+%
+%   See also CFORECASTS2, FORECASTS, BVAR_.
+%
+%   References: Waggoner, D. F. and T. Zha (1999), "Conditional Forecasts
+%   in Dynamic Multivariate Models", Review of Economics and Statistics
+%   81(4), 639-651. Jarocinski, M. (2010), "Conditional Forecasts and
+%   Uncertainty about Forecast Revisions in Vector Autoregressions",
+%   Economics Letters 108(3), 257-259.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'cforecasts' performs the forecast conditional on a path for one or more
-% endogenous variables using all the shocks of the VAR
-% references: Waggoner and Zha (1999) and Jarocinski (2010)
-
-% Inputs:
-% - endo_path, path for the endogenous variables 
-% - endo_index, order of the endogenous variables with a contional path
-% - forecast_data, last data
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-
-% Output:
-% - sims_with_endopath
-% 1st dimension:   horizon 
-% 2nd dimension:   variable 
-% - EPSn, shocks generating the path
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 [fhor,Ncondvar] = size(endo_path);
 Nvar            = size(Sigma,2);
@@ -75,3 +82,5 @@ EPSn = reshape(eps,Nvar,fhor);
 EPS  = C*EPSn;
 
 [~,sims_with_endopath] = forecasts(forecast_data,Phi,Sigma,fhor,lags,EPS');
+% return the shocks as fhor x ny, as in cforecasts2 (old: ny x fhor)
+EPSn = EPSn';

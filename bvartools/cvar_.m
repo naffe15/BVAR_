@@ -1,23 +1,42 @@
 function [CVAR] = cvar_(y,lags,options)
+%CVAR_ Classical VAR: OLS estimates with bootstrap draws.
+%
+%   CVAR = CVAR_(y,lags)
+%   CVAR = CVAR_(y,lags,options)
+%
+%   Estimates the VAR by OLS and builds K bootstrap samples to measure the
+%   uncertainty of the impulse responses and forecasts. Identification,
+%   forecast and network options are the same as in BVAR_; see Chapter 3
+%   of the Hitchhiker's Guide.
+%
+%   Inputs
+%     y        T x ny    data, one variable per column
+%     lags     scalar    number of lags (>= 1)
+%     options  struct (optional), main fields:
+%       .K            bootstrap samples (default 5000)
+%       .hor, .fhor   IRF and forecast horizons (defaults 24 and 12)
+%       .bootstrap    1 resample the residuals (default), 2 wild bootstrap
+%                     (Rademacher signs)
+%       .replacement  1 resample with replacement (default), 0 without
+%       .noconstant, .timetrend, .exogenous, .controls
+%       .signs, .narrative, .zeros_signs, .proxy, .long_run_irf,
+%       .heterosked_regimes, .hmoments, .irf_1STD    identification
+%       .endo_path, .endo_index, .exo_index           conditional forecasts
+%       .connectedness, .nethor                       spillover tables
+%
+%   Output (main fields)
+%     CVAR.Phi_ols, .Sigma_ols, .e_ols   OLS estimates
+%     CVAR.Phi_boots, .Sigma_boots       bootstrap estimates
+%     CVAR.ir_ols, .ir_boots             recursive IRFs, ny x hor x ny (x K)
+%     CVAR.irlr_*, .irsign_*, .irnarrsign_*, .irzerosign_*, .irproxy_*,
+%     .irheterosked_*                    IRFs of each identification
+%     CVAR.forecasts                     .no_shocks, .with_shocks,
+%                                        .conditional
+%     CVAR.InfoCrit                      AIC, HQIC, BIC
+%
+%   See also BVAR_, BOOTSTRAP_, PLOT_IRFS_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'cvar_' estimates the paramters of VAR model with classical methods
-% Impulse Response Function CI are computed using bootstrap methods
-
-% Core Inputs:
-% - y, data columns variables
-% - lags, lag order of the VAR
-
-% Additonal Inputs collected options:
-% - options are not mandatory. 
-% See the Hitchhiker's guide for more details. 
-% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
-
-% Output: 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni and Fabio Canova. https://github.com/naffe15/BVAR_
 
 if nargin < 2
     error('the cvar_ funtion needs at least two inputs: data and number of lags');

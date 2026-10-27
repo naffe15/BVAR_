@@ -1,4 +1,14 @@
 function [fX] = bkfilter(X,pl,pu)
+%BKFILTER Band-pass filter (default Christiano-Fitzgerald random-walk filter).
+%
+%   Despite the name, this is the default asymmetric filter of Christiano
+%   and Fitzgerald (1999), not Baxter-King; for Baxter-King use CFFILTER
+%   with ifilt = 3. Each column is filtered after removing its own drift.
+%
+%   See also CFFILTER, WAVEFILTER, HAMFILTER.
+%
+%   Third-party code by Eduard Pelz; original help below.
+%
 %
 %	MATLAB COMMAND FOR BAND PASS FILTER: fX = bkfilter(X,pl,pu)
 %
@@ -47,7 +57,8 @@ end
 undrift = 1;
 j = 1:T;
 if undrift == 1
-   drift = (X(T,1)-X(1,1))/(T-1);
+   % drift = (X(T,1)-X(1,1))/(T-1);   % old: drift of the first column used for all columns
+   drift = (X(T,:)-X(1,:))/(T-1);    % one drift per column
    Xun = X-(j'-1)*drift;
 else
    Xun = X;

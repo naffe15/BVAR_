@@ -1,21 +1,27 @@
 function log_dnsty = bvar_ml(hyperpara,y,lags,options)
+%BVAR_ML Log marginal likelihood of a VAR with the Minnesota (dummy observation) prior.
+%
+%   log_dnsty = BVAR_ML(hyperpara,y,lags)
+%   log_dnsty = BVAR_ML(hyperpara,y,lags,options)
+%
+%   Inputs
+%     hyperpara  [tau decay lambda mu omega]   Minnesota hyperparameters
+%                (tightness, lag decay, co-persistence, own-persistence,
+%                weight of the covariance prior); further elements are
+%                ignored here
+%     y          T x ny   data
+%     lags       scalar   number of lags
+%     options    struct (optional)
+%       .first_obs (or .firstobs), .presample, .noconstant, .unit_root_
+%       .heterosked_weights   rescaling of the observations (see RFVAR3)
+%       .plr                  Prior for the Long Run (see RFVAR3)
+%
+%   Output
+%     log_dnsty  scalar   log marginal likelihood
+%
+%   See also BVAR_OPT_HYPERPARA, BVAR_MAX_HYPER, VARPRIOR, RFVAR3, MATRICTINT.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bvar_ml' computes the marginal likelihood for the minnesota prior 
-
-% Inputs:
-% - hyperpara, Minnesota hyperpara over which maximize the marginal
-% likelihood
-% - y, data columns variables
-% - lags, lag order of the VAR
-% - options, see below for details
-
-% Output: marginal data density 
-
-
-% Filippo Ferroni, 6/1/2017
-% Revised, 3/21/2018
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2017.
 
 %******************************************************** 
 % SETTINGS
@@ -25,6 +31,7 @@ function log_dnsty = bvar_ml(hyperpara,y,lags,options)
 % randn('state',999);
 % rand('state',999);
 % 
+
 ny                  = size(y, 2);
 first_obs           = lags+1; 
 presample           = 0;
@@ -68,7 +75,8 @@ if nargin > 3
         presample = options.presample;
     end
     if isfield(options,'noconstant')==1
-        noconstant = options.nocostant;
+        % noconstant = options.nocostant;   % old: misspelled field name
+        noconstant = options.noconstant;
         %  MINNESOTA PRIOR
     end    
     if isfield(options,'unit_root_')==1

@@ -1,17 +1,35 @@
 function [irf_] = plot_irfs_(irfs,options)
+%PLOT_IRFS_ Plots impulse responses with credible bands, one figure per shock.
+%
+%   PLOT_IRFS_(irfs)
+%   irf_ = PLOT_IRFS_(irfs,options)
+%
+%   Each figure shows the median response (solid line) and the band
+%   (shaded) of every variable to one shock. See Section 3.2.11 of the
+%   Hitchhiker's Guide.
+%
+%   Inputs
+%     irfs     ny x hor x nshocks x K   response draws, e.g. BVAR.ir_draws
+%     options  struct (optional)
+%       .varnames      cell, one name per variable (subplot titles)
+%       .shocksnames   cell, one name per shock (figure titles)
+%       .normz         scale responses so the impulse equals 1
+%       .conf_sig      coverage of the band (default 0.68)
+%       .conf_sig_2    coverage of a second, wider band
+%       .nplots        1 x 2   subplot grid
+%       .add_irfs      additional responses to overlay
+%       .ylimits       ny x 2  y-axis limits per variable
+%       .fontsize      default 12
+%       .saveas_dir, .saveas_strng   folder and name; figures are saved
+%                                    only if both are given
+%
+%   Output
+%     irf_     struct with the plotted statistics: .Median, .low, .up,
+%              .low_low, .up_up
+%
+%   See also PLOT_ALL_IRFS_, BVAR_, WQUANTILE.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 8/08/2019
-
-% input : irfs
-% 1st dimension: variable
-% 2nd dimension: horizon
-% 3rd dimension: shock
-% 4th dimension: draws
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 nvar    = size(irfs,1);
 hor     = size(irfs,2);

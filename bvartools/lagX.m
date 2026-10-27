@@ -1,8 +1,19 @@
 function XLag = lagX(X,lags)
-%lagX Create matrix of lagged time series, 
-% 1st dimension time, 
-% 2nd dimention variables
+%LAGX Matrix of lagged (or led) time series.
 %
+%   XLag = LAGX(X,lags)
+%
+%   Inputs
+%     X      T x ny    data, time in rows
+%     lags   vector    shifts; positive values are lags, negative values
+%                      leads, 0 the series itself
+%
+%   Output
+%     XLag   T x (ny*numel(lags))   one block of ny columns per element of
+%                                   lags, padded with NaN
+%
+%   See also YXB_, DIRECTMETHODS.
+
 %if size(X,2) > size(X,1)
 %   X = X'; % Ensure a column vector
 %end

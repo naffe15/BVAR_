@@ -1,26 +1,30 @@
 function [ir]=iresponse(alpha,Sigma,hor,Omega,unit)
+%IRESPONSE Impulse responses of a VAR for a given rotation of the shocks.
+%
+%   ir = IRESPONSE(alpha,Sigma,hor,Omega)
+%   ir = IRESPONSE(alpha,Sigma,hor,Omega,unit)
+%
+%   Inputs
+%     alpha   (ny*lags+nx) x ny  VAR coefficients, lag-1 block first; rows
+%                                after ny*lags (constant, exogenous) are ignored
+%     Sigma   ny x ny            covariance of the reduced-form residuals
+%     hor     scalar             number of horizons (horizon 1 is the impact)
+%     Omega   ny x m             orthonormal rotation; eye(ny) gives the
+%                                recursive (Cholesky) responses
+%     unit    any value          if passed, the Cholesky factor is rescaled to
+%                                a unit diagonal, so shock j moves variable j
+%                                by 1 on impact (before Omega is applied).
+%                                Omit it for one-standard-deviation shocks.
+%
+%   Output
+%     ir      ny x hor x m       response of variable i at horizon k to shock j
+%
+%   If Sigma is not positive definite, a factor based on the LDL
+%   decomposition of pinv(Sigma) replaces the Cholesky factor.
+%
+%   See also IRESPONSE_SIGN, IRESPONSE_SET, IRESPONSE_LONGRUN, PLOT_IRFS_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse' computes the impulse response functions
-
-% Inputs:
-% - alpha, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-% - Omega, a particular orthonormal rotation
-% - unit, 1 shock STD or 1 percent increase
-
-% Output:
-% - ir contains the IRF 
-% 1st dimension:   variable 
-% 2st dimension:   horizon 
-% 3st dimension:   shock
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 N           = size(Sigma,1);
 % ir          = zeros(N,hor,N); % variables, horizon, shock

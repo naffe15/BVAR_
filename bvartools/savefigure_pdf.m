@@ -1,15 +1,19 @@
 function [ figformat ] = savefigure_pdf( name,varargin )
+%SAVEFIGURE_PDF Saves the current figure as a PDF cropped to the figure size.
+%
+%   SAVEFIGURE_PDF(name)
+%
+%   Inputs
+%     name   file name, with or without path and extension
+%
+%   Output
+%     figformat   1
+%
+%   Further inputs are accepted and ignored.
+%
+%   See also PLOT_IRFS_, PLOT_FRCST_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-
-% SAVEFIGURE_PDF: this function saves figures in .pdf format
-% name: Name of the figure, example: 'figure1'
-% type: Format of the figure, example: 'fig','espc'
-% If no input is provided, figure saved twice with fig and espc
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 set(gcf,'Units','Inches');
 pos = get(gcf,'Position');

@@ -1,7 +1,20 @@
 function xq = m2q(x,options)
-
-% trasnforms monthly series into quarterly with different aggregation
-% (default mean over the quarter)
+%M2Q Monthly to quarterly aggregation of one series.
+%
+%   xq = M2Q(x)
+%   xq = M2Q(x,options)
+%
+%   Inputs
+%     x        Tm x 1   monthly series, starting in the first month of a
+%                       quarter
+%     options  struct (optional); the presence of a field selects the
+%              aggregation (default: mean of the three months, NaN ignored)
+%       .median   median of the three months
+%       .end      last month of the quarter
+%       .start    first month of the quarter
+%
+%   Output
+%     xq       floor(Tm/3) x 1   quarterly series
 
 if size(x,1) < size(x,2)
     x = x';

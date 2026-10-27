@@ -12,9 +12,10 @@ function A = autocor(X,m)
 %            where the (i,j)th element of B[k] is corr(X[i,t],X[j,t-k]),
 %            i,j in [1,...,N].  A has dimension N*(m+1) x N.
 %
- 
+%
 %            Ellen R. McGrattan, 2-1-99
 %
+
 [T,N]=size(X);
 if T-m<=0;
   str='The number of obs.in the time series must be larger than m';

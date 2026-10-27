@@ -1,21 +1,46 @@
 function [dm] = directmethods(y,lags,options)
+%DIRECTMETHODS Local projections and direct forecasts, classical and Bayesian.
+%
+%   dm = DIRECTMETHODS(y,lags)
+%   dm = DIRECTMETHODS(y,lags,options)
+%
+%   Regresses y(t+h) on lags of y (and controls) for each horizon h. With a
+%   Conjugate prior it also produces Bayesian local projections, with the
+%   prior centred on the VAR-implied coefficients. See the local
+%   projections section of the Hitchhiker's Guide.
+%
+%   Inputs
+%     y        T x ny    data, one variable per column
+%     lags     scalar    number of lags (>= 1)
+%     options  struct (optional), main fields:
+%       .hor         horizon (default 24)
+%       .conf_sig    coverage of the classical bands (default 0.9)
+%       .Q           ny x ny rotation for the recursive responses (default eye)
+%       .proxy       T x ns instruments; responses to the instrumented shock
+%       .controls    T x nc controls, with .clags lags
+%       .robust_se_  0 OLS, 1 Newey-West (default), 2, 5 (MATLAB hac); see
+%                    OLS_REG
+%       .priors.name 'Conjugate' for Bayesian LP, with .priors.Phi,
+%                    .priors.Sigma, .K draws (default 5000); the shrinkage
+%                    can be estimated (.max_compute, .lb, .ub)
+%
+%   Output
+%     dm.ir_lp          ny x (hor+1) x ny x 3   LP responses; last dimension:
+%                                               1 lower, 2 point, 3 upper
+%     dm.irproxy_lp     ny x (hor+1) x 1 x 3    responses to the proxy shock
+%     dm.forecasts      hor x ny x 3            direct forecasts, same bands
+%     dm.ir_blp, .irproxy_blp     Bayesian LP draws (empty without prior)
+%     dm.bforecasts     .no_shocks, .with_shocks
+%     dm.logmlike, dm.prior       Bayesian LP only
+%
+%   See also OLS_REG, P2P, BLP_ML, PLOT_IRFS_.
+%
+%   References: Jorda, O. (2005), American Economic Review 95(1), 161-182.
+%   Miranda-Agrippino, S. and G. Ricco (2021), "The Transmission of
+%   Monetary Policy Shocks", American Economic Journal: Macroeconomics
+%   13(3), 74-107 (Bayesian local projections).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'directmethods' generates local projeciton IRF and direct forecasts
-
-% Core Inputs:
-% - y, data columns variables
-% - lags, lag order of the VAR
-
-% Additonal Inputs collected options
-% (...) see below
-% See the Hitchhiker's guide for more details. 
-% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
-
-% Filippo Ferroni, 27/02/2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 27/02/2020.
 
 if nargin < 2
     error('the BVAR toolbox needs at least two inputs: data and number of lags');

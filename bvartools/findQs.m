@@ -1,26 +1,30 @@
-% Copyright Andrew Binning 2013
-% Please feel free to use and modify this code as you see if fit. If you
-% use this code in any academic work, please cite 
-% Andrew Binning, 2013.
-% "Underidentified SVAR models: A framework for combining short and long-run restrictions with sign-restrictions,"
-% Working Paper 2013/14, Norges Bank.
 function [Q,index,flag] = findQs(k,f)
-%==========================================================================
-% finds the Q matrices that describe the linear restrictions on the shock
-% impact matrix. Based on Juan F. Rubio-Ramirez & Daniel F. Waggoner & Tao Zha, 2010.
-% "Structural Vector Autoregressions: Theory of Identification and
-% Algorithms for Inference," Review of Economic Studies, Oxford University
-% Press, vol. 77(2), pages 665-696.
+%FINDQS Linear restriction matrices for each shock, from short and long-run zeros.
 %
-% inputs:
-% k = number of dependent variables
-% f = matrix of short and long run restrictions
+%   [Q,index,flag] = FINDQS(k,f)
 %
-% outputs:
-% Q = a cell that contains the linear restrictions for each equation
-% index = the original column order of the matrix of restrictions
-% flag = indicates whether the model is over, under or exactly identified
-%==========================================================================
+%   Inputs
+%     k       scalar     number of variables
+%     f       2k x k     zero-restriction matrix from SIGN2MATRIX (0 marks a
+%                        zero restriction)
+%
+%   Outputs
+%     Q       k x 1 cell  restriction matrix for each shock, ordered from
+%                         the most to the least restricted
+%     index   k x 1       original order of the shocks
+%     flag    1 over-identified, 0 exactly identified, -1 under-identified
+%
+%   See also FINDP, GENERATEDRAW, IRESPONSE_ZEROS_SIGNS.
+%
+%   Reference: Rubio-Ramirez, J. F., D. F. Waggoner and T. Zha (2010),
+%   Review of Economic Studies 77(2), 665-696.
+
+%   Copyright Andrew Binning 2013. Please feel free to use and modify this
+%   code as you see fit. If you use it in academic work, please cite
+%   Binning, A. (2013), "Underidentified SVAR models: A framework for
+%   combining short and long-run restrictions with sign-restrictions",
+%   Norges Bank Working Paper 2013/14.
+
 E = eye(k);
 
 Q_init = cell(k,2);

@@ -1,25 +1,28 @@
 function minus_log_dnsty = bvar_opt_heterosked(hyperpara,y,lags,options)
+%BVAR_OPT_HETEROSKED Objective for the Minnesota and COVID rescaling hyperparameters.
+%
+%   minus_log_dnsty = BVAR_OPT_HETEROSKED(hyperpara,y,lags,options)
+%
+%   Pass it to BVAR_MAX_HYPER with options.objective_function =
+%   'bvar_opt_heterosked'.
+%
+%   Inputs
+%     hyperpara  log of the estimated hyperparameters: the five Minnesota
+%                ones, then one scale for each period from options.tstar on
+%     y, lags    as in BVAR_ML
+%     options    as in BVAR_OPT_HYPERPARA, plus .tstar, the first period
+%                with a rescaled residual variance
+%
+%   Output
+%     minus_log_dnsty   scalar, including the Jacobian of the rescaling
+%
+%   See also BVAR_MAX_HYPER, BVAR_ML.
+%
+%   Reference: Lenza, M. and G. E. Primiceri (2022), "How to Estimate a
+%   Vector Autoregression after March 2020", Journal of Applied
+%   Econometrics 37(4), 688-699.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bvar_opt_heterosked_' computes the marginal likelihood over the
-% hyperparameters of for the Minnesota prior and the rescaling parameters, 
-% see Lenza and Primiceri (2020)   
-
-% Bridge function between 'bvar_ml' and the minimization routine
-% 'bvar_max_hyper' 
-
-% Inputs:
-% - hyperpara, Minnesota hyperpara over which maximize the marginal
-% likelihood
-% - y, data columns variables
-% - lags, lag order of the VAR
-% - options, see below for details
-
-% Output: marginal data density 
-
-% Filippo Ferroni, 6/1/2017
-% Revised, 3/21/2018
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2017.
 
 hyperpara(options.index_est)   = exp(hyperpara);
 if isempty(options.index_fixed) == 0

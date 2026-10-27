@@ -1,33 +1,64 @@
 function [BVAR] = bvar_(y,lags,options)
+%BVAR_ Bayesian VAR: posterior draws, impulse responses, forecasts, marginal likelihood.
+%
+%   BVAR = BVAR_(y,lags)
+%   BVAR = BVAR_(y,lags,options)
+%
+%   Without options, a flat (Jeffreys) prior is used. All features are
+%   switched on through fields of options; the main ones are listed below
+%   and all are described in Chapter 3 of the Hitchhiker's Guide
+%   (HitchhikerGuide_.pdf in the toolbox folder).
+%
+%   Inputs
+%     y        T x ny (x nunits)   data, one variable per column; NaN marks
+%                                  missing values (mixed frequency, ragged
+%                                  edge); a third dimension stacks the units
+%                                  of a panel
+%     lags     scalar              number of lags (>= 1)
+%     options  struct (optional), main fields:
+%       Sampling and horizons
+%         .K           posterior draws (default 5000)
+%         .hor         IRF horizon (default 24)
+%         .fhor        forecast horizon (default 12)
+%       Sample and deterministic terms
+%         .firstobs, .presample, .noconstant, .timetrend, .exogenous
+%       Priors
+%         .priors.name 'Minnesota', 'Conjugate' or 'PLR'; with
+%                      .minn_prior_tau, _decay, _lambda, _mu, _omega,
+%                      .max_minn_hyper and .max_plr_hyper to estimate
+%                      the hyperparameters; .heterosked_weights for the
+%                      Lenza-Primiceri rescaling
+%       Identification (each adds its own output fields)
+%         .signs, .narrative, .zeros_signs, .set, .proxy, .long_run_irf,
+%         .heterosked_regimes, .hmoments, .hmoments_eig, .irf_1STD,
+%         .robust_credible_regions
+%       Forecasts and networks
+%         .endo_path, .endo_index, .exo_index   conditional forecasts
+%         .connectedness, .nethor               spillover tables
+%
+%   Output (main fields)
+%     BVAR.Phi_draws     (ny*lags+nx) x ny x K   autoregressive coefficients,
+%                                               lag-1 block first,
+%                                               deterministic terms last
+%     BVAR.Sigma_draws   ny x ny x K             residual covariance
+%     BVAR.e_draws       residuals for each draw
+%     BVAR.ir_draws      ny x hor x ny x K       recursive (Cholesky) IRFs
+%     BVAR.irlr_draws, .irsign_draws, .irnarrsign_draws,
+%     .irzerosign_draws, .irfset_draws, .irproxy_draws,
+%     .irheterosked_draws, .irhmomsign_draws, .irhmomeig_draws
+%                                                IRFs of each identification
+%     BVAR.Omegas, .Omegan, .Omegaz, .Omegaset ...  accepted rotations
+%     BVAR.irfset_weights                        importance weights of
+%                                                options.set (use WQUANTILE)
+%     BVAR.forecasts     .no_shocks, .with_shocks, .conditional
+%     BVAR.logmlike      log marginal likelihood
+%     BVAR.Phi_ols, .Sigma_ols, .e_ols, .InfoCrit (AIC, HQIC, BIC)
+%     BVAR.Connectedness spillover tables, if requested
+%
+%   See also BVAR, CVAR_, PARSE_BVAR_OPTIONS, BVAR_MAX_HYPER, PLOT_IRFS_,
+%   PLOT_FRCST_, HISTDECOMP, FEVD_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bvar_' generates draws from the paramters of VAR model with error
-% distributed as a multivariate normal
-
-% Core Inputs:
-% - y, data columns variables
-% - lags, lag order of the VAR
-
-% Additonal Inputs collected options:
-% - options are not mandatory. if nothing is specified then a Jeffrey prior is
-%   assumed
-% - options.K, number of draws from the posterior distribution
-% - options.hor, horizon to compute the impulse response
-% - options.fhor, horizon to compute the out-of-sample forecast
-% - options.priors, a string with he priors for the autoregressive paramters and
-%   for the scaling matrix.
-% (...) see below
-% See the Hitchhiker's guide for more details. 
-% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
-
-
-% Output: Draws from the conditional distribution of Phi, Sigma and
-% Omega, impulse response with the various identification restrictions,
-% forecast and marginal likelihood. 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni and Fabio Canova. https://github.com/naffe15/BVAR_
 
 if nargin < 2
     error('the bvar_ funtion needs at least two inputs: data and number of lags');

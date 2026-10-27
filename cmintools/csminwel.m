@@ -1,4 +1,8 @@
 function [fh,xh,gh,H,itct,fcount,retcodeh] = csminwel(fcn,x0,H0,grad,crit,nit,varargin)
+%CSMINWEL Unconstrained minimisation by quasi-Newton with BFGS updates.
+%
+%   Code by Christopher A. Sims; original help below.
+%
 %[fhat,xhat,ghat,Hhat,itct,fcount,retcodehat] = csminwel(fcn,x0,H0,grad,crit,nit,varargin)
 % fcn:   string naming the objective function to be minimized
 % x0:    initial value of the parameter vector
@@ -16,6 +20,7 @@ function [fh,xh,gh,H,itct,fcount,retcodeh] = csminwel(fcn,x0,H0,grad,crit,nit,va
 %        hessian update, respectively.  (When the routine hits certain kinds of difficulty, it
 %        write g2.mat and g3.mat as well.  If all were written at about the same time, any of them
 %        may be a decent starting point.  One can also start from the one with best function value.)
+
 [nx,no]=size(x0);
 nx=max(nx,no);
 Verbose=1;

@@ -1,10 +1,33 @@
 function [posterior,prior] = p2p(hh, shrinkage,prior0,olsreg,F,G,Fo,positions_nylags,position_constant)
-% 
-%********************************************************
-% Conjugate Prior: MN-IW for Direct Methods
-%********************************************************
+%P2P Prior and posterior of a Bayesian local projection at horizon hh.
+%
+%   [posterior,prior] = P2P(hh,shrinkage,prior0,olsreg,F,G,Fo,positions_nylags,position_constant)
+%
+%   The prior mean of the horizon-hh coefficients is the one implied by
+%   the VAR (companion matrix F); its covariance is prior0.Phi.cov divided
+%   by shrinkage. Normal-inverse-Wishart conjugate updating.
+%
+%   Inputs
+%     hh                 scalar   horizon
+%     shrinkage          scalar   prior tightness
+%     prior0             struct   .Phi.cov, .Sigma.scale, .Sigma.df
+%     olsreg             struct   OLS_REG output for horizon hh
+%     F, G, Fo           VAR companion matrix, selection matrix and
+%                        constant in companion form
+%     positions_nylags   columns of olsreg.X with the lags of y
+%     position_constant  column of the constant ([] if none)
+%
+%   Outputs
+%     prior       .BetaMean, .BetaVar, .df, .XXi, .S
+%     posterior   .PhiHat, .XXi, .S, .df and intermediate matrices
+%
+%   See also BLP_ML, DIRECTMETHODS, MNIW_LOG_DNSTY.
+%
+%   Reference: Miranda-Agrippino, S. and G. Ricco (2021), American
+%   Economic Journal: Macroeconomics 13(3), 74-107.
 
 % settings
+
 if isempty(position_constant) == 0
     nx = 1;
 else 

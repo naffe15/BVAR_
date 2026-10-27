@@ -1,23 +1,22 @@
 function q = wquantile(X, w, p)
+%WQUANTILE Weighted quantiles across draws.
+%
+%   q = WQUANTILE(X,w,p)
+%
+%   Inputs
+%     X    array of draws, draws on the LAST dimension, e.g.
+%          BVAR.irfset_draws (variable x horizon x shock x draws)
+%     w    draws x 1   weights, e.g. BVAR.irfset_weights; draws with
+%                      w = 0, w = NaN or X = NaN are ignored
+%     p    vector      probabilities, e.g. [0.16 0.5 0.84]
+%
+%   Output
+%     q    size of X with the last dimension replaced by numel(p), e.g.
+%          variable x horizon x shock x numel(p)
+%
+%   See also IRESPONSE_SET, PLOT_IRFS_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'wquantile' computes weighted quantiles across draws, e.g. of the IRFs
-% of options.set with the weights BVAR.irfset_weights.
-%
-% q = wquantile(X, w, p)
-%
-% Inputs:
-% - X, array of draws; the draws are on the LAST dimension
-%   (e.g. BVAR.irfset_draws: variable x horizon x shock x draws)
-% - w, weights (draws x 1); draws with w = 0 or NaN values are ignored
-% - p, probabilities, e.g. [0.16 0.5 0.84]
-%
-% Output:
-% - q, array with the size of X except the last dimension, which has
-%   numel(p) elements (e.g. variable x horizon x shock x numel(p))
-%
-% Filippo Ferroni,
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni.
 
 sz = size(X);
 K  = sz(end);

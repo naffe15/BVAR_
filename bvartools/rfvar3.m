@@ -1,37 +1,45 @@
 function var=rfvar3(ydata,lags,xdata,breaks,lambda,mu,ww,plr)
-%function var=rfvar3(ydata,lags,xdata,breaks,lambda,mu)
-% This algorithm goes for accuracy without worrying about memory requirements.
-% ydata:   dependent variable data matrix
-% xdata:   exogenous variable data matrix
-% lags:    number of lags
-% breaks:  rows in ydata and xdata after which there is a break.  This allows for
-%          discontinuities in the data (e.g. war years) and for the possibility of
-%          adding dummy observations to implement a prior.  This must be a column vector.
-%          Note that a single dummy observation becomes lags+1 rows of the data matrix,
-%          with a break separating it from the rest of the data.  The function treats the 
-%          first lags observations at the top and after each "break" in ydata and xdata as
-%          initial conditions. 
-% lambda:  weight on "co-persistence" prior dummy observations.  This expresses
-%          belief that when data on *all* y's are stable at their initial levels, they will
-%          tend to persist at that level.  lambda=5 is a reasonable first try.  With lambda<0,
-%          constant term is not included in the dummy observation, so that stationary models
-%          with means equal to initial ybar do not fit the prior mean.  With lambda>0, the prior
-%          implies that large constants are unlikely if unit roots are present.
-% mu:      weight on "own persistence" prior dummy observation.  Expresses belief
-%          that when y_i has been stable at its initial level, it will tend to persist
-%          at that level, regardless of the values of other variables.  There is
-%          one of these for each variable.  A reasonable first guess is mu=2.
-% plr:     (optional) Prior-for-the-Long-Run spec (Giannone, Lenza & Primiceri
-%          2019): struct with fields H, phi and ybar; the dummy rows are built
-%          inline below. Empty or omitted means no PLR dummies.
-%      The program assumes that the first lags rows of ydata and xdata are real data, not dummies.
-%      Dummy observations should go at the end, if any.  If pre-sample x's are not available,
-%      repeating the initial xdata(lags+1,:) row or copying xdata(lags+1:2*lags,:) into 
-%      xdata(1:lags,:) are reasonable subsititutes.  These values are used in forming the
-%      persistence priors.
+%RFVAR3 Reduced-form VAR by least squares, with dummy observations for priors.
+%
+%   var = RFVAR3(ydata,lags,xdata,breaks,lambda,mu)
+%   var = RFVAR3(ydata,lags,xdata,breaks,lambda,mu,ww,plr)
+%
+%   Inputs
+%     ydata    T x nvar   dependent variables; the first lags rows are
+%                         initial conditions; prior dummies go at the end
+%     lags     scalar     number of lags
+%     xdata    T x nx     exogenous variables (same length as ydata), or []
+%     breaks   column vector of rows after which there is a break. Allows
+%              discontinuities in the data and the addition of dummy
+%              observations: one dummy observation is lags+1 rows, separated
+%              from the rest by a break. The first lags rows after each
+%              break are treated as initial conditions.
+%     lambda   weight on the co-persistence dummy (sum of all y stable at
+%              their initial levels stays there; 5 is a reasonable start).
+%              With lambda < 0 the constant is left out of the dummy.
+%     mu       weight on the own-persistence dummies (one per variable; 2 is
+%              a reasonable start)
+%     ww       T x 1   (optional) rescaling of each observation, for
+%              heteroskedasticity of known form (Lenza and Primiceri, 2022);
+%              rows of y and X are divided by ww
+%     plr      (optional) Prior for the Long Run (Giannone, Lenza and
+%              Primiceri, 2019): struct with fields H, phi and ybar; the
+%              dummy rows are built here. Empty or omitted: no PLR dummies.
+%
+%   Output
+%     var.B    (nvar*lags+nx) x nvar   coefficients, lag-1 block first
+%     var.u    residuals, including the dummy rows
+%     var.xxi  inv(X'X)
+%     var.y, var.X   data matrices including the dummy rows
+%
+%   If pre-sample x's are not available, repeating xdata(lags+1,:) or
+%   copying xdata(lags+1:2*lags,:) into xdata(1:lags,:) are reasonable
+%   substitutes; they are used in the persistence priors.
+%
+%   See also VARPRIOR, PANDEMIC_VARPRIOR, MATRICTINT, BVAR_ML.
 
-% Original file downloaded from:
-% http://sims.princeton.edu/yftp/VARtools/matlab/rfvar3.m
+%   Original file by Christopher A. Sims, downloaded from
+%   http://sims.princeton.edu/yftp/VARtools/matlab/rfvar3.m; the ww and plr arguments are additions.
 
 if nargin<7 || isempty(ww)
    scale_ = 0;

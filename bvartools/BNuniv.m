@@ -1,16 +1,31 @@
 function [yc,  yt]=BNuniv(Y,nlags,ck,fig,lr)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Beveridge-Nelson univariate decomposition, see Canova(2007)
+%BNUNIV Univariate Beveridge-Nelson trend-cycle decomposition.
+%
+%   [yc,yt] = BNUNIV(Y,nlags,ck,fig,lr)
+%
+%   Fits an AR(nlags) to the first difference of each series and builds the
+%   permanent (trend) component from the long-run multiplier.
+%
+%   Inputs
+%     Y       T x n    series in levels (e.g. logs), one per column
+%     nlags   scalar   lags of the AR model for the first differences
+%     ck      1 or 0   constant in the AR model (see the note below)
+%     fig     1 or 0   1 plots trend and cycle of each series (pauses
+%                      after each)
+%     lr      1 or 0   drift of the trend: 1 sample mean of the
+%                      differences, 0 long-run mean implied by the AR
+%
+%   Outputs
+%     yc      T x n    cycle (transitory component); zeros in the first
+%                      nlags periods
+%     yt      T x n    trend (permanent component)
+%
+%   See also BNBQBIV, HAMFILTER, UC2_.
+%
+%   Reference: Canova, F. (2007), Methods for Applied Macroeconomic
+%   Research, Princeton University Press, Chapter 3.
 
-% nlags number  of  lags  in  AR regression
-% ck if =1 constant;  if  =0 no  constant
-% lr if =1 use  sample mean; if =0  use  long run mean
-
-% yc = estimated cycle
-% yt = estimated trend
-
-% Fabio Canova,
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Fabio Canova.
 
 enddT=length(Y);
 yc=[]; yt=[];
@@ -21,7 +36,12 @@ for  qq=1:size(Y,2)
     % variables ordered as:  Y(-1), Y(-2), etc, constant,
     [Z1,W0] = YXB_(ddatax-mean(ddatax),nlags,[ck 0]);  % creates Y and lags
     % variables ordered as:  constant, Y(-1), Y(-2), etc.
-    W1 = W0(:,[nlags+1,1:nlags]);
+    % W1 = W0(:,[nlags+1,1:nlags]);   % old: fails when ck = 0 (no constant column)
+    if ck==1
+        W1 = W0(:,[nlags+1,1:nlags]);
+    else
+        W1 = W0;
+    end
     Bet1x=(W1'*W1)\(W1'*Z1);  % beta ols
     %Bet1x=(W1'*W1+0.001*eye(length(W1'*W1)))\(W1'*Z1);  % beta ridge
     res1x=Z1-W1*Bet1x;      % residuals ols

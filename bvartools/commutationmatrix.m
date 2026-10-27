@@ -1,4 +1,12 @@
 function K = commutationmatrix(n)
+%COMMUTATIONMATRIX Commutation matrix K such that K*vec(A) = vec(A').
+%
+%   K = COMMUTATIONMATRIX(n)
+%
+%   Input    n   size of the square matrix A
+%   Output   K   n^2 x n^2
+%
+%   See also DUPLICATIONMATRIX.
 
 K = zeros(n^2,n^2);
 

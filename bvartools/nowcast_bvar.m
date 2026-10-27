@@ -1,8 +1,34 @@
 function out = nowcast_bvar(DataMFNC, BVAR, options)
-% NOWCAST_BVAR  nowcast_bvar .
+%NOWCAST_BVAR Nowcasts and forecasts of a low-frequency variable from a mixed-frequency BVAR.
 %
-%   out = nowcast_bvar2(DataMFNC, BVAR, options)
+%   out = NOWCAST_BVAR(DataMFNC,BVAR)
+%   out = NOWCAST_BVAR(DataMFNC,BVAR,options)
 %
+%   For posterior draws of a mixed-frequency BVAR, runs the Kalman smoother
+%   on each data set and forecasts from the end of the sample. The
+%   target is variable BVAR.KFoptions.mf_varindex; if it is a flow, the
+%   quarterly forecast is the 3-month average of the monthly path.
+%
+%   Inputs
+%     DataMFNC  T x ny x nD   one or more data sets (e.g. vintages), NaN
+%                             for missing values
+%     BVAR      output of BVAR_ estimated with mixed frequencies
+%     options   struct (optional)
+%       .NumbDrawsFromPost  posterior draws used (default 1000)
+%       .fast_kf            1 smooths the balanced part of the sample
+%                           once and the ragged edge separately
+%       .state_uncertainty  1 adds smoothing uncertainty (simulation
+%                           smoother of Durbin and Koopman, 2002)
+%       .noprint            2 hides the progress bar
+%
+%   Output
+%     out.NowCast            T x draws x nD        latent monthly target
+%     out.ForeCast           .no_shock, .with_shocks   nowcast followed by
+%                            the fhor-step forecasts of the target
+%     out.ForeCastMonthly    .no_shock, .with_shocks   fhor x ny x draws x nD
+%     out.options, out.state_uncertainty
+%
+%   See also KFILTERNAN, FORECASTS, BVAR_.
 
 fast_kf             = 0;
 state_unc           = 0;

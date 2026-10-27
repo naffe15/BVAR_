@@ -1,8 +1,11 @@
 function quer(str); 
-% function quer(str); 
-% Query user 
-% if str=='c' Continue or not 
-% if str=='g' close Graphs or not
+%QUER Asks the user, in a dialog box, whether to continue or close figures.
+%
+%   QUER('c')   asks whether to continue; 'No' stops with an error
+%   QUER('g')   asks whether to close all figures
+%
+%   See also KFILTERNAN.
+
 str=upper(str); 
 switch str 
 case 'C' 

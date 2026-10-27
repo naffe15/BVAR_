@@ -1,11 +1,27 @@
 function [ywc1, ywt1, ywc2, ywt2] = wavefilter(X, fig)
-
-% wavelets (Haar) filtering: see Lubik, Matthes, Verona (2019)
-
-%  ywc1 has the  cycles at frequencies 8-32 quarters (loose 16 datapoints)
-%  ywc2 has the  cycles at frequencies 8-64 quarters (loose 32 datapoints)
-%  ywt1 and  ywt2 have  the trends  and are defined  as  residuals
- 
+%WAVEFILTER Haar wavelet filter: business-cycle components and trends.
+%
+%   [ywc1,ywt1,ywc2,ywt2] = WAVEFILTER(X,fig)
+%
+%   Built for quarterly data.
+%
+%   Inputs
+%     X      T x n    series, one per column
+%     fig    1 or 0   1 plots the cycles of each series (pauses after each)
+%
+%   Outputs
+%     ywc1   T x n    cycle with periods of 8-32 quarters (first 15
+%                     observations are zero)
+%     ywt1   T x n    trend: data minus cycles shorter than 32 quarters
+%     ywc2   T x n    cycle with periods of 8-64 quarters (first 31
+%                     observations are zero)
+%     ywt2   T x n    trend: data minus cycles shorter than 64 quarters
+%
+%   See also BKFILTER, CFFILTER.
+%
+%   Reference: Lubik, T. A., C. Matthes and F. Verona (2019), "Assessing
+%   U.S. Aggregate Fluctuations Across Time and Frequencies", Federal
+%   Reserve Bank of Richmond Working Paper 19-06.
 
 enddT=size(X,1);
 ywc1=zeros(enddT,size(X,2));   ywt1=zeros(enddT,size(X,2)); 

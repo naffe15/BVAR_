@@ -1,11 +1,24 @@
-function [s]=hpfilter(y,w)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  function [s]=hpfilter(y,w)
-%  Hondrick Prescott filter where:
-%  w - smoothing parameter; w=1600 for quarterly data
-%  y - the original series that has to be smoothed
-%  s - the filtered series
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [s]=Hpfilter(y,w)
+%HPFILTER Two-sided Hodrick-Prescott filter: returns the trend.
+%
+%   s = HPFILTER(y,w)
+%
+%   Inputs
+%     y   T x n    series, one per column (a row vector is transposed)
+%     w   scalar   smoothing parameter, e.g. 1600 for quarterly data
+%
+%   Output
+%     s   T x n    trend; the cycle is y - s
+%
+%   See also ONE_SIDED_HPFILTER_SERIAL, HAMFILTER.
+%
+%   Reference: Hodrick, R. J. and E. C. Prescott (1997), "Postwar U.S.
+%   Business Cycles: An Empirical Investigation", Journal of Money, Credit
+%   and Banking 29(1), 1-16.
+
+% old function line: function [s]=hpfilter(y,w); renamed to match the file
+% name and to avoid a clash with hpfilter of the Econometrics Toolbox
+
 if size(y,1)<size(y,2)
    y=y';
 end

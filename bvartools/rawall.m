@@ -1,8 +1,21 @@
 function [bcp5,bct5,nbp,nbt]=rawall(y,turnphase,nd,phase,cycle,thresh)
-%  [bcp5,bct5,nbp,nbt]=rawall(y)
+%RAWALL Turning points of a series with all censoring rules imposed.
 %
-%  Makes sure all restrictions are imposed and chooses turning points
-
+%   [bcp5,bct5,nbp,nbt] = RAWALL(y,turnphase,nd,phase,cycle,thresh)
+%
+%   Inputs
+%     y          nd x 1   series
+%     turnphase  scalar   window for a local peak or trough
+%     nd         scalar   number of observations
+%     phase      scalar   minimum length of a phase
+%     cycle      scalar   minimum length of a cycle
+%     thresh     scalar   fall above which phase and cycle rules are bypassed
+%
+%   Outputs
+%     bcp5, bct5   positions of the peaks and of the troughs
+%     nbp, nbt     number of peaks and of troughs
+%
+%   See also DATE_, ISDATE, STATES.
 
 bcp5=[];
 bct5=[];

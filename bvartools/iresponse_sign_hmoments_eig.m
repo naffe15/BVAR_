@@ -1,22 +1,27 @@
 function [ir,Omeg] = iresponse_sign_hmoments_eig(errors,Phi,Sigma,hor,moment)
+%IRESPONSE_SIGN_HMOMENTS_EIG Responses identified from the higher moments of the residuals.
+%
+%   [ir,Omeg] = IRESPONSE_SIGN_HMOMENTS_EIG(errors,Phi,Sigma,hor)
+%   [ir,Omeg] = IRESPONSE_SIGN_HMOMENTS_EIG(errors,Phi,Sigma,hor,moment)
+%
+%   The rotation is taken from the singular value decomposition of the
+%   fourth-order cumulant (moment = 4) or of the third moments (moment = 3)
+%   of the residuals. Used by BVAR_ with options.hmoments_eig.
+%
+%   Inputs
+%     errors   T x ny    reduced-form residuals
+%     Phi      (ny*lags+nx) x ny   VAR coefficients (see IRESPONSE)
+%     Sigma    ny x ny   covariance of the reduced-form residuals
+%     hor      scalar    number of horizons
+%     moment   3 or 4    moments used (default 4)
+%
+%   Outputs
+%     ir       ny x hor x ny   responses
+%     Omeg     ny x ny         rotation of chol(Sigma,'lower')
+%
+%   See also IRESPONSE_SIGN_HMOMENTS, THIRDMOM, FOURTHMOM.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 
-
-% Inputs:
-% - e, VAR reduced form errors (T x n)
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-
-% Output:
-% - ir contains the IRF
-% 1st dimension:   variable
-% 2st dimension:   horizon
-% 3st dimension:   shock
-
-% Filippo Ferroni, 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni.
 
 [~,n]   = size(Sigma);
 if nargin < 5
@@ -25,7 +30,8 @@ end
 
 A       = chol(Sigma,'lower');
 %  varols.u * BVAR.iSigChol';
-u     = errors * A';
+% u     = errors * A';   % old: does not standardize the residuals
+u     = errors / A';     % standardized residuals, u = errors * inv(A)', cov(u) = I
 
 if moment == 4
     % eigenvalue decompostion of fourth moments

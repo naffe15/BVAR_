@@ -1,15 +1,17 @@
 function []=shade(start,finish,colorstr,up,low);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-
-% function []=shade(start,finish,colorstr);
+%SHADE Shades periods (e.g. recessions) on the current plot.
 %
-%  start and finish are Nx1 vectors of starting and ending years.
-%  The function shades between the start and finish pairs using colorstr
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   SHADE(start,finish,colorstr,up,low)
+%
+%   Inputs
+%     start, finish   N x 1   first and last date of each shaded period
+%     colorstr        colour (default 'y')
+%     up              top of the band, as a fraction of the upper y limit
+%     low             offset added to the lower y limit
+%
+%   See also PLOT_FRCST_, VLINE.
+
+%   Filippo Ferroni, 6/1/2015.
 
 if ~exist('colorstr'); colorstr='y'; end;  % default is yellow
 curax=axis;
@@ -21,8 +23,11 @@ for i=1:length(start);
 end;
   
 % Now, prevent the shading from covering up the lines in the plot.  
-h = findobj(gca,'Type','line');
-set(h,'EraseMode','xor');
+% h = findobj(gca,'Type','line');   % old: EraseMode was removed in MATLAB R2014b
+% set(h,'EraseMode','xor');          % and errors there
+ch  = get(gca,'Children');           % move the shaded areas behind everything else,
+isp = strcmp(get(ch,'Type'),'patch');%   so lines plotted before shade stay visible
+set(gca,'Children',[ch(~isp); ch(isp)]);
 
 h = findobj(gca,'Type','patch');
 set(h,'EdgeColor','none');

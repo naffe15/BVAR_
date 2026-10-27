@@ -1,35 +1,38 @@
 function [ir,Omeg] = iresponse_sign_narrative(errors,Phi,Sigma,hor,signrestriction,narrative,cont)
+%IRESPONSE_SIGN_NARRATIVE Responses identified with sign and narrative restrictions.
+%
+%   [ir,Omeg] = IRESPONSE_SIGN_NARRATIVE(errors,Phi,Sigma,hor,signrestriction,narrative)
+%   [ir,Omeg] = IRESPONSE_SIGN_NARRATIVE(errors,Phi,Sigma,hor,signrestriction,narrative,cont)
+%
+%   Draws random rotations (up to 30000) until one satisfies the sign
+%   restrictions on the responses and the narrative restrictions on the
+%   implied structural shocks.
+%
+%   Inputs
+%     errors           T x ny     reduced-form residuals
+%     Phi              (ny*lags+nx) x ny   VAR coefficients (see IRESPONSE)
+%     Sigma            ny x ny    covariance of the reduced-form residuals
+%     hor              scalar     number of horizons
+%     signrestriction  cell array of strings 'y(a,b,c)>0' (options.signs)
+%     narrative        cell array of strings in v (options.narrative), e.g.
+%                      'v(tau,n)>0': shock n is positive in period tau (a
+%                      row of errors); 'sum(v(tau0:tau1,n))>0' is allowed
+%     cont             nobs x ny  FAVAR only: loadings of the observables
+%
+%   Outputs
+%     ir     ny x hor x ny   responses (nobs x hor x ny with cont), NaN if
+%                            no rotation is found
+%     Omeg   ny x ny         accepted rotation of chol(Sigma,'lower')
+%
+%   No importance weights are computed; IRESPONSE_SET returns them.
+%
+%   See also IRESPONSE_SIGN, IRESPONSE_SET, CHECKRESTRICTIONS.
+%
+%   Reference: Antolin-Diaz, J. and J. F. Rubio-Ramirez (2018), "Narrative
+%   Sign Restrictions for SVARs", American Economic Review 108(10),
+%   2802-2829.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'iresponse_sign_narrative' computes the impulse response functions using sign
-% restrictions on the endogenous variables
-% Reference:
-
-% Inputs:
-% - e, VAR reduced form errors (T x n)
-% - Phi, AR parameters of the VAR
-% - Sigma, Covariance matrix of the reduced form VAR shocks
-% - hor, horizon of the IRF
-% - unit, 1 shock STD or 1 percent increase
-% - signrestriction, cell array containing the restrictions. Sign
-% restriction can be activated in the toolbox by setting the options
-% options.signs{1} = 'y(a,b,c)>0';
-% where a, b and c are integer. The syntax means that shock c has a
-% positive impact on the a-th variable at horizon b.
-% - narrative, cell array containing the restrictions. Sign
-% restriction can be activated in the toolbox by setting the options
-% options.narrative{1} = 'v(a,b)>0';
-% where m can be a vector of scalar and n is a scalar. The syntax means
-% that shock n has to be positive .
-
-% Output:
-% - ir contains the IRF
-% 1st dimension:   variable
-% 2st dimension:   horizon
-% 3st dimension:   shock
-
-% Filippo Ferroni, 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni.
 
 [m,n]   = size(Sigma);
 d       = 0;
@@ -67,7 +70,7 @@ while d==0 && tol < 30000
     if favar == 1
         if do_pagemtimes == 0
             for jj  = 1 : size(y,3)
-                yy(:,:,jj) = cont * y(:,:,jj);
+                yy(:,1:hor0,jj) = cont * y(:,1:hor0,jj);
             end
         else
             lam  = repmat(cont,1,1,n);

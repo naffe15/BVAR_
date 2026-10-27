@@ -1,16 +1,32 @@
 function plot_frcst_(frcsts,y,time,options)
+%PLOT_FRCST_ Fan chart of the forecasts, one subplot per variable.
+%
+%   PLOT_FRCST_(frcsts,y,time)
+%   PLOT_FRCST_(frcsts,y,time,options)
+%
+%   Plots the data followed by the median forecast and credible bands. See
+%   the forecasting section of the Hitchhiker's Guide.
+%
+%   Inputs
+%     frcsts   fhor x ny x K   forecast draws, e.g. BVAR.forecasts.no_shocks
+%     y        T x ny          data
+%     time     T x 1           dates of the data
+%     options  struct (optional)
+%       .varnames        cell, one name per variable
+%       .time_start      first date plotted (must be in time)
+%       .conf_sig        coverage of the band (default 0.68)
+%       .conf_sig_2      coverage of a second band
+%       .nplots          1 x 2   subplot grid
+%       .add_frcst       (T+fhor) x ny   additional data and forecasts
+%       .order_transform 1 x ny  transformation per variable: 0 none, 1
+%                        period change, 4 or 12 the 100 x 4- or 12-period
+%                        change, 100 the 100 x period change
+%       .saveas_dir, .saveas_strng   folder and name; saved only if both
+%                                    are given
+%
+%   See also BVAR_, FORECASTS, SHADE.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 8/08/2019
-
-% input : frcsts
-% 1st dimension: horizon
-% 2nd dimension: variable
-% 3rdth dimension: draws
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 if length(time) ~= length(y)
     error('Mismatch between time and in sample data (y)');

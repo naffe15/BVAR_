@@ -1,13 +1,20 @@
 function [f] = hmoments2matrix(hmoments,ny)
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% set of higher moments - contains the moments of 
-% 1st dimension:   shocks
-% 2nd dimension:   moment estimator (1= based on sample 3rd and 4th
-% moments, >1 robust estimators
-% 3rd dimension:   moment order (1 = skewnewss, 2 = kurtosis)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%HMOMENTS2MATRIX Marks which higher moments options.hmoments restricts.
+%
+%   f = HMOMENTS2MATRIX(hmoments,ny)
+%
+%   Inputs
+%     hmoments  cell array of strings 'hm(a,b,c) > threshold' (see
+%               CHECKMRESTRICTIONS)
+%     ny        scalar   number of variables (shocks)
+%
+%   Output
+%     f         ny x 4 x 2   1 where hm(a,b,c) is restricted, NaN elsewhere:
+%                            a shock, b estimator (1 sample moments, 2-4
+%                            robust estimators), c moment (1 skewness,
+%                            2 kurtosis)
+%
+%   See also CHECKMRESTRICTIONS, IRESPONSE_SIGN_HMOMENTS.
 
 f = nan(ny,4,2);
 for ell = 1 : length(hmoments)

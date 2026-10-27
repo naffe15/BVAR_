@@ -1,11 +1,35 @@
 function [C] = connectedness(Phi,Sigma,p,Omega)
-% function [C] = connectedness(Phi,Sigma,p)
+%CONNECTEDNESS Spillover (connectedness) measures of Diebold and Yilmaz.
+%
+%   C = CONNECTEDNESS(Phi,Sigma,p)
+%   C = CONNECTEDNESS(Phi,Sigma,p,Omega)
+%
+%   Based on the p-step forecast error variance decomposition: generalised
+%   (Pesaran-Shin) when Omega is omitted, otherwise the one of the
+%   structural shocks with impact matrix Omega.
+%
+%   Inputs
+%     Phi     (ny*lags) x ny   autoregressive coefficients only, lag-1 block
+%                              first (no constant)
+%     Sigma   ny x ny          residual covariance
+%     p       scalar           horizon (options.nethor in BVAR_)
+%     Omega   ny x ny          impact matrix, e.g. chol(Sigma,'lower')*Q
+%
+%   Output
+%     C.Index           scalar   total connectedness, percent
+%     C.FromAllToUnit   ny x 1   received by each variable from the others
+%     C.FromUnitToAll   ny x 1   transmitted by each variable to the others
+%     C.Net             ny x 1   transmitted minus received
+%     C.theta           ny x ny  variance shares before normalisation
+%
+%   See also VAR2MA, BVAR_.
+%
+%   Reference: Diebold, F. X. and K. Yilmaz (2012), "Better to Give than to
+%   Receive: Predictive Directional Measurement of Volatility Spillovers",
+%   International Journal of Forecasting 28(1), 57-66.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% connectedness 
+%   Filippo Ferroni, 5/1/2021.
 
-% Filippo Ferroni, 5/1/2021
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Pesaran_Shin = 0;
 % dimensions
 [m, ny] = size(Phi);    

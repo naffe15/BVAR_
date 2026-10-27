@@ -1,15 +1,33 @@
 function [A,B,C,const,Sigma,lags,index_var]=var2ss(Phi,Sigma,index)
+%VAR2SS State-space form of a VAR, with temporal aggregation.
+%
+%   [A,B,C,const,Sigma,lags,index_var] = VAR2SS(Phi,Sigma)
+%   [A,B,C,const,Sigma,lags,index_var] = VAR2SS(Phi,Sigma,index)
+%
+%   x(t) = A x(t-1) + B Sigma' u(t),   u(t) ~ N(0,I)
+%   y(t) = C (const + x(t))
+%   where A is the companion matrix, possibly with extra states for the
+%   aggregated variables.
+%
+%   Inputs
+%     Phi     (ny*lags+nx) x ny   VAR coefficients (nx = 0 or 1, constant)
+%     Sigma   ny x ny   residual covariance
+%     index   ny x 1    how each variable is observed (default 0):
+%               0  stock, observed as is
+%               2  flow or deflator: average of the last 3 periods
+%                  (monthly to quarterly); needs lags >= 2
+%               4  average of the last 4 periods; needs lags >= 3
+%
+%   Outputs
+%     A, B, C     state-space matrices
+%     const       steady state of the states
+%     Sigma       ny x ny  upper Cholesky factor of the input Sigma
+%     lags        number of lags
+%     index_var   1 x ny   state that each observable loads on
+%
+%   See also KFILTERNAN, UC2SS, CFORECASTS.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% var2ss coverts the VAR into a state space system of this form
-% x(t) = A x(t-1) + B Sigma' u(t) ~ N(0,I)
-% y(t) = C*(cons + x(t-1))
-% where A is the companion form of the lag struture
-
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 if nargin < 3
     %% all stocks

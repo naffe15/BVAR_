@@ -1,14 +1,35 @@
 function [ytrend,ycycle,out] = uc2_(y,lags,opts)
+%UC2_ Unobserved-components model with an I(2) trend, estimated by maximum likelihood.
+%
+%   [ytrend,ycycle,out] = UC2_(y,lags)
+%   [ytrend,ycycle,out] = UC2_(y,lags,opts)
+%
+%   Model:  y(t) = a(t) + b(t)
+%           a(t) = a1 a(t-1) + ... + ap a(t-p) + ea(t)   cycle
+%           b(t) = c(t-1) + b(t-1) + eb(t)               trend
+%           c(t) = c(t-1) + ec(t)                        trend growth
+%   The likelihood comes from KFILTERNAN. The shock variances are
+%   optimised in logs, so they stay positive; the AR coefficients of the
+%   cycle are optimised in levels and can be negative.
+%
+%   Inputs
+%     y       T x 1    series
+%     lags    scalar   order p of the cycle
+%     opts    struct (optional)
+%       .phi, .sigma     starting values (defaults 0.5^j and 0.5)
+%       .index_est       parameters to estimate (default all)
+%       .max_compute     optimiser, as in BVAR_MAX_HYPER (default 3)
+%       .lb, .ub         bounds for max_compute = 2
+%       .one_sided       1 returns filtered instead of smoothed components
+%       .noplot, .noprint, .time, .varname   output controls
+%
+%   Outputs
+%     ytrend, ycycle   T x 1   smoothed (or filtered) trend and cycle
+%     out              KFILTERNAN output plus .phi and .sigma at the mode
+%
+%   See also UC_OPT_HYPERPARA, UC2SS, KFILTERNAN, UC1_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% from the UC of the form 
-% a(t)  = a1 a(t-1) + ... + ap a(t-p) + ea(t )    [transition 1]
-% b(t)  = c(t-1)    + b(t-1) + eb(t);             [transition 2]
-% c(t)  = c(t-1)             + ec(t);             [transition 3]
-% y(t)  = a(t)      + b(t);                       [transition 4]
-
-% Filippo Ferroni, 6/1/2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2020.
 
 objective_function = 'uc_opt_hyperpara';
 
@@ -26,7 +47,8 @@ hyperpara(lags+1:lags+3) = 0.5;
 max_compute = 3;
 lb          = -1e10*ones(length(hyperpara),1);
 ub          = 1e10*ones(length(hyperpara),1);
-x0          = log(hyperpara);
+% x0          = log(hyperpara);   % old: AR coefficients in logs
+x0          = uc_to_opt(hyperpara,1:npara,lags);
 index_fixed = [];
 index_est   = 1:npara;
 hyperpara_fidex =  [];
@@ -40,31 +62,37 @@ if nargin > 2
     if isfield(opts,'phi') ==1
         % set the initial values for phi
         hyperpara(1:lags) = opts.phi;
-        x0              = log(hyperpara);
+        % x0              = log(hyperpara);   % old: AR coefficients in logs
+        x0              = uc_to_opt(hyperpara,1:npara,lags);
     end    
     if isfield(opts,'sigma') ==1
         % set the initial values for the VARIANCES of the US shocks
         hyperpara(1+lags : end) = opts.sigma;
-        x0              = log(hyperpara);
+        % x0              = log(hyperpara);   % old: AR coefficients in logs
+        x0              = uc_to_opt(hyperpara,1:npara,lags);
     end    
     if isfield(opts,'index_est') ==1
         clear x0 index_fixed index_est hyperpara_fidex;
         index_est       = opts.index_est;
         index_fixed     = setdiff(1:npara,index_est);
-        x0              = log(hyperpara(index_est));
-        hyperpara_fidex = log(hyperpara(index_fixed));    
+        % x0              = log(hyperpara(index_est));   % old: AR coefficients in logs
+        x0              = uc_to_opt(hyperpara(index_est),index_est,lags);
+        % hyperpara_fidex = log(hyperpara(index_fixed));       % old: AR coefficients in logs
+        hyperpara_fidex = uc_to_opt(hyperpara(index_fixed),index_fixed,lags);
     end    
     if isfield(opts,'max_compute') ==1
         max_compute    = opts.max_compute;
     end
     if isfield(opts,'lb') ==1
-        lb    = log(opts.lb);
+        % lb    = log(opts.lb);   % old: AR coefficients in logs
+        lb    = uc_to_opt(opts.lb,index_est,lags);
         if length(lb) ~=  length(x0)
             error('Mismatch between the size of lower bounds and the param vector');
         end
     end
     if isfield(opts,'ub') ==1
-        ub    = log(opts.ub);
+        % ub    = log(opts.ub);   % old: AR coefficients in logs
+        ub    = uc_to_opt(opts.ub,index_est,lags);
         if length(ub) ~=  length(x0)
             error('Mismatch between the size of upper bounds and the param vector');
         end
@@ -133,8 +161,10 @@ switch max_compute
 end
 
 postmode    = zeros(1,5);
-postmode(options.index_est)   = exp(xh);
-postmode(options.index_fixed) = exp(options.hyperpara_fidex);
+% postmode(options.index_est)   = exp(xh);   % old: AR coefficients in logs
+postmode(options.index_est)   = uc_from_opt(xh,options.index_est,lags);
+% postmode(options.index_fixed) = exp(options.hyperpara_fidex);   % old: AR coefficients in logs
+postmode(options.index_fixed) = uc_from_opt(options.hyperpara_fidex,options.index_fixed,lags);
 if noprint == 0 % Print the output for Minnesoty prior with dummy
 
    
@@ -222,4 +252,19 @@ end
 end
 
 
+% =========================================================================
+function x = uc_to_opt(p,pos,lags)
+% Parameters -> optimiser scale. pos are the positions of p in the full
+% vector [phi(1:lags) sigma(1:3)]: AR coefficients stay in levels (they
+% can be negative), variances are taken in logs.
+x      = p(:);
+k      = pos(:) > lags;
+x(k)   = log(x(k));
+end
 
+function p = uc_from_opt(x,pos,lags)
+% Inverse of uc_to_opt.
+p      = x(:)';
+k      = pos(:)' > lags;
+p(k)   = exp(p(k));
+end

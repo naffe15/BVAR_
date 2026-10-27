@@ -1,39 +1,34 @@
 function opt = parse_bvar_options(y, lags, options)
-%PARSE_BVAR_OPTIONS Default settings, options parsing, and mixed-frequency
-% interpolation for bvar_.
+%PARSE_BVAR_OPTIONS Defaults, options parsing and mixed-frequency setup for BVAR_.
 %
-% opt = parse_bvar_options(y, lags, options)
-% opt = parse_bvar_options(y, lags)              % no options given
+%   opt = PARSE_BVAR_OPTIONS(y,lags)
+%   opt = PARSE_BVAR_OPTIONS(y,lags,options)
 %
-% This is a near-verbatim relocation of what used to be the first ~640
-% lines of bvar_.m (everything between the nargin/lags validity checks
-% and the "Consistency Checks" section). It existed there because that's
-% where the data first arrives, not because the logic itself depends on
-% anything else in bvar_ -- so it was safe to move as a unit. Nothing in
-% the ~1300 lines that follow in bvar_.m had to change: every variable
-% this function used to set as a bare local is returned here as a field
-% of OPT instead, and bvar_.m unpacks them back into the same names right
-% after calling this.
+%   Called once by BVAR_. It sets the defaults, reads every field of
+%   options, and returns the settings as fields of opt, which BVAR_ unpacks
+%   into local variables of the same names.
 %
-% A few things this function does that are worth knowing if you're
-% tracing a bug back to here:
-%   - It can MUTATE the data: if y contains NaNs, it's treated as mixed-
-%     frequency/irregularly sampled and interpolated in place (opt.y is
-%     the interpolated series; opt.yoriginal is the unmodified input).
-%   - 'prior' (singular) and 'priors' (plural) are different variables.
-%     'priors' is just a name tag ('Minnesota'/'Conjugate'/'N/A'). 'prior'
-%     only gets populated here under the Conjugate-prior branch
-%     (prior.Phi.mean/cov, prior.Sigma.scale/df) and isn't read again
-%     until deep inside bvar_'s posterior computation -- easy to miss if
-%     you're scanning for where it's used.
-%   - The original code called a tiny nested function 'priors_()' (just
-%     `priors.name = 'N/A'`) defined inside bvar_.m. Nested functions
-%     can't be called from a separate file, so that single line is
-%     inlined directly below instead -- behaviorally identical.
+%   Inputs
+%     y        T x ny (x nunits)   data, as passed to BVAR_
+%     lags     scalar              number of lags
+%     options  struct              as documented in BVAR_
 %
-% See bvar_.m for the full list of supported options.* fields.
+%   Output
+%     opt      struct with all settings used by BVAR_
+%
+%   Things to know when tracing a problem back here:
+%   - It can change the data: if y contains NaN, it is treated as mixed
+%     frequency or irregularly sampled and interpolated (opt.y is the
+%     interpolated series, opt.yoriginal the input).
+%   - prior and priors are different variables. priors is a name tag
+%     ('Minnesota', 'Conjugate', 'PLR' or 'N/A'); prior is filled only for
+%     the Conjugate prior (prior.Phi.mean/cov, prior.Sigma.scale/df) and is
+%     read again only in the posterior computation of BVAR_.
+%   - The code was moved here from the first ~640 lines of BVAR_ without
+%     changes in logic.
+%
+%   See also BVAR_.
 
-% number of observable variables
 ny                  = size(y, 2);
 % number of units (for panels)
 nunits              = size(y, 3);

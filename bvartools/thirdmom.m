@@ -1,6 +1,23 @@
 function [S] = thirdmom(x,flag)
+%THIRDMOM Third co-moments of a set of series.
+%
+%   S = THIRDMOM(x)
+%   S = THIRDMOM(x,flag)
+%
+%   Average over t of x(t)*vech(x(t)*x(t)')' (or vec with flag = 1); the
+%   series are not demeaned.
+%
+%   Inputs
+%     x      T x N    series, e.g. standardized residuals
+%     flag   0 (default) vech, 1 vec
+%
+%   Output
+%     S      N x N(N+1)/2   (N x N^2 with flag = 1)
+%
+%   See also FOURTHMOM, IRESPONSE_SIGN_HMOMENTS_EIG.
 
 % default vech; else vec 
+
 if nargin < 2
     flag = 0;
 end

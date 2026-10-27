@@ -1,20 +1,25 @@
 function [AIC, HQIC, BIC] = IC(S, E, T, K)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'IC' computes various information criteria
+%IC Information criteria of a Gaussian VAR.
+%
+%   [AIC,HQIC,BIC] = IC(S,E,T,K)
+%
+%   Inputs
+%     S   N x N   residual covariance
+%     E   T x N   residuals
+%     T   scalar  number of observations
+%     K   scalar  number of estimated parameters
+%
+%   Outputs
+%     AIC, HQIC, BIC   Akaike, Hannan-Quinn and Schwarz criteria, divided
+%                      by T (lower is better)
+%
+%   See also OLS_REG, BVAR_.
 
-% Inputs:
-% - llf, log marginal likelihood
-% - T, sample size
-% - K, number of regressors
+%   Filippo Ferroni, 6/1/2015.
 
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-% Revised, 9/11/2019
-% Revised, 9/11/2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % E   = var.e_ols;
 % S   = var.Sigma_ols; 
+
 iS  = pinv(S);
 N   = size(S,1);
 llf = - (T * N / 2) * (1 + log(2 * pi)) - T / 2 * log(det(S));

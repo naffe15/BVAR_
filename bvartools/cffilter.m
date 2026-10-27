@@ -1,4 +1,8 @@
 function [fX,AA] = cffilter(X,pl,pu,root,drift,ifilt,nfix,thet)
+%CFFILTER Christiano-Fitzgerald band-pass filter (and other approximations).
+%
+%   Third-party code by Terry J. Fitzgerald; original help below.
+%
 %
 %	MATLAB COMMAND FOR DEFAULT FILTER:  fX = cffilter(X,pl,pu)
 %
@@ -34,7 +38,7 @@ function [fX,AA] = cffilter(X,pl,pu,root,drift,ifilt,nfix,thet)
 %  This is a matlab function that filters time series data using  
 %  approximations to the band pass filter as discussed in the paper
 %  "The Band Pass Filter" by Lawrence J. Christiano and Terry J. Fitzgerald (1999).
-
+%
 %	Several band-pass approximation strategies can be selected in this 
 %  program.  To explain how to select these alternatives, we rely upon the notation 
 %  developed in the paper.  The default setting used above returns the filtered data fX 
@@ -83,6 +87,7 @@ function [fX,AA] = cffilter(X,pl,pu,root,drift,ifilt,nfix,thet)
 %		fixed length filters and filters for user supplied time series with length(thet)>1.  
 %		The default filter returns all nonzero data.
 %
+
 if nargin < 4
    root = 1;
    drift = 1;

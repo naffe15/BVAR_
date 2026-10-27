@@ -1,30 +1,38 @@
 function [BDFM] = bdfm_(y,lags,nfac,options)
+%BDFM_ Bayesian static or dynamic factor model, estimated by Gibbs sampling.
+%
+%   BDFM = BDFM_(y,lags,nfac)
+%   BDFM = BDFM_(y,lags,nfac,options)
+%
+%   Draws the factors, loadings and parameters of a factor model whose
+%   factors follow a VAR(lags) (a static model when lags = 0). See Section
+%   on factor models in the Hitchhiker's Guide.
+%
+%   Inputs
+%     y        T x ny    data, one variable per column
+%     lags     scalar    lags of the factor VAR; 0 for a static model
+%     nfac     scalar    number of factors (>= 1)
+%     options  struct (optional), main fields:
+%       .K          draws kept (default 1000); .burnin, .skip
+%       .hor, .fhor IRF and forecast horizons (defaults 24 and 12)
+%       .ilags      lags of the idiosyncratic components (default 0)
+%       .priors     priors of the factor VAR and of the loadings
+%       .noconstant 1 (default): no constant in the factor VAR
+%       .do_the_demean   1 (default): demean the data
+%       .signs, .narrative, .proxy, .long_run_irf   identification of the
+%                                                   factor shocks
+%
+%   Output (main fields)
+%     BDFM.f_draws        T x nfac x K     smoothed factors
+%     BDFM.lambda_draws   loadings
+%     BDFM.Phi_draws, .Sigma_draws         factor VAR parameters
+%     BDFM.ir_draws       IRFs of the observables to recursive shocks
+%     BDFM.irlr_draws, .irsign_draws, .irnarrsign_draws, .irproxy_draws
+%     BDFM.forecasts
+%
+%   See also PC_T, BVAR_.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 'bdfm_' generates draws from the paramters and latent variables of
-% static/dynamic factor model with factors and idiosyncrati errors
-% distributed as multivariate normals 
-
-% Core Inputs:
-% - y, data columns variables
-% - lags, lag order of the dynamic factor model (when =0 static factor model)
-% - nfac, number of factors 
-
-% Additonal Inputs collected options:
-% - options are not mandatory. if nothing is specified then a number of
-% default options are assumed. 
-% (...) see below
-% See the Hitchhiker's guide for more details. 
-% https://github.com/naffe15/BVAR_/blob/master/HitchhikerGuide_.pdf
-
-% Output: Draws from the conditional distribution of Phi, Sigma and
-% Omega, impulse response with the cholesky decompotion and long run
-% restricions, forecast and marginal likelihood.
-
-% Filippo Ferroni, 7/1/2021
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 7/1/2021.
 
 if nargin < 3
     error('the BDFM function needs at least three inputs: data, # of lags and # of factors');

@@ -1,15 +1,15 @@
 function  plot_shcks_dcmp_(pplotvar,ex_names_,leg,input,BVAR,options)
+%PLOT_SHCKS_DCMP_ Older version of PLOT_SDCMP_ (not used by the toolbox).
+%
+%   PLOT_SHCKS_DCMP_(pplotvar,ex_names_,leg,input,BVAR,options)
+%
+%   Same plot as PLOT_SDCMP_, with the variables, shock groups and legend
+%   passed as arguments instead of options. Kept for old scripts; use
+%   PLOT_SDCMP_.
+%
+%   See also PLOT_SDCMP_, HISTDECOMP.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Filippo Ferroni, 6/1/2015
-% Revised, 2/15/2017
-% Revised, 3/21/2018
-
-% pplotvar:     cell with the variable names for the decomp
-% ex_names_:    shocks grouping
-% leg:          shocks grouping names
-% input:        outpu tof 'histdecomposition.m'
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   Filippo Ferroni, 6/1/2015.
 
 nshocks = BVAR.N;
 

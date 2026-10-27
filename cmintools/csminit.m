@@ -1,4 +1,8 @@
 function [fhat,xhat,fcount,retcode] = csminit(fcn,x0,f0,g0,badg,H0,varargin)
+%CSMINIT Line search used by CSMINWEL.
+%
+%   Code by Christopher A. Sims; original help below.
+%
 % [fhat,xhat,fcount,retcode] = csminit(fcn,x0,f0,g0,badg,H0,...
 %                                       P1,P2,P3,P4,P5,P6,P7,P8)
 % retcodes: 0, normal step.  5, largest step still improves too fast.
@@ -21,6 +25,7 @@ function [fhat,xhat,fcount,retcode] = csminit(fcn,x0,f0,g0,badg,H0,varargin)
 %   tailstr=[ ',P' num2str(i)  tailstr];
 %end
 %ANGLE = .03;
+
 ANGLE = .005;
 %THETA = .03;
 THETA = .3; %(0<THETA<.5) THETA near .5 makes long line searches, possibly fewer iterations.

@@ -1,16 +1,25 @@
 function [A,B,C,const,Sigma,index_var]=uc2ss(Phi,Sigma)
-
-% from the UC of the form 
-% y(t)  = a(t)      + b(t);                       [transition 0]
-% a(t)  = a1 a(t-1) + ... + ap a(t-p) + ea(t )    [transition 1]
-% lags companion
-% b(t)  = c(t-1)    + b(t-1) + eb(t);             [transition 2]
-% c(t)  = c(t-1)             + ec(t);             [transition 3]
-
-% to a state space of the form
-% x(t) = A x(t-1) + B Sigma' u(t) ~ N(0,I)
-% y(t) = C*(cons + x(t-1))
-% where A is the companion form of the lag struture
+%UC2SS State-space form of the unobserved-components model of UC2_.
+%
+%   [A,B,C,const,Sigma,index_var] = UC2SS(Phi,Sigma)
+%
+%   Model:
+%     y(t) = a(t) + b(t)
+%     a(t) = a1 a(t-1) + ... + ap a(t-p) + ea(t)   (cycle)
+%     b(t) = c(t-1) + b(t-1) + eb(t)               (trend)
+%     c(t) = c(t-1) + ec(t)                        (trend growth)
+%   written as  x(t) = A x(t-1) + B Sigma' u(t),  y(t) = C (const + x(t)).
+%
+%   Inputs
+%     Phi     p x 1   autoregressive coefficients of the cycle
+%     Sigma   variances of (ea, eb, ec)
+%
+%   Outputs
+%     A, B, C, const   state-space matrices (const = 0)
+%     Sigma            standard deviations of the shocks
+%     index_var        state of the observable
+%
+%   See also UC2_, KFILTERNAN, VAR2SS.
 
 if size(Phi,2) > size(Phi,1)
     Phi = Phi'; % autoregressive parameters for the cycle
