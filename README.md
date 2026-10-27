@@ -14,3 +14,5 @@ Link to the youtube tutorial: https://www.youtube.com/channel/UCDepPX4wbdkIqfg43
 
 Matlab toolbox requirements BVAR tutorial: statistics_toolbox; optimization_toolbox; <br />
 Matlab toolbox requirements Trend-Cycle-Dating tutorial tutorial: statistics_toolbox; optimization_toolbox; signal_toolbox; <br />
+
+Function map: [docs/function_map.html](docs/function_map.html) shows the dependency graph and every function of bvartools and cmintools with its help summary. After changing the toolbox, rebuild it in MATLAB with `cd docs; build_function_map`. <br />

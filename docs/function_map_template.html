@@ -1,0 +1,219 @@
+<title>EMT Function Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+/* Layout: one working column — summary strip, what changed and what is open, focus call-graph, then a filterable register of every function. */
+:root{
+  --bg:#f6f7f8; --surface:#ffffff; --ink:#1b232b; --muted:#5d6975; --line:#dde2e7; --accent:#0e6e6e;
+  --entry:#2457a6; --internal:#58707c; --orphan:#b2382c; --dead:#a8690c; --ok:#2e7d4f;
+  --entry-bg:#e6eef9; --internal-bg:#edf1f3; --orphan-bg:#f9e7e4; --dead-bg:#f8eedc; --ok-bg:#e3f2e8;
+  --f-display:"IBM Plex Serif",Georgia,serif; --f-body:"IBM Plex Sans",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --surface:#1a2128; --ink:#e3e8ec; --muted:#93a1ad; --line:#2c353e; --accent:#4fb3ae;
+  --entry:#7fa8ec; --internal:#9db1bb; --orphan:#ee8a7e; --dead:#e2ad55; --ok:#73c495;
+  --entry-bg:#1d2a3d; --internal-bg:#222b31; --orphan-bg:#3a2220; --dead-bg:#352b1a; --ok-bg:#1c3226; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --surface:#1a2128; --ink:#e3e8ec; --muted:#93a1ad; --line:#2c353e; --accent:#4fb3ae;
+  --entry:#7fa8ec; --internal:#9db1bb; --orphan:#ee8a7e; --dead:#e2ad55; --ok:#73c495;
+  --entry-bg:#1d2a3d; --internal-bg:#222b31; --orphan-bg:#3a2220; --dead-bg:#352b1a; --ok-bg:#1c3226; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:36px}
+h1{font-family:var(--f-display);font-weight:600;font-size:2rem;margin:0;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:600;font-size:1.35rem;margin:0 0 4px;text-wrap:balance}
+h3{font-size:1rem;margin:0 0 6px;font-weight:600}
+p{margin:0;max-width:72ch}
+.lede{color:var(--muted)}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+header{display:grid;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.stat{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.stat b{font-family:var(--f-mono);font-size:1.6rem;font-weight:500;font-variant-numeric:tabular-nums}
+.stat span{font-size:.82rem;color:var(--muted)}
+.stat.e b{color:var(--entry)} .stat.i b{color:var(--internal)} .stat.o b{color:var(--orphan)} .stat.k b{color:var(--ok)}
+section{display:grid;gap:14px}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:.72rem;padding:1px 7px;border-radius:999px;white-space:nowrap}
+.pill.E{background:var(--entry-bg);color:var(--entry)} .pill.I{background:var(--internal-bg);color:var(--internal)}
+.pill.O{background:var(--orphan-bg);color:var(--orphan)} .pill.D{background:var(--dead-bg);color:var(--dead)}
+.pill.hf{background:var(--ok-bg);color:var(--ok)} .pill.ht{background:var(--internal-bg);color:var(--internal)}
+.findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;min-width:0}
+.card ul{margin:6px 0 0;padding-left:18px;display:grid;gap:6px}
+.card li{font-size:.92rem}
+.fn{font-family:var(--f-mono);font-size:.86em;color:var(--accent);cursor:pointer;border-bottom:1px dotted currentColor;background:none;border-top:0;border-left:0;border-right:0;padding:0}
+.fn:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.graphbox{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px;display:grid;gap:10px}
+.gcontrols{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.gscroll{overflow-x:auto}
+#g{display:block;min-width:760px}
+#g text{font-family:var(--f-mono);font-size:11.5px}
+.ginfo{display:grid;gap:4px;font-size:.9rem}
+.ginfo .sig{font-family:var(--f-mono);font-size:.82rem;color:var(--muted);overflow-wrap:anywhere}
+input[type=search],select{font:inherit;font-size:.9rem;padding:6px 10px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.count{color:var(--muted);font-size:.85rem;font-variant-numeric:tabular-nums}
+.tscroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:980px;font-size:.86rem}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--surface);position:sticky;top:0;cursor:pointer;user-select:none}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+td .desc{color:var(--muted);font-size:.8rem;display:block;max-width:46ch}
+td .list{font-family:var(--f-mono);font-size:.76rem;color:var(--muted);max-width:30ch;display:block;overflow-wrap:anywhere}
+tr:hover td{background:var(--bg)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.82rem;color:var(--muted)}
+.note{font-size:.84rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow" id="meta">BVAR_ · bvartools + cmintools</div>
+  <h1>EMT Function Map</h1>
+  <p class="lede">Every function file in <code>bvartools/</code> and <code>cmintools/</code>, classified by whether something in the toolbox actually reaches it. A function counts as used if one of the 25 example scripts calls it, or if it is called (directly or as a string handle passed to an optimizer) by a function that is itself used. Descriptions are the first line of each function's help. This page is generated by <code>docs/build_function_map.m</code>; run it again after changing the toolbox.</p>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<section id="unused">
+  <h2>Never called</h2>
+  <p class="lede">Not reached from any example script, directly or through other functions. Some are meant to be called by users (check the Guide column), others are candidates for removal.</p>
+  <div class="card"><ul id="orphans"></ul></div>
+</section>
+
+<section>
+  <h2>Dependency graph</h2>
+  <p class="lede">Pick a function to see who calls it (left) and what it calls (right). Click any node to move the focus there. Example scripts are grouped into one node.</p>
+  <div class="graphbox">
+    <div class="gcontrols">
+      <label for="focus" class="note">Focus</label>
+      <select id="focus"></select>
+      <div class="legend">
+        <span><span class="pill E">entry</span> called by an example</span>
+        <span><span class="pill I">internal</span> reached via other functions</span>
+        <span><span class="pill D">dead</span> called only by unused code</span>
+        <span><span class="pill O">orphan</span> never called</span>
+      </div>
+    </div>
+    <div class="ginfo" id="ginfo"></div>
+    <div class="gscroll"><svg id="g" role="img" aria-label="Call graph around the selected function"></svg></div>
+  </div>
+</section>
+
+<section>
+  <h2>Function register</h2>
+  <div class="filters">
+    <input type="search" id="q" placeholder="Search name or description" aria-label="Search functions">
+    <select id="fs" aria-label="Filter by status"><option value="">All statuses</option><option value="E">Entry</option><option value="I">Internal</option><option value="D">Dead</option><option value="O">Orphan</option></select>
+    <select id="fh" aria-label="Filter by help"><option value="">Any help</option><option value="f">Toolbox layout</option><option value="t">Third-party help</option></select>
+    <select id="fg" aria-label="Filter by folder"><option value="">Both folders</option><option value="b">bvartools</option><option value="c">cmintools</option></select>
+    <span class="count" id="cnt"></span>
+  </div>
+  <div class="tscroll">
+    <table>
+      <thead><tr>
+        <th data-k="0">Function</th><th data-k="2">Status</th><th data-k="8">Help</th><th data-k="5">Guide</th><th data-k="6">Lines</th><th>Called by</th><th>Calls</th><th data-k="3">Examples</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+  <p class="note">Method: static scan of all <code>.m</code> files. Comments and string literals are stripped before matching; a name is ignored where the caller also uses it as a variable (e.g. <code>forecasts</code> in <code>directmethods</code>). Optimizer objectives passed by name (<code>'bvar_opt_hyperpara'</code>, <code>'bvar_opt_plr'</code>, <code>'blp_opt_hyperpara'</code>, <code>'uc_opt_hyperpara'</code>, <code>'bvar_opt_heterosked'</code>) count as calls. "Guide" counts calls such as <code>name(</code> in HitchhikerGuide_.pdf: a function used there may be called by users even if no example does. The help column follows MATLAB's own rule: the first unbroken comment block under the function line.</p>
+</section>
+</div>
+
+<script>
+// [name, folder b/c, status E/I/D/O, examples[], toolbox callers[], guide mentions, lines, last change, help f/b/t, signature, local functions[], description, has references, help lines]
+const D=/*__DATA__*/;
+const META=/*__META__*/;   // [date, commit, number of example scripts, guide scanned]
+D.forEach(r=>{ if(r[8]==='b') r[8]='f'; });
+const ORPHAN_NOTE={};
+const ST={E:"entry",I:"internal",D:"dead",O:"orphan"}, HL={f:"toolbox",t:"third-party"};
+const byName=Object.fromEntries(D.map(r=>[r[0],r]));
+const callees={}; D.forEach(r=>callees[r[0]]=[]);
+D.forEach(r=>r[4].forEach(c=>{ if(callees[c]) callees[c].push(r[0]); }));
+Object.values(callees).forEach(a=>a.sort((x,y)=>x.toLowerCase()<y.toLowerCase()?-1:1));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fnBtn=n=>`<button class="fn" data-fn="${esc(n)}">${esc(n)}</button>`;
+
+const cnt=k=>D.filter(r=>r[2]===k).length;
+document.getElementById('meta').textContent='BVAR_ · bvartools + cmintools · generated '+META[0]+(META[1]?' · commit '+META[1]:'');
+if(!META[3]) document.querySelectorAll('th[data-k="5"]').forEach(th=>th.title='Not computed: pdftotext was not found when the page was built');
+document.getElementById('stats').innerHTML=[
+ ['',D.length,'function files ('+D.filter(r=>r[1]==='b').length+' bvartools, '+D.filter(r=>r[1]==='c').length+' cmintools)'],
+ ['e',cnt('E'),'entry points called by examples'],
+ ['i',cnt('I'),'internal, reached via other functions'],
+ ['o',cnt('O'),'never called anywhere'],
+ ['k',D.filter(r=>r[8]==='f').length,'with help in the toolbox layout'],
+ ['',D.filter(r=>r[8]==='t').length,'third-party, original help kept']
+].map(([c,n,l])=>`<div class="stat ${c}"><b>${n}</b><span>${l}</span></div>`).join('');
+
+const unused=D.filter(r=>r[2]==='O'||r[2]==='D');
+if(!unused.length) document.getElementById('unused').hidden=true;
+document.getElementById('orphans').innerHTML=unused.map(r=>`<li>${fnBtn(r[0])} <span class="note">${r[6]} lines${r[5]?' · in guide':''}</span><br>${esc(ORPHAN_NOTE[r[0]]||r[11])}</li>`).join('');
+
+const sel=document.getElementById('focus');
+sel.innerHTML=[...D].sort((a,b)=>a[0].toLowerCase()<b[0].toLowerCase()?-1:1).map(r=>`<option value="${esc(r[0])}">${esc(r[0])}</option>`).join('');
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const colOf=s=>({E:'--entry',I:'--internal',D:'--dead',O:'--orphan'}[s]);
+function draw(name){
+  const r=byName[name]; if(!r) return;
+  sel.value=name;
+  const left=r[4].map(n=>({n,s:byName[n][2]}));
+  if(r[3].length) left.unshift({n:`${r[3].length} example script${r[3].length>1?'s':''}`,s:'X',title:r[3].join('\n')});
+  const right=callees[name].map(n=>({n,s:byName[n][2]}));
+  const rowH=26, pad=16, W=980, nodeW=230;
+  const rows=Math.max(left.length,right.length,1);
+  const H=Math.max(rows*rowH+pad*2,90);
+  const xL=10, xC=W/2-nodeW/2, xR=W-nodeW-10, yC=H/2;
+  const yOf=(i,n)=>H/2-(n*rowH)/2+i*rowH+rowH/2;
+  const ink=css('--ink'), line=css('--line'), surf=css('--surface'), muted=css('--muted');
+  let s='';
+  const node=(x,y,o,center)=>{
+    const c=o.s==='X'?muted:css(colOf(o.s));
+    const clickable=o.s!=='X'&&!center;
+    return `<g ${clickable?`class="gn" data-fn="${esc(o.n)}" tabindex="0" role="button" style="cursor:pointer"`:''}>${o.title?`<title>${esc(o.title)}</title>`:''}
+      <rect x="${x}" y="${y-10}" width="${nodeW}" height="20" rx="4" fill="${center?c:surf}" stroke="${c}" stroke-width="${center?0:1.2}"></rect>
+      <text x="${x+10}" y="${y+4}" fill="${center?surf:ink}">${esc(o.n.length>32?o.n.slice(0,31)+'…':o.n)}</text></g>`;
+  };
+  left.forEach((o,i)=>{const y=yOf(i,left.length); s+=`<path d="M${xL+nodeW},${y} C${xL+nodeW+80},${y} ${xC-80},${yC} ${xC},${yC}" fill="none" stroke="${line}" stroke-width="1.3"></path>`;});
+  right.forEach((o,i)=>{const y=yOf(i,right.length); s+=`<path d="M${xC+nodeW},${yC} C${xC+nodeW+80},${yC} ${xR-80},${y} ${xR},${y}" fill="none" stroke="${line}" stroke-width="1.3"></path>`;});
+  left.forEach((o,i)=>s+=node(xL,yOf(i,left.length),o));
+  right.forEach((o,i)=>s+=node(xR,yOf(i,right.length),o));
+  s+=node(xC,yC,{n:name,s:r[2]},true);
+  if(!left.length) s+=`<text x="${xL}" y="${yC+4}" fill="${muted}">no callers</text>`;
+  if(!right.length) s+=`<text x="${xR}" y="${yC+4}" fill="${muted}">calls no toolbox function</text>`;
+  s+=`<text x="${xL}" y="12" fill="${muted}" font-size="10">CALLED BY</text><text x="${xR}" y="12" fill="${muted}" font-size="10">CALLS</text>`;
+  const svg=document.getElementById('g'); svg.setAttribute('viewBox',`0 0 ${W} ${H+6}`); svg.setAttribute('height',H+6); svg.innerHTML=s;
+  document.getElementById('ginfo').innerHTML=`<div><span class="pill ${r[2]}">${ST[r[2]]}</span> <span class="pill h${r[8]}">help: ${HL[r[8]]}</span> <span class="note">${r[1]==='b'?'bvartools':'cmintools'} · ${r[6]} lines${r[10].length?' · local functions: '+esc(r[10].join(', ')):''}</span></div><div class="sig">${esc(r[9])}</div>${r[11]?`<div>${esc(r[11])}</div>`:''}${ORPHAN_NOTE[name]?`<div class="note">${esc(ORPHAN_NOTE[name])}</div>`:''}${r[3].length?`<div class="note">Examples: ${esc(r[3].join(', '))}</div>`:''}`;
+  try{localStorage.setItem('bvt_focus',name)}catch(e){}
+}
+document.getElementById('g').addEventListener('click',e=>{const g=e.target.closest('.gn'); if(g) draw(g.dataset.fn);});
+document.getElementById('g').addEventListener('keydown',e=>{if(e.key==='Enter'){const g=e.target.closest('.gn'); if(g) draw(g.dataset.fn);}});
+sel.addEventListener('change',()=>draw(sel.value));
+document.addEventListener('click',e=>{const b=e.target.closest('button.fn'); if(!b) return; const n=b.dataset.fn||b.textContent.trim(); if(byName[n]){draw(n); document.getElementById('focus').scrollIntoView({behavior:'smooth',block:'center'});}});
+let start='bvar_'; try{const v=localStorage.getItem('bvt_focus'); if(v&&byName[v]) start=v;}catch(e){}
+draw(start);
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>draw(sel.value));
+new MutationObserver(()=>draw(sel.value)).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+let sortK=0, sortDir=1;
+const order={E:0,I:1,D:2,O:3,f:0,t:1};
+function render(){
+  const q=document.getElementById('q').value.toLowerCase().trim(), fs=document.getElementById('fs').value, fh=document.getElementById('fh').value, fg=document.getElementById('fg').value;
+  let rows=D.filter(r=>(!fs||r[2]===fs)&&(!fh||r[8]===fh)&&(!fg||r[1]===fg)&&(!q||r[0].toLowerCase().includes(q)||r[11].toLowerCase().includes(q)));
+  rows.sort((a,b)=>{let x=a[sortK],y=b[sortK]; if(sortK===2||sortK===8){x=order[x];y=order[y];} if(sortK===3){x=x.length;y=y.length;} if(typeof x==='string'){x=x.toLowerCase();y=y.toLowerCase();} return (x<y?-1:x>y?1:0)*sortDir;});
+  document.getElementById('cnt').textContent=`${rows.length} of ${D.length}`;
+  document.getElementById('tb').innerHTML=rows.map(r=>`<tr>
+    <td>${fnBtn(r[0])}<span class="desc">${esc(r[11])}</span></td>
+    <td><span class="pill ${r[2]}">${ST[r[2]]}</span></td>
+    <td><span class="pill h${r[8]}">${HL[r[8]]}</span></td>
+    <td class="num">${r[5]||''}</td><td class="num">${r[6]}</td>
+    <td><span class="list">${esc(r[4].join(', '))}</span></td>
+    <td><span class="list">${esc(callees[r[0]].join(', '))}</span></td>
+    <td class="num">${r[3].length||''}</td></tr>`).join('');
+}
+['q','fs','fh','fg'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+document.querySelectorAll('th[data-k]').forEach(th=>th.addEventListener('click',()=>{const k=+th.dataset.k; sortDir=(k===sortK)?-sortDir:1; sortK=k; render();}));
+render();
+</script>
