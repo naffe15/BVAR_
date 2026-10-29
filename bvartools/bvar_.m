@@ -624,8 +624,6 @@ Phi_draws = zeros(ny*lags+nx+timetrend+nexogenous+pandemic_h, ny, K);
 Sigma_draws   = zeros(ny,ny,K);                     % Shocks Covariance
 Sigma_lower_chol_draw = zeros(ny,ny,K);             % Cholesky factor of Sigma 
 ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Cholesky IRF
-irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
-Qlr_draws     = zeros(ny,ny,K);                     % long run impact matrix
 e_draws       = zeros(size(yy,1), ny,K);                  % residuals
 % in-sample forecast errors are stored only if the array has < 1e8
 % elements (about 0.8 GB in double precision)
@@ -645,14 +643,17 @@ if exogenous_block == 1
     Sigma_draws   = zeros((ny+nz),(ny+nz),K);
     Sigma_lower_chol_draw = zeros((ny+nz),(ny+nz),K);             % Cholesky factor of Sigma 
     ir_draws      = zeros((ny+nz),hor,(ny+nz),K);
-    irlr_draws    = zeros((ny+nz),hor,(ny+nz),K);
-    Qlr_draws     = zeros((ny+nz),(ny+nz),K);
     e_draws       = zeros(size(yy,1),(ny+nz),K);
     fe_draws      = zeros(size(yy,1),(ny+nz),fhor,K);
     yhatfut_no_shocks         = NaN(fhor, (ny+nz), K, nunits);
     yhatfut_with_shocks       = NaN(fhor, (ny+nz), K, nunits);
     yhatfut_cfrcst            = NaN(fhor, (ny+nz), K, nunits);
 end 
+if long_run_irf == 1
+    irlr_draws    = ir_draws;      % variable, horizon, shock and draws - Long Run IRF
+    Qlr_draws     = Sigma_draws;   % long run impact matrix
+end
+
 if signs_irf == 1
     irsign_draws = ir_draws;
     Omega_draws  = Sigma_draws;
@@ -1390,20 +1391,16 @@ end
 % [9] STORING THE BAYESIAN RESULTS
 %   The last dimension of the *_draws objects indexes the posterior draw.
 %==========================================================================
-
-% inference and IRFs
+BVAR.varnames     = varnames;
+BVAR.ndraws       = K;
+BVAR.lags         = lags;               % lags
+BVAR.N            = ny;                 % number of variables
+%--------------------------------------------------------------------------
+% parameters inference
 BVAR.Phi_draws    = Phi_draws;          % draws from the autoregressive part
 BVAR.Sigma_draws  = Sigma_draws;        % draws from the covariance matrix
 BVAR.Sigma_lower_chol_draw = Sigma_lower_chol_draw;
-BVAR.ir_draws     = ir_draws;           % draws from the IRF with cholesky
-BVAR.irlr_draws   = irlr_draws;         % draws from the IRF with Long Run
-BVAR.Qlr_draws    = Qlr_draws;          % Long Run Rotation matrix
-BVAR.lags         = lags;               % lags
-BVAR.N            = ny;                 % number of variables
 BVAR.e_draws      = e_draws;            % residuals
-if flag_fe 
-    BVAR.fe_draws     = fe_draws;           % insample forecast errors
-end
 BVAR.posterior    = posterior;
 BVAR.prior        = prior;             % priors used
 BVAR.logmlike     = log_dnsty;
@@ -1411,10 +1408,21 @@ BVAR.X            = var.X;              % regressors (including dummy if Minneso
 BVAR.y            = var.y;              % dependent  (including dummy if Minnesota)
 BVAR.XX           = XX;                 % regressors (no dummy)
 BVAR.yy           = yy;                 % dependent  (no dummy)
-
-% prediction
+if robust_bayes_ > 0
+    BVAR.Kstar_  = Kstar_;
+    if robust_bayes_ > 1
+        BVAR.Sstar_  = Sstar_;
+    end
+    BVAR.hom_shrinkage = K_shrinkage/(nobs+K_shrinkage);
+end
+%--------------------------------------------------------------------------
+% forecasts
+% in-sample
+if flag_fe 
+    BVAR.fe_draws     = fe_draws;           % insample forecast errors
+end
+% out-of-sample
 BVAR.fhor         = fhor;               % forecast horizon
-BVAR.hor          = hor;                % IRF horizon
 BVAR.forecasts.no_shocks      = squeeze(yhatfut_no_shocks);         % trajectories of forecasts without shocks
 BVAR.forecasts.with_shocks    = squeeze(yhatfut_with_shocks);       % trajectories of forecasts with shocks
 BVAR.forecasts.conditional    = [];                                 % trajectories of conditional forecasts
@@ -1424,17 +1432,17 @@ if cfrcst_yes ~= 0
     BVAR.forecasts.EPScond        = EPS;                       % shocks of forecasts
 end
 BVAR.forecast_data            = forecast_data;
-if robust_bayes_ > 0
-    BVAR.Kstar_  = Kstar_;
-    if robust_bayes_ > 1
-        BVAR.Sstar_  = Sstar_;
-    end
-    BVAR.hom_shrinkage = K_shrinkage/(nobs+K_shrinkage);
+%--------------------------------------------------------------------------
+% IRFs
+BVAR.hor          = hor;                % IRF horizon
+BVAR.ir_draws     = ir_draws;           % draws from the IRF with cholesky
+if long_run_irf
+    BVAR.irlr_draws   = irlr_draws;         % draws from the IRF with Long Run
+    BVAR.Qlr_draws    = Qlr_draws;          % Long Run Rotation matrix
+else
+    BVAR.irlr_draws   = [];         % draws from the IRF with Long Run
+    BVAR.Qlr_draws    = [];          % Long Run Rotation matrix
 end
-%
-BVAR.varnames     = varnames;
-BVAR.ndraws       = K;
-
 if signs_irf == 1 && narrative_signs_irf == 0
     BVAR.irsign_draws = irsign_draws;
     BVAR.Omegas       = Omega_draws;
@@ -1518,7 +1526,6 @@ if hmoments_signs_irf == 1
         BVAR.irhmomsign_upper_draws = irhmomsign_upper_draws;
         BVAR.irhmomsign_robust_credible_bands = compute_rob_cred_bands_(irhmomsign_lower_draws, irhmomsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
-
 else
     BVAR.irhmomsign_draws = [];
     BVAR.Omegam           = [];
@@ -1535,9 +1542,9 @@ if nexogenous > 0
 else
     BVAR.irx_draws = [];
 end
-
-% missing observations
-BVAR.data         = y;                  % raw data
+%--------------------------------------------------------------------------
+% mixed-freq/missing observations
+BVAR.data = yoriginal;                  % raw data
 if mixed_freq_on
     BVAR.yfill = yfill;
     BVAR.yfilt = yfilt;
@@ -1548,8 +1555,8 @@ if mixed_freq_on
     end
     BVAR.KFoptions        =  KFoptions;
 end
-
-% bvar connectedness
+%--------------------------------------------------------------------------
+% connectedness
 if cnnctdnss_
     BVAR.Connectedness.Index         = CnndtnssIndex;
     BVAR.Connectedness.FromAlltoUnit = CnndtnssFromAlltoUnit;
@@ -1614,8 +1621,17 @@ end
             var = fast_ols_(var.y,var.X);
         end
         Tu = size(var.u, 1);
-                
-        if dummy == 1
+
+        if dummy == 0
+            %********************************************************
+            % Flat Jeffrey Prior
+            %********************************************************
+            posterior.df    = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
+            posterior.S     = var.u' * var.u;
+            posterior.XXi   = var.xxi;
+            posterior.PhiHat = var.B;
+
+        elseif dummy == 1
             %********************************************************
             % Minnesota Prior
             % prior.df/S/XXi/PhiHat are computed once before the MCMC
@@ -1628,7 +1644,7 @@ end
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
-            
+
         elseif dummy == 2
             %********************************************************
             % Conjugate Prior
@@ -1641,30 +1657,11 @@ end
             %posterior.S     = var.u' * var.u + prior.Sigma.scale  + (var.B - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
             %posterior.S     = var.u' * var.u + prior.Sigma.scale  + ...
             %    (posterior.PhiHat - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
-            % check 
+            % check
             posterior.S = var.u' * var.u + prior.Sigma.scale + ...
                 prior.Phi.mean' * Ai * prior.Phi.mean + ...
                 var.B' * (var.X'*var.X) * var.B ...
                 - posterior.PhiHat' * (var.X'*var.X + Ai) * posterior.PhiHat;
-            
-        elseif dummy == 0
-            %********************************************************
-            % Flat Jeffrey Prior
-            %********************************************************
-            posterior.df    = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
-            posterior.S     = var.u' * var.u;
-            posterior.XXi   = var.xxi;
-            posterior.PhiHat = var.B;
-        
-
-        elseif dummy == 4
-            %********************************************************
-            % Pandemic Minnesota Prior
-            %********************************************************
-            posterior.df     = Tu - ny*lags - nx - flat*(ny+1) - pandemic_h;
-            posterior.S      = var.u' * var.u;
-            posterior.XXi    = var.xxi;
-            posterior.PhiHat = var.B;
 
         elseif dummy == 3
             %********************************************************
@@ -1679,6 +1676,16 @@ end
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
+
+        elseif dummy == 4
+            %********************************************************
+            % Pandemic Minnesota Prior
+            %********************************************************
+            posterior.df     = Tu - ny*lags - nx - flat*(ny+1) - pandemic_h;
+            posterior.S      = var.u' * var.u;
+            posterior.XXi    = var.xxi;
+            posterior.PhiHat = var.B;
+
         end
          
     end
