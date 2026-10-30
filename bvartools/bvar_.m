@@ -1544,6 +1544,9 @@ else
 end
 %--------------------------------------------------------------------------
 % mixed-freq/missing observations
+if ~exist('yoriginal','var')
+    yoriginal = y;   % no missing/mixed-frequency data: the raw data is just y
+end
 BVAR.data = yoriginal;                  % raw data
 if mixed_freq_on
     BVAR.yfill = yfill;

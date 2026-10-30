@@ -139,7 +139,13 @@ if dummy_ % Print the output for Minnesoty prior with dummy
     disp('  ');
     disp('** Initial Hyperpara Values and Log Density **');
     disp('  ');
-    rownam = {'tau','decay','lambda','mu','omega','log density'};
+
+    rownam = {'tau','decay','lambda','mu','omega'};              
+    for pp = 1 : nhpara-5                                 
+        rownam{end+1} = sprintf('pandemic phi(%d)', pp);           
+    end
+    rownam{end+1} = 'log density'; 
+    
     minus_log_dnsty_0     = bvar_opt_hyperpara(x0,y,lags,options);
     x               = [hyperpara'; -minus_log_dnsty_0];
     for jj =1: length(x)

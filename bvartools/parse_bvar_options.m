@@ -278,34 +278,7 @@ if nargin > 2
             minn_prior_omega = options.minn_prior_omega;
         end
     end
-    if isfield(options,'max_minn_hyper')==1 && options.max_minn_hyper ==1 && mixed_freq_on ==0
-        % maximize the hyper parameters of the minnesota prior
-        hyperpara(1) = minn_prior_tau;
-        hyperpara(2) = minn_prior_decay;
-        hyperpara(3) = minn_prior_lambda;
-        hyperpara(4) = minn_prior_mu;
-        hyperpara(5) = minn_prior_omega;
-
-        dummy = 1;
-        flat  = 0;
-        priors.name= 'Minnesota';
-        try
-            [postmode,lm,~] = bvar_max_hyper(hyperpara,y,lags,options);
-
-            minn_prior_tau      = postmode(1);
-            minn_prior_decay    = postmode(2);
-            minn_prior_lambda   = postmode(3);
-            minn_prior_mu       = postmode(4);
-            minn_prior_omega    = postmode(5);
-            disp('                       ')
-            disp('Maximization Successful: I will use the mode values.')
-
-        catch
-            warning('Maximization NOT Successful')
-            disp('Using hyper parameter default values')
-        end
-    end
-
+   
 
 
     %======================================================================
@@ -315,6 +288,25 @@ if nargin > 2
         if ~isfield(options.pandemic, 'start')
             error('Pandemic Priors: options.pandemic.start is required.');
         end
+
+        if timetrend == 1
+            warning('I will not use a timetrend with the Pandemic Priors');
+            timetrend = 0;
+        end
+        if nexogenous > 0
+            warning('I will not use exogenous variables with the Pandemic Priors');
+            nexogenous = 0;
+        end
+        if exogenous_block == 1
+            warning('I will not use an exogenous block with the Pandemic Priors');
+            exogenous_block = 0;
+        end
+
+
+
+
+
+
         pandemic_on    = 1;
         pandemic_start = options.pandemic.start;
         if isfield(options.pandemic, 'h') == 1
@@ -339,6 +331,61 @@ if nargin > 2
         flat        = 0;
         priors.name = 'Pandemic Priors';
     end
+
+
+
+    %==========================================================================
+    % Hyperparameters optimization
+    %==========================================================================
+    if isfield(options,'max_minn_hyper')==1 && options.max_minn_hyper ==1 && mixed_freq_on ==0
+        % maximize the hyper parameters of the minnesota prior or pandemic priors
+        if pandemic_on == 1
+            hyperpara = [minn_prior_tau, minn_prior_decay, minn_prior_lambda, ...
+                minn_prior_mu, minn_prior_omega, pandemic_phi(:)'];
+            options.pandemic_priors = [pandemic_h, pandemic_start];
+            try
+                [postmode,lm,~] = bvar_max_hyper(hyperpara,y,lags,options);
+
+                minn_prior_tau    = postmode(1);
+                minn_prior_decay  = postmode(2);
+                minn_prior_lambda = postmode(3);
+                minn_prior_mu     = postmode(4);
+                minn_prior_omega  = postmode(5);
+                pandemic_phi      = postmode(6:end);
+            catch
+                warning('Maximization NOT Successful')
+                disp('Using hyper parameter default values')
+            end
+        else
+            hyperpara(1) = minn_prior_tau;
+            hyperpara(2) = minn_prior_decay;
+            hyperpara(3) = minn_prior_lambda;
+            hyperpara(4) = minn_prior_mu;
+            hyperpara(5) = minn_prior_omega;
+
+            dummy = 1;
+            flat  = 0;
+            priors.name= 'Minnesota';
+            try
+                [postmode,lm,~] = bvar_max_hyper(hyperpara,y,lags,options);
+
+                minn_prior_tau      = postmode(1);
+                minn_prior_decay    = postmode(2);
+                minn_prior_lambda   = postmode(3);
+                minn_prior_mu       = postmode(4);
+                minn_prior_omega    = postmode(5);
+                disp('                       ')
+                disp('Maximization Successful: I will use the mode values.')
+            catch
+                warning('Maximization NOT Successful')
+                disp('Using hyper parameter default values')
+            end
+        end
+    end
+
+
+
+
 
 
 
