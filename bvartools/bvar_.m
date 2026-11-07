@@ -201,6 +201,26 @@ if isfield(opt,'yoriginal'),             yoriginal           = opt.yoriginal;   
 if isfield(opt,'yinterpol'),             yinterpol           = opt.yinterpol;              end
 if isfield(opt,'index'),                 index               = opt.index;                  end
 if isfield(opt,'prior'),                 prior               = opt.prior;                  end
+%%gda
+if isfield(opt,'scenario'),              scenario            = opt.scenario;               end
+%%gda
+%%gda
+if cfrcst_yes == 3
+    % pooled (panel) VARs, the exogenous block and exogenous variables are not compatible;
+    % heteroskedasticity and higher-moment identification run, with a warning at the end of bvar_
+    if nunits > 1 || exogenous_block || nexogenous > 0
+        error('scenario:unsupported','Structural scenarios are not compatible with pooled (panel) VARs, an exogenous block or exogenous variables (options.exogenous, options.controls).');
+    end
+    if mixed_freq_on == 1
+        % With temporal aggregation (index ~= 0) the VAR variable, hence the scenario target, is the
+        % Kalman-smoothed quarterly-average series (index_var), as in the ordinary forecasts of bvar_.
+        warning('Structural scenario with missing data: the missing history is replaced by its Kalman-smoothed mean given (Phi,Sigma), as bvar_ does, and does not depend on the scenario path.');
+        if ismember(dummy,[1 3 4]) && any(any(isnan(yoriginal(firstobs-lags:firstobs+presample-1,:))))
+            warning('Structural scenario with missing data: the prior is calibrated on interpolated values of the presample.');
+        end
+    end
+end
+%%gda
 clear opt
 
 
@@ -636,6 +656,11 @@ end
 yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts without shocks
 yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecasts with simulated shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional on endogenous path
+%%gda
+if cfrcst_yes == 3
+    EPS = NaN(fhor,ny,K);
+end
+%%gda
 logL                      = NaN(K,1);
 % EXOGENOUS BLOCK: all draws are stored for the full (ny+nz) system.
 if exogenous_block == 1
@@ -804,6 +829,43 @@ if K > 99
     waitbar_yes = 1;
     wb = waitbar(0, 'Generating draws from the Posterior Distribution');
 end
+
+%%gda
+% Structural scenario analysis (Antolin-Diaz et al. 2021, Algorithm 1): the draw loop below is a
+% Gibbs sampler on the parameters and the scenario path. Iteration d of the loop is one iteration
+% of the sampler and the K draws are the chain.
+%   Initialization  path = mean of the unconditional forecast                  [this block]
+%   Step 1          draw (Sigma,Phi) from the posterior conditional on the current path and
+%                   take a rotation Omega satisfying the identification restrictions
+%                   [original draw and IRF code of this loop; the conditioning on the path is
+%                   done by scn_update_posterior_ at the end of the previous iteration]
+%   Step 2          draw the path from N(mu_y,Sigma_y) subject to C*y = f (equations (13)-(14))
+%                   [gda_structural_scenario_moments, equations (3)-(16); block after the forecasts]
+%   Step 3          repeat from Step 1 with the posterior recomputed on [history; path]
+% Not implemented: importance resampling for narrative and zero restrictions (Appendix D), so
+% the chain is not certified to target the exact joint posterior.
+if cfrcst_yes == 3
+    scn_posterior0 = posterior;                  % unconditional posterior, restored after the loop
+    if robust_bayes_ > 1
+        scn_Sstar0 = Sstar_;                     % robust third moment of the history, restored after the loop
+    end
+    scn            = scenario;
+    scn.horizon    = fhor;
+    scn.n_draws    = 1;
+    scn_valid      = false(K,1);
+    scn_kl         = NaN(K,1);
+    scn_q          = NaN(K,1);
+    if pandemic_on == 1
+        panDum = [panDum; zeros(fhor,pandemic_h)];   % future pandemic dummies are zero
+    end
+    % start from the mean of the unconditional forecast
+    scn_res0   = gda_structural_scenario_moments(posterior.PhiHat, ...
+        posterior.S/max(ny+1,posterior.df-ny-1),eye(ny),forecast_data, ...
+        struct('horizon',fhor,'n_draws',0));
+    scn_future = scn_res0.y_mean;
+    scn_update_posterior_(y,scn_future);
+end
+%%gda
 
 for  d =  1 : K
     
@@ -1183,6 +1245,59 @@ for  d =  1 : K
         logL(d) = KFout.logL;
     end
     
+%%gda
+% Structural scenario, Step 2 of Algorithm 1: draw the path given (Phi,Sigma,Omega) and restrict it
+% with C*y = f (equations (3)-(16), gda_structural_scenario_moments)
+if cfrcst_yes == 3
+    % rotation of the requested identification (Cholesky by default); the long-run
+    % routine returns the impact matrix instead of the rotation
+    scn_Q = Omega;
+    if long_run_irf == 1 && ~(signs_irf == 1 || narrative_signs_irf == 1 || zeros_signs_irf == 1)
+        scn_Q = Sigma_lower_chol \ Omega;
+    end
+    % proxy: Omegap_draws is the rotation (column 1 = proxy-identified shock, the other columns are
+    % an orthogonal completion). With a weak instrument it can lose orthogonality (1e-7), so the
+    % nearest orthogonal matrix (polar factor) is used
+    if proxy_irf == 1
+        [scn_U,~,scn_V] = svd(Omegap_draws(:,:,d));
+        scn_Q           = scn_U * scn_V';
+    end
+    % heteroskedasticity: iresponse_heterosked returns its rotation in Omega, so scn_Q already holds it
+    % higher moments (eigenvalue decomposition): with the fourth moment Omega is not orthogonal and the
+    % moments routine needs a rotation, so the nearest orthogonal matrix (polar factor) is used (with
+    % the third moment Omega is already orthogonal and the polar factor leaves it unchanged)
+    if hmoments_eig_irf == 1
+        [scn_U,~,scn_V] = svd(Omega);
+        scn_Q           = scn_U * scn_V';
+    end
+    % a draw without an admissible rotation or with an unattainable scenario is left
+    % as NaN and the posterior is not updated: the next draw is a new proposal
+    if ~any(isnan(scn_Q(:)))
+        try
+            % completed history: with missing data it is the Kalman-smoothed history that the
+            % mixed-frequency block above has just computed for this draw (and used to set
+            % forecast_data.initval)
+            scn_hist = y;
+            if mixed_freq_on == 1
+                scn_hist = yfill(:,:,d);
+            end
+            scn_res    = gda_structural_scenario_moments(Phi,Sigma,scn_Q,forecast_data,scn);
+            scn_future = scn_res.y_draws(:,:,1);
+            yhatfut_cfrcst(:,:,d) = scn_future;
+            EPS(:,:,d)            = scn_res.eps_draws(:,:,1);
+            scn_kl(d)             = scn_res.plausibility.kl_divergence;
+            scn_q(d)              = scn_res.plausibility.q;
+            scn_valid(d)          = true;
+            scn_update_posterior_(scn_hist,scn_future);
+        catch ME
+            if ~ismember(ME.identifier,{'scenario:inconsistent','scenario:numerical','scenario:rotation'})
+                rethrow(ME);
+            end
+        end
+    end
+end
+%%gda
+
     %======================================================================
     % [7e] Connectedness
     if cnnctdnss_ > 0 
@@ -1205,6 +1320,20 @@ for  d =  1 : K
     dd = 0; % reset 
 end
 if waitbar_yes, close(wb); end
+%%gda
+if cfrcst_yes == 3
+    posterior = scn_posterior0;                  % the stored posterior is the unconditional one
+    if robust_bayes_ > 1
+        Sstar_ = scn_Sstar0;                     % and so are the stored robust moments (Kstar_ is never overwritten)
+    end
+    if ~any(scn_valid)
+        error('scenario:noValidDraws','No draw satisfies the scenario: check that the restrictions are jointly attainable and the identification admissible.');
+    elseif ~all(scn_valid)
+        warning('scenario:partialDraws','%d of %d scenario draws are NaN (no admissible rotation or unattainable restrictions); summarize only the valid ones.',sum(~scn_valid),K);
+    end
+    warning('Structural scenario: Phi_draws, Sigma_draws, the IRFs and forecasts.no_shocks/with_shocks are conditional on the scenario. For the baseline (unconditional) forecast run bvar_ without options.scenario.');
+end
+%%gda
 
 %==========================================================================
 % [8] CLASSICAL AND PENALIZED ESTIMATES
@@ -1567,6 +1696,34 @@ if cnnctdnss_
     BVAR.Connectedness.theta         = Ctheta;
 end
 
+%%gda
+if cfrcst_yes == 3
+    BVAR.forecasts.scenario       = scn;
+    BVAR.forecasts.plausibility   = struct('kl_divergence',scn_kl,'q',scn_q);
+    BVAR.forecasts.scenario_valid = scn_valid;
+    % options the structural scenario methodology was not designed for: the run is allowed and the warnings come last
+    if robust_bayes_ > 0
+        warning('scenario:robust','Structural scenarios assume Gaussian shocks: with robust_bayes the scenario path is still drawn from a normal and the plausibility metric q is measured against the standard normal; interpret the results with care.');
+    end
+    if heterosked_irf == 1 || heterosked
+        scn_msg = 'Structural scenarios were not designed for heteroskedasticity; interpret the results with care.';
+        if heterosked_irf == 1
+            scn_msg = [scn_msg ' The scenario shocks are identified with chol(Sigma)*Omegah, which is not the impact matrix of irheterosked_draws.'];
+        end
+        if heterosked
+            scn_msg = [scn_msg ' The heteroskedastic weights apply to the history only; the scenario path enters with unit weight (reference variance).'];
+        end
+        warning('scenario:heterosked',scn_msg);
+    end
+    if hmoments_signs_irf == 1 || hmoments_eig_irf == 1
+        scn_msg = 'Structural scenarios were not designed for higher-moment identification; interpret the results with care.';
+        if hmoments_eig_irf == 1 && moment == 4
+            scn_msg = [scn_msg ' The rotation of hmoments_eig is not orthogonal: the scenario uses the closest orthogonal matrix, so its shocks differ from those of the hmoments_eig IRFs.'];
+        end
+        warning('scenario:hmoments',scn_msg);
+    end
+end
+%%gda
 
 %==========================================================================
 % [10] NESTED FUNCTION posterior_
@@ -1692,6 +1849,55 @@ end
         end
          
     end
+
+%********************************************************
+%********************************************************
+
+%%gda
+    function scn_update_posterior_(scn_hist,scn_path)
+        % Step 3 of Algorithm 1: condition the next draw of (Sigma,Phi), i.e. Step 1, on the
+        % scenario path. The posterior is recomputed on [history; path] with the existing
+        % posterior_ (prior dummies included) and the factors used by the draw loop are
+        % refreshed. posterior_ is nested and overwrites idx-dependent variables: save and
+        % restore them.
+        scn_idx = idx;  scn_T = T;  scn_ydata = ydata;  scn_xdata = xdata;
+        idx       = [idx, size(y,1) + (1:size(scn_path,1))];
+        scn_post  = posterior_([scn_hist; scn_path]);
+        if robust_bayes_ > 0
+            % ydata, xdata and T now hold [history; path]
+            scn_update_robust_(nobs + size(scn_path,1));
+        end
+        idx = scn_idx;  T = scn_T;  ydata = scn_ydata;  xdata = scn_xdata;
+        posterior         = scn_post;
+        S_inv_upper_chol  = chol(inv(posterior.S));
+        XXi_lower_chol    = chol(posterior.XXi)';
+    end
+
+    function scn_update_robust_(scn_n)
+        % robust_bayes_ > 0: Sigma is drawn from a normal built on the robust moments, so they are
+        % recomputed on the sample extended with the path (scn_n observations), like the posterior.
+        % Same formulas as the robust block of [5], on the OLS residuals without dummy observations.
+        % Dpl, Dplus and I_ny come from that block. Kstar_ is not overwritten (stored output).
+        if heterosked == 0
+            scn_rb_ols = rfvar3(ydata, lags, xdata, [T; T], 0, 0);
+        else
+            scn_rb_ols = rfvar3(ydata, lags, xdata, [T; T], 0, 0, ww);
+        end
+        scn_rb_Sig  = 1/scn_n * scn_rb_ols.u' * scn_rb_ols.u;
+        vech_Sig_   = vech(scn_rb_Sig);
+        scn_rb_chol = chol(scn_rb_Sig,'lower');
+        scn_rb_K    = scn_n/(scn_n+K_shrinkage) * (fourthmom(scn_rb_ols.u * inv(scn_rb_chol)') - I_ny * I_ny') + ...
+            K_shrinkage/(scn_n+K_shrinkage) * Dplus * (eye(ny^2) + commutationmatrix(ny)) * Dplus';
+        scn_rb_L    = Dplus * kron(scn_rb_chol,scn_rb_chol) * Dpl;
+        scn_rb_cov  = 1/scn_n * scn_rb_L * scn_rb_K * scn_rb_L';
+        vech_Sig_cov_lower_chol = chol(scn_rb_cov,'lower');
+        if robust_bayes_ > 1
+            ivech_Sig_cov_ = pinv(scn_rb_cov);
+            Sstar_         = scn_n/(scn_n+K_shrinkage) * thirdmom(scn_rb_ols.u);
+            mu_cov_chol    = chol(scn_rb_Sig - 1/scn_n * Sstar_ * ivech_Sig_cov_ * Sstar_','lower');
+        end
+    end
+%%gda
 
 % end of bvar_ (posterior_ above is nested in it)
 end

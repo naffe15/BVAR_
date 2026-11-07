@@ -828,6 +828,64 @@ if nargin > 2
             warning('Conditional forecasts are not supported with pooled VARs.')
         end
     end
+%%gda
+    if isfield(options,'scenario') == 1
+        if isfield(options,'endo_index') || isfield(options,'exo_index')
+            error('options.scenario cannot be combined with options.endo_index or options.exo_index.')
+        end
+
+        % Translate the user-friendly 'paths' interface into the constraint
+        % matrices C and f (C*y_future = f), unless the user supplied C and f
+        if isfield(options.scenario, 'paths')
+            ny = size(y, 2);                      % number of endogenous variables
+
+            C_mat = zeros(0, ny * fhor);
+            f_vec = zeros(0, 1);
+
+            for p = 1:length(options.scenario.paths)
+                pth = options.scenario.paths(p);
+
+                % A variable outside 1..ny would silently map to another variable or period
+                if ~isscalar(pth.var) || pth.var < 1 || pth.var > ny
+                    error('scenario.paths: var must be a scalar between 1 and %d.', ny);
+                end
+
+                % A period beyond the horizon (e.g. fhor not extended to match the target)
+                if any(pth.periods < 1) || any(pth.periods > fhor)
+                    error('scenario.paths: periods must be between 1 and fhor = %d.', fhor);
+                end
+
+                % A longer value would be silently truncated to its first entries
+                if ~isscalar(pth.value) && numel(pth.value) ~= numel(pth.periods)
+                    error('scenario.paths: value must be a scalar or have one entry per period.');
+                end
+
+                % A single scalar target applies to every period of the path
+                vals = pth.value;
+                if isscalar(vals)
+                    vals = repmat(vals, length(pth.periods), 1);
+                end
+
+                for i = 1:length(pth.periods)
+                    % One row of C per constrained variable-period, with a 1 at the
+                    % position of that variable in the stacked (period-major) path
+                    Crow = zeros(1, ny * fhor);
+                    Crow(1, (pth.periods(i) - 1) * ny + pth.var) = 1;
+
+                    C_mat = [C_mat; Crow];
+                    f_vec = [f_vec; vals(i)];
+                end
+            end
+
+            options.scenario.C = C_mat;
+            options.scenario.f = f_vec;
+            options.scenario = rmfield(options.scenario, 'paths');
+        end
+
+        cfrcst_yes = 3;
+        scenario   = options.scenario;
+    end
+%%gda
     %======================================================================
     % Missing Values options
     %======================================================================
@@ -1020,5 +1078,8 @@ if exist('yoriginal', 'var'),           opt.yoriginal            = yoriginal;   
 if exist('yinterpol', 'var'),           opt.yinterpol            = yinterpol;           end
 if exist('index', 'var'),               opt.index                = index;               end
 if exist('prior', 'var'),               opt.prior                = prior;               end
+%%gda
+if exist('scenario','var'),             opt.scenario             = scenario;            end
+%%gda
 
 end

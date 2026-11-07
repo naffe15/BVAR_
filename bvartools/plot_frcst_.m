@@ -24,10 +24,63 @@ function plot_frcst_(frcsts,y,time,options)
 %       .saveas_dir, .saveas_strng   folder and name; saved only if both
 %                                    are given
 %
+%%gda
+%   Structural scenarios: frcsts can also be the output of BVAR_ run with
+%   options.scenario, or a cell array with one output per scenario. One
+%   forecast figure per scenario (blue credible sets, target paths in red)
+%   and one figure with the plausibility q of the scenarios. The name of each
+%   scenario is options.scenario.name of its run of BVAR_ (default 'Scenario i').
+%   Options: the options above and .add_frcst_label (legend of .add_frcst) and
+%   .fig_name. Defaults: .conf_sig 0.40, .conf_sig_2 0.68,
+%   .time_start 24 periods before the end of the sample, .nplots with 3
+%   columns, .add_frcst_label 'Unconditional (median)'.
+%%gda
 %   See also BVAR_, FORECASTS, SHADE.
 
 %   Filippo Ferroni, 6/1/2015.
 
+%%gda
+% structural scenarios: one forecast figure per scenario and a figure with the plausibility q
+if isstruct(frcsts) || iscell(frcsts)
+    if isstruct(frcsts)
+        frcsts = {frcsts};
+    end
+    if nargin < 4
+        options = struct();
+    end
+    nscn  = numel(frcsts);
+    nvr   = size(y,2);
+    names = arrayfun(@(i) sprintf('Scenario %d',i),1:nscn,'UniformOutput',false);
+    for i = 1 : nscn
+        if isfield(frcsts{i}.forecasts.scenario,'name')
+            names{i} = frcsts{i}.forecasts.scenario.name;
+        end
+    end
+    if ~isfield(options,'nplots'),          options.nplots          = [ceil(nvr/3) min(nvr,3)];       end
+    if ~isfield(options,'time_start'),      options.time_start      = time(max(1,length(time)-23));   end
+    if ~isfield(options,'conf_sig'),        options.conf_sig        = 0.40;                           end
+    if ~isfield(options,'conf_sig_2'),      options.conf_sig_2      = 0.68;                           end
+    if ~isfield(options,'add_frcst_label'), options.add_frcst_label = 'Unconditional (median)';       end
+    for i = 1 : nscn
+        opt          = options;
+        opt.scenario = frcsts{i}.forecasts.scenario;
+        opt.fig_name = ['Structural scenario: ' names{i}];
+        plot_frcst_(frcsts{i}.forecasts.conditional,y,time,opt);
+    end
+    % plausibility: q goes from 0.5 (same as the unconditional forecast) to 1 (implausible);
+    % a hard scenario has q = 1 in every draw
+    figure('name','Structural scenario: plausibility (KL divergence and q)','position',[80 80 1400 700]);
+    for i = 1 : nscn
+        q = frcsts{i}.forecasts.plausibility.q;
+        subplot(ceil(nscn/3),min(nscn,3),i); hold on
+        histogram(q,'BinEdges',linspace(0.5,1,21),'Normalization','probability');
+        title(sprintf('%s\nq: med %.3f, [%.3f, %.3f]',names{i},median(q),min(q),max(q)), ...
+            'Interpreter','none','FontSize',9);
+        xlabel('q (always in [0.5, 1])'); ylabel('fraction of draws'); xlim([0.5 1]);
+    end
+    return
+end
+%%gda
 if length(time) ~= length(y)
     error('Mismatch between time and in sample data (y)');
 end
@@ -38,6 +91,17 @@ end
 hor     = size(frcsts,1);
 nvar    = size(frcsts,2);
 ndraws  = size(frcsts,3);
+%%gda
+% scenario: drop the draws with non-finite values (sort would move them to the top and shift the quantiles)
+if nargin == 4 && isfield(options,'scenario')
+    valid = reshape(all(all(isfinite(frcsts),1),2),[],1);
+    frcsts = frcsts(:,:,valid);
+    ndraws = size(frcsts,3);
+end
+scenario_yes = 0;
+fig_name     = 'Forecasts';
+add_label    = 'Additional series';
+%%gda
 nplots  = [ceil(sqrt(nvar)) ceil(sqrt(nvar))];
 savefig_yes = 0;
 conf_sig    = 0.68;
@@ -148,6 +212,29 @@ else
         add_multiple_bands_yes = 1;
         sort_idx_2   = round((0.5 + [-options.conf_sig_2, options.conf_sig_2, 0]/2) * ndraws);
     end
+%%gda
+    if isfield(options,'add_frcst_label'), add_label = options.add_frcst_label; end
+    if isfield(options,'fig_name'),        fig_name  = options.fig_name;        end
+    if isfield(options,'scenario')
+        % BVAR.forecasts.scenario: a row of C with a single nonzero in column (h-1)*nvar+v
+        % pins variable v at forecast period h
+        scenario_yes = 1;
+        C   = options.scenario.C;
+        f   = options.scenario.f(:);
+        one = sum(C~=0,2) == 1;
+        if ~all(one)
+            warning('%d scenario restrictions combine several variables and are not plotted.',sum(~one));
+        end
+        [~,col]  = max(abs(C(one,:)),[],2);
+        tgt      = nan(nvar,hor);
+        tgt(col) = f(one)./sum(C(one,:),2);
+        tgt      = [y; tgt'];
+        tgt_label = 'Target mean';
+        if strcmpi(options.scenario.uncertainty,'hard')
+            tgt_label = 'Exact target';
+        end
+    end
+%%gda
 end
 
 nfigs  = ceil(length(varnames)/( nplots(1)*nplots(2)) );
@@ -283,6 +370,23 @@ if trasf_yes ==1 && add_frcst_yes ==1
 end
 
 
+%%gda
+if scenario_yes == 1
+    % the targets go through the same order_transform codes
+    if trasf_yes == 1
+        codes = [1 100 12 4 400 1200];  lags = [1 1 12 4 1 1];  mults = [1 100 100 100 400 1200];
+        for var = 1 : nvar
+            k = find(codes == order_trasform(var));
+            if ~isempty(k)
+                tgt(:,var) = [nan(lags(k),1); mults(k)*(tgt(lags(k)+1:end,var) - tgt(1:end-lags(k),var))];
+            end
+        end
+    end
+    tgt(1:length(y),:) = NaN;
+    join = isfinite(tgt(length(y)+1,:));    % a target at period 1 is joined to the last observation
+    tgt(length(y),join) = irf_Median(length(y),join);
+end
+%%gda
 jplot = 0;
 jfig  = 0;
 
@@ -291,7 +395,9 @@ index_time = time_start:time_end;
 for var= 1: nvar
     
     if jplot==0,
-        figure('name',['Forecasts'] );
+%%gda
+        figure('name',fig_name);    % was: figure('name',['Forecasts'] );
+%%gda
         jfig=jfig+1;
     end
     
@@ -299,6 +405,44 @@ for var= 1: nvar
     subplot(nplots(1),nplots(2),jplot)    
     
     
+%%gda
+    if scenario_yes == 1
+        % forecast rows start at the last observation
+        jf = max(time_start,length(y)) : length(time);
+        xf = time(jf);
+        ih = time_start : length(y);
+        shade_ = @(lo,up,col) patch('XData',[xf; flipud(xf)],'YData',[lo; flipud(up)],'FaceColor',col, ...
+            'FaceAlpha',.9,'EdgeColor','none','HandleVisibility','off');
+        hold on
+        if add_multiple_bands_yes == 1
+            shade_(irf_low_low(jf,var),irf_up_up(jf,var),[.80 .85 .97]);
+            shade_(irf_low(jf,var),irf_up(jf,var),[.50 .60 .90]);
+        else
+            shade_(irf_low(jf,var),irf_up(jf,var),[.80 .85 .97]);
+        end
+        plot(time(ih),irf_Median(ih,var),'k','LineWidth',1.5,'DisplayName','History');
+        if add_frcst_yes == 1
+            plot(xf,add_frcst(jf,var),':','Color',[.45 .45 .45],'LineWidth',1.5,'DisplayName',add_label);
+        end
+        plot(xf,irf_Median(jf,var),'b-','LineWidth',2,'DisplayName','Median forecast');
+        t   = tgt(jf,var);
+        fin = isfinite(t);
+        iso = fin & ~[false; fin(1:end-1)] & ~[fin(2:end); false];    % isolated targets are dots
+        if any(fin & ~iso)
+            plot(xf,t,'r-','LineWidth',1.2,'DisplayName',[tgt_label ' (each month)']);
+        end
+        if any(iso)
+            plot(xf(iso),t(iso),'ro','LineStyle','none','MarkerFaceColor','r','MarkerSize',5, ...
+                'DisplayName',[tgt_label ' (marked dates)']);
+        end
+        title(varnames{var})
+        axis tight
+        if jplot == 1 || any(fin)
+            legend('show','Location','best','FontSize',8);
+        end
+        set(gcf,'position' ,[80 80 1400 760])
+    else
+%%gda
     if add_multiple_bands_yes == 1
         
         h = area([time(index_time)],[irf_low_low(index_time,var),...
@@ -335,6 +479,9 @@ for var= 1: nvar
     end
     title(varnames{var})
     set(gcf,'position' ,[50 50 800 650])
+%%gda
+    end
+%%gda
     if jplot==nbofplots(jfig) || var==length(varnames)
         %legend(legenda);
         if savefig_yes == 1 
