@@ -1214,8 +1214,57 @@ for  d =  1 : K
         [sims_with_endopath,EPS(:,:,d)] = ...
             cforecasts2(endo_path,endo_path_index,exo_index,forecast_data,Phi,Sigma,Omega);
         yhatfut_cfrcst(:,:,d) = sims_with_endopath;
-    end
-    
+        
+    elseif cfrcst_yes == 3
+        % Structural scenario, Step 2 of Algorithm 1: draw the path given (Phi,Sigma,Omega) and restrict it
+        % with C*y = f (equations (3)-(16), gda_structural_scenario_moments)
+        % rotation of the requested identification (Cholesky by default); the long-run
+        % routine returns the impact matrix instead of the rotation
+        scn_Q = Omega;
+        if long_run_irf == 1 && ~(signs_irf == 1 || narrative_signs_irf == 1 || zeros_signs_irf == 1)
+            scn_Q = Sigma_lower_chol \ Omega;
+        end
+        % proxy: Omegap_draws is the rotation (column 1 = proxy-identified shock, the other columns are
+        % an orthogonal completion). With a weak instrument it can lose orthogonality (1e-7), so the
+        % nearest orthogonal matrix (polar factor) is used
+        if proxy_irf == 1
+            [scn_U,~,scn_V] = svd(Omegap_draws(:,:,d));
+            scn_Q           = scn_U * scn_V';
+        end
+        % heteroskedasticity: iresponse_heterosked returns its rotation in Omega, so scn_Q already holds it
+        % higher moments (eigenvalue decomposition): with the fourth moment Omega is not orthogonal and the
+        % moments routine needs a rotation, so the nearest orthogonal matrix (polar factor) is used (with
+        % the third moment Omega is already orthogonal and the polar factor leaves it unchanged)
+        if hmoments_eig_irf == 1
+            [scn_U,~,scn_V] = svd(Omega);
+            scn_Q           = scn_U * scn_V';
+        end
+        % a draw without an admissible rotation or with an unattainable scenario is left
+        % as NaN and the posterior is not updated: the next draw is a new proposal
+        if ~any(isnan(scn_Q(:)))
+            try
+                % completed history: with missing data it is the Kalman-smoothed history that the
+                % mixed-frequency block above has just computed for this draw (and used to set
+                % forecast_data.initval)
+                scn_hist = y;
+                if mixed_freq_on == 1
+                    scn_hist = yfill(:,:,d);
+                end
+                scn_res    = gda_structural_scenario_moments(Phi,Sigma,scn_Q,forecast_data,scn);
+                scn_future = scn_res.y_draws(:,:,1);
+                yhatfut_cfrcst(:,:,d) = scn_future;
+                EPS(:,:,d)            = scn_res.eps_draws(:,:,1);
+                scn_kl(d)             = scn_res.plausibility.kl_divergence;
+                scn_q(d)              = scn_res.plausibility.q;
+                scn_valid(d)          = true;
+                scn_update_posterior_(scn_hist,scn_future);
+            catch ME
+                if ~ismember(ME.identifier,{'scenario:inconsistent','scenario:numerical','scenario:rotation'})
+                    rethrow(ME);
+                end
+            end
+        end
+    end    
     
     %======================================================================
     % [7d] Mixed frequency: Kalman filter/smoother, then posterior update
@@ -1245,59 +1294,6 @@ for  d =  1 : K
         logL(d) = KFout.logL;
     end
     
-%%gda
-% Structural scenario, Step 2 of Algorithm 1: draw the path given (Phi,Sigma,Omega) and restrict it
-% with C*y = f (equations (3)-(16), gda_structural_scenario_moments)
-if cfrcst_yes == 3
-    % rotation of the requested identification (Cholesky by default); the long-run
-    % routine returns the impact matrix instead of the rotation
-    scn_Q = Omega;
-    if long_run_irf == 1 && ~(signs_irf == 1 || narrative_signs_irf == 1 || zeros_signs_irf == 1)
-        scn_Q = Sigma_lower_chol \ Omega;
-    end
-    % proxy: Omegap_draws is the rotation (column 1 = proxy-identified shock, the other columns are
-    % an orthogonal completion). With a weak instrument it can lose orthogonality (1e-7), so the
-    % nearest orthogonal matrix (polar factor) is used
-    if proxy_irf == 1
-        [scn_U,~,scn_V] = svd(Omegap_draws(:,:,d));
-        scn_Q           = scn_U * scn_V';
-    end
-    % heteroskedasticity: iresponse_heterosked returns its rotation in Omega, so scn_Q already holds it
-    % higher moments (eigenvalue decomposition): with the fourth moment Omega is not orthogonal and the
-    % moments routine needs a rotation, so the nearest orthogonal matrix (polar factor) is used (with
-    % the third moment Omega is already orthogonal and the polar factor leaves it unchanged)
-    if hmoments_eig_irf == 1
-        [scn_U,~,scn_V] = svd(Omega);
-        scn_Q           = scn_U * scn_V';
-    end
-    % a draw without an admissible rotation or with an unattainable scenario is left
-    % as NaN and the posterior is not updated: the next draw is a new proposal
-    if ~any(isnan(scn_Q(:)))
-        try
-            % completed history: with missing data it is the Kalman-smoothed history that the
-            % mixed-frequency block above has just computed for this draw (and used to set
-            % forecast_data.initval)
-            scn_hist = y;
-            if mixed_freq_on == 1
-                scn_hist = yfill(:,:,d);
-            end
-            scn_res    = gda_structural_scenario_moments(Phi,Sigma,scn_Q,forecast_data,scn);
-            scn_future = scn_res.y_draws(:,:,1);
-            yhatfut_cfrcst(:,:,d) = scn_future;
-            EPS(:,:,d)            = scn_res.eps_draws(:,:,1);
-            scn_kl(d)             = scn_res.plausibility.kl_divergence;
-            scn_q(d)              = scn_res.plausibility.q;
-            scn_valid(d)          = true;
-            scn_update_posterior_(scn_hist,scn_future);
-        catch ME
-            if ~ismember(ME.identifier,{'scenario:inconsistent','scenario:numerical','scenario:rotation'})
-                rethrow(ME);
-            end
-        end
-    end
-end
-%%gda
-
     %======================================================================
     % [7e] Connectedness
     if cnnctdnss_ > 0 
@@ -1561,6 +1557,33 @@ if cfrcst_yes ~= 0
     BVAR.forecasts.EPScond        = EPS;                       % shocks of forecasts
 end
 BVAR.forecast_data            = forecast_data;
+% scenario analysis
+if cfrcst_yes == 3
+    BVAR.forecasts.scenario       = scn;
+    BVAR.forecasts.plausibility   = struct('kl_divergence',scn_kl,'q',scn_q);
+    BVAR.forecasts.scenario_valid = scn_valid;
+    % options the structural scenario methodology was not designed for: the run is allowed and the warnings come last
+    if robust_bayes_ > 0
+        warning('scenario:robust','Structural scenarios assume Gaussian shocks: with robust_bayes the scenario path is still drawn from a normal and the plausibility metric q is measured against the standard normal; interpret the results with care.');
+    end
+    if heterosked_irf == 1 || heterosked
+        scn_msg = 'Structural scenarios were not designed for heteroskedasticity; interpret the results with care.';
+        if heterosked_irf == 1
+            scn_msg = [scn_msg ' The scenario shocks are identified with chol(Sigma)*Omegah, which is not the impact matrix of irheterosked_draws.'];
+        end
+        if heterosked
+            scn_msg = [scn_msg ' The heteroskedastic weights apply to the history only; the scenario path enters with unit weight (reference variance).'];
+        end
+        warning('scenario:heterosked',scn_msg);
+    end
+    if hmoments_signs_irf == 1 || hmoments_eig_irf == 1
+        scn_msg = 'Structural scenarios were not designed for higher-moment identification; interpret the results with care.';
+        if hmoments_eig_irf == 1 && moment == 4
+            scn_msg = [scn_msg ' The rotation of hmoments_eig is not orthogonal: the scenario uses the closest orthogonal matrix, so its shocks differ from those of the hmoments_eig IRFs.'];
+        end
+        warning('scenario:hmoments',scn_msg);
+    end
+end
 %--------------------------------------------------------------------------
 % IRFs
 BVAR.hor          = hor;                % IRF horizon
@@ -1696,34 +1719,6 @@ if cnnctdnss_
     BVAR.Connectedness.theta         = Ctheta;
 end
 
-%%gda
-if cfrcst_yes == 3
-    BVAR.forecasts.scenario       = scn;
-    BVAR.forecasts.plausibility   = struct('kl_divergence',scn_kl,'q',scn_q);
-    BVAR.forecasts.scenario_valid = scn_valid;
-    % options the structural scenario methodology was not designed for: the run is allowed and the warnings come last
-    if robust_bayes_ > 0
-        warning('scenario:robust','Structural scenarios assume Gaussian shocks: with robust_bayes the scenario path is still drawn from a normal and the plausibility metric q is measured against the standard normal; interpret the results with care.');
-    end
-    if heterosked_irf == 1 || heterosked
-        scn_msg = 'Structural scenarios were not designed for heteroskedasticity; interpret the results with care.';
-        if heterosked_irf == 1
-            scn_msg = [scn_msg ' The scenario shocks are identified with chol(Sigma)*Omegah, which is not the impact matrix of irheterosked_draws.'];
-        end
-        if heterosked
-            scn_msg = [scn_msg ' The heteroskedastic weights apply to the history only; the scenario path enters with unit weight (reference variance).'];
-        end
-        warning('scenario:heterosked',scn_msg);
-    end
-    if hmoments_signs_irf == 1 || hmoments_eig_irf == 1
-        scn_msg = 'Structural scenarios were not designed for higher-moment identification; interpret the results with care.';
-        if hmoments_eig_irf == 1 && moment == 4
-            scn_msg = [scn_msg ' The rotation of hmoments_eig is not orthogonal: the scenario uses the closest orthogonal matrix, so its shocks differ from those of the hmoments_eig IRFs.'];
-        end
-        warning('scenario:hmoments',scn_msg);
-    end
-end
-%%gda
 
 %==========================================================================
 % [10] NESTED FUNCTION posterior_

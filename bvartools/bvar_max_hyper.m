@@ -108,7 +108,7 @@ switch max_compute
         %=====================================================================
     case 3 % sims
         crit = 10e-5;
-        nit  = 10e-4;
+        nit  = 10e4;
         [fh, xh, ~, H, ~, ~, ~] = csminwel(objective_function,x0,.1*eye(length(x0)),[],crit,nit,y,lags,options);
      %=====================================================================   
     case 7 % Matlab's simplex (Optimization toolbox needed).

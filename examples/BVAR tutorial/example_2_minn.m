@@ -26,6 +26,7 @@ y= [IPI HICP CORE Euribor1Y M3 EXRATE];% the variables for the VAR
 %% Case 1: Estimation with cherry-picked Minnesota Prior
 lags = 6; 
 options.max_minn_hyper  = 1;       % start the  optimization routine
+options.index_est       = [1 2];   % hyper-parameters to maximize
 BVAR0                    = bvar_(y,lags,options);
 pause;
 

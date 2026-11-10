@@ -12,7 +12,7 @@
 close all; clc; clear;
 
 %%gda
-part = 2;    % parts to run: 1 = forecasts (Sections 1-5), 2 = structural scenarios (Sections 1-3 and 6), 3 = both
+part = 3;    % parts to run: 1 = forecasts (Sections 1-5), 2 = structural scenarios (Sections 1-3 and 6), 3 = both
 %%gda
 
 addpath ../../cmintools/

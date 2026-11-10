@@ -59,11 +59,11 @@ sheet    = 'factor_data';
 if isMATLABReleaseOlderThan("R2024a")
     [numi,txti,rawi] = xlsread(datafile,sheet);
     % use the same instrument as GK
-    options.proxy  = numi(:,4);
+    instrument  = numi(:,4);
 else
     Tbl = readtable(datafile,Sheet=sheet);
     % use the same instrument as GK
-    options.proxy  = Tbl.ff4_tc;
+    instrument = Tbl.ff4_tc;    
 end
 % csv is  not read  in  many  matlab stations.
 % depends on the country.  transform  csv  into  xls.
@@ -75,7 +75,7 @@ options.proxy  = nan(length(y),1);
 
 % 1: OLS with controls:
 % use the instrument/proxy shock directly in the LP
-options.proxy(length(T)- length(numi)+1:end) = numi(:,4);
+options.proxy(length(T)- length(instrument)+1:end) = instrument;
 dm2 = directmethods(y,lags,options);
 
 options0 = options;
