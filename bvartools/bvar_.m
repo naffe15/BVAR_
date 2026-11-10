@@ -37,9 +37,11 @@ function [BVAR] = bvar_(y,lags,options)
 %         .connectedness, .nethor               spillover tables
 %
 %   Output (main fields)
-%     BVAR.Phi_draws     (ny*lags+nx) x ny x K   autoregressive coefficients,
-%                                               lag-1 block first,
-%                                               deterministic terms last
+%     BVAR.Phi_draws     nk x ny x K             VAR coefficients; rows ordered
+%                                               as the regressors: lags (lag-1
+%                                               block first), then constant,
+%                                               time trend, options.exogenous,
+%                                               pandemic dummies (if present)
 %     BVAR.Sigma_draws   ny x ny x K             residual covariance
 %     BVAR.e_draws       residuals for each draw
 %     BVAR.ir_draws      ny x hor x ny x K       recursive (Cholesky) IRFs
@@ -55,10 +57,39 @@ function [BVAR] = bvar_(y,lags,options)
 %     BVAR.Phi_ols, .Sigma_ols, .e_ols, .InfoCrit (AIC, HQIC, BIC)
 %     BVAR.Connectedness spillover tables, if requested
 %
+%   Output with options.exogenous_block = z (nz variables; see Guide
+%   Sec. 3.1.6 and App. A.16): draws refer to the full (ny+nz) system
+%     BVAR.Phi_draws     ((ny+nz)*lags+nx) x (ny+nz) x K; rows
+%                        [y(-1)..y(-lags), z(-1)..z(-lags), const] (NOT
+%                        ordered by lag), columns [y eqs, z eqs]
+%     BVAR.Sigma_draws   (ny+nz) x (ny+nz) x K, block diagonal
+%     BVAR.ir_draws      (ny+nz) x hor x (ny+nz) x K, variables and shocks
+%                        ordered [y, z]
+%
 %   See also BVAR, CVAR_, PARSE_BVAR_OPTIONS, BVAR_MAX_HYPER, PLOT_IRFS_,
 %   PLOT_FRCST_, HISTDECOMP, FEVD_.
 
 %   Filippo Ferroni and Fabio Canova. https://github.com/naffe15/BVAR_
+%
+%   ROADMAP (section numbers [1]..[10] appear in the banners below)
+%     [1]  options parsing        unpack opt into local variables
+%     [2]  consistency checks
+%     [3]  data setup and OLS     yy/XX, ydata/xdata, varols, Ridge/Lasso/EN
+%     [4]  prior                  prior dummy observations and prior moments
+%     [5]  posterior              posterior_ (and z-block), robust moments
+%     [6]  marginal likelihood
+%     [7]  posterior draws loop   Sigma, Phi -> IRFs -> forecasts ->
+%                                 mixed frequency -> connectedness
+%     [8]  classical and penalized estimates (OLS, Ridge, Lasso, Elastic-Net)
+%     [9]  storing the Bayesian results
+%     [10] nested function posterior_
+%
+%   PRIOR CODES (variable 'dummy', set in parse_bvar_options)
+%     0 = Jeffrey / flat (default)    1 = Minnesota (dummy observations)
+%     2 = conjugate MN-IW             3 = PLR (Minnesota + long-run prior)
+%     4 = pandemic Minnesota
+%
+%   KNOWN ISSUES are tagged 'TODO(' in the code: grep for it.
 
 if nargin < 2
     error('the bvar_ funtion needs at least two inputs: data and number of lags');
@@ -66,9 +97,11 @@ end
 if lags < 1
     error('lags cannot be zero or negative');
 end
-%********************************************************
-%* DEFAULT SETTINGS AND OPTIONS PARSING
-%********************************************************
+%==========================================================================
+% [1] OPTIONS PARSING
+%   parse_bvar_options sets defaults and checks options; its output
+%   struct opt is unpacked here into local variables.
+%==========================================================================
 if nargin > 2
     opt = parse_bvar_options(y, lags, options);
 else
@@ -168,12 +201,32 @@ if isfield(opt,'yoriginal'),             yoriginal           = opt.yoriginal;   
 if isfield(opt,'yinterpol'),             yinterpol           = opt.yinterpol;              end
 if isfield(opt,'index'),                 index               = opt.index;                  end
 if isfield(opt,'prior'),                 prior               = opt.prior;                  end
+%%gda
+if isfield(opt,'scenario'),              scenario            = opt.scenario;               end
+%%gda
+%%gda
+if cfrcst_yes == 3
+    % pooled (panel) VARs, the exogenous block and exogenous variables are not compatible;
+    % heteroskedasticity and higher-moment identification run, with a warning at the end of bvar_
+    if nunits > 1 || exogenous_block || nexogenous > 0
+        error('scenario:unsupported','Structural scenarios are not compatible with pooled (panel) VARs, an exogenous block or exogenous variables (options.exogenous, options.controls).');
+    end
+    if mixed_freq_on == 1
+        % With temporal aggregation (index ~= 0) the VAR variable, hence the scenario target, is the
+        % Kalman-smoothed quarterly-average series (index_var), as in the ordinary forecasts of bvar_.
+        warning('Structural scenario with missing data: the missing history is replaced by its Kalman-smoothed mean given (Phi,Sigma), as bvar_ does, and does not depend on the scenario path.');
+        if ismember(dummy,[1 3 4]) && any(any(isnan(yoriginal(firstobs-lags:firstobs+presample-1,:))))
+            warning('Structural scenario with missing data: the prior is calibrated on interpolated values of the presample.');
+        end
+    end
+end
+%%gda
 clear opt
 
 
-%********************************************************
-%* Consistency Checks
-%********************************************************
+%==========================================================================
+% [2] CONSISTENCY CHECKS
+%==========================================================================
 nobs = size(y,1)-firstobs+1;
 if (firstobs+ nobs-1)> size(y,1)
     fprintf('Incorrect or missing specification of the number of observations. nobs can be at most %4u\n',size(y,1)-firstobs+1);
@@ -210,13 +263,23 @@ end
 if size(exogenous,1) == size(y,1) && nexogenous > 0
     warning('For forecast purposes, I will assume that exo are zero out-of sample.')
     warning('To change this, include the exogenous forecasts in options.exogenous.')
-    %fprintf('To change this, include the exogenous forecasts in options.exogenous.\n')
     exogenous = [exogenous; zeros(fhor,nexogenous)];
 end
 
-%********************************************************
-%* Priors and Posterior Distributions
-%********************************************************
+%==========================================================================
+% [3] DATA SETUP AND OLS ESTIMATES
+%   Data objects:
+%     idx           rows of y used in estimation (initial lags included)
+%     ydata, xdata  T x ny data and T x (deterministic/exogenous) regressors,
+%                   passed to rfvar3, which builds the lags itself
+%     yy, XX        (T-lags) x ny and (T-lags) x nk: the regression
+%                   yy = XX*Phi + E with lags built here and NO prior dummy
+%                   observations; used for the residuals in the draws loop
+%     varols        OLS on actual data only (no dummy observations)
+%     var           OLS on actual data + prior dummy observations (posterior_)
+%     nx            1 if a constant is included, 0 otherwise
+%     nk            # regressors per equation (set before the draws loop)
+%==========================================================================
 
 idx = firstobs+presample-lags:firstobs+nobs-1;
 nx  = 1;
@@ -224,9 +287,13 @@ if noconstant
     nx = 0;
 end
 
-% organize data as  yy = XX B + E
-% organize data as  yy = XX B + E
+% organize data as yy = XX*Phi + E (lags built here, no dummy observations)
 if nunits == 1
+    % EXOGENOUS BLOCK: stacked regression used ONLY to compute residuals
+    % (errors = yy - XX*Phi) for each draw, not for the posterior itself.
+    %   yy = [y_t , z_t]                                 (T-lags) x (ny+nz)
+    %   XX = [y(-1)..y(-lags), z(-1)..z(-lags), const]   (XX2 = [z lags, const])
+    % The row ordering of XX is the row ordering of the assembled Phi below.
     if exogenous_block == 1
         [yy1,XX1] = YXB_(y(idx, :),lags,[nx timetrend]);
         [yy2,XX2] = YXB_(exogenous(idx, :),lags,[nx timetrend]);
@@ -251,17 +318,13 @@ mu      = 0;
 
 ydata   = y(idx, :, :);
 T       = size(ydata, 1);
-if T-lags < lags*ny + nx %+ flat*(ny+1)
+if T-lags < lags*ny + nx
     error('Less observations than regressors: increase the # of obs or decrease the # of lags.')
 end
 xdata   = ones(T,nx);
 
 
-
-
-
 if timetrend == 1
-    % xdata = [xdata [1:T]'];
     xdata = [xdata [1-lags : T-lags]'];
 end
 
@@ -269,6 +332,9 @@ if nexogenous > 0
     xdata = [xdata exogenous(idx,:)]; 
     XX    = [XX exogenous(idx(1)+lags : idx(end),:)];
 end
+% EXOGENOUS BLOCK: the lags of z enter the y-equations as additional
+% 'exogenous' regressors (first lags rows are NaN = initial conditions,
+% dropped by rfvar3). The same is done in posterior_ below.
 if exogenous_block == 1
     xdata = [xdata,  [nan(lags,lags*nz); XX2(:,1:lags*nz)]];
 end
@@ -280,7 +346,6 @@ for j = 1 : pandemic_h
 end
 xdata = [xdata, panDum(idx, :)];
 XX    = [XX, panDum(idx(1)+lags : idx(end),:)]; 
-
 
 
 % OLS estimate [NO DUMMY]:
@@ -300,6 +365,10 @@ else % pooled units
     % Compute OLS regression and residuals of the pooled estimator
     varols = fast_ols_(varols.y,varols.X);
 end
+% EXOGENOUS BLOCK: OLS of the z-block VAR (z on its own lags + const).
+% zvarols is NOT used for the posterior draws (those use zposterior,
+% computed by posterior_(exogenous) below); zdata is used for the
+% forecast initial values.
 if exogenous_block == 1
     zdata   = exogenous(idx, :);
     zxdata   = ones(T,nx);
@@ -309,7 +378,6 @@ end
 if Ridge_ == 1
     varRidge   = varols;
     varRidge.B = (eye(size(varRidge.B,1)) + Ridge_lambda*varols.xxi)\varRidge.B;
-    % varRidge.B = inv(eye(size(varRidge.B,1)) + Ridge_lambda*varols.xxi)*varRidge.B;
     varRidge.u = varRidge.y - varRidge.X*varRidge.B;
 end
 if Lasso_ == 1
@@ -328,14 +396,22 @@ if ElasticNet_ == 1
     varElasticNet.u = varElasticNet.y - varElasticNet.X*varElasticNet.B;
 end
 
-%--------------------------------------------------------------------------
-% specify the prior
-if dummy == 1
+%==========================================================================
+% [4] PRIOR
+%   dummy = 1, 3, 4: prior dummy observations (ydum, xdum) and the prior
+%   moments obtained by OLS on presample + dummies; dummy = 0, 2: no
+%   dummy observations (see Guide App. A.3-A.7).
+%==========================================================================
+if dummy == 0
+    % JEFFREY OR UNIFORMATIVE PRIOR:
+    % [priors] = jeffrey(y,lags);
+    prior.name  = 'Jeffrey';
+    
+elseif dummy == 1
     % MINNESOTA PRIOR:
     mnprior.tight         = minn_prior_tau;
     mnprior.decay         = minn_prior_decay;
     % Use only initializations lags for the variance prior
-    % vprior.sig            = std(y(firstobs+presample-lags : firstobs+presample,:))';
     vprior.sig            = std(y(firstobs-lags : firstobs+presample-1,:))';
     vprior.w              = minn_prior_omega;
     lambda                = minn_prior_lambda;
@@ -348,7 +424,6 @@ if dummy == 1
     else
         xdata = [];
     end
-%     varp            = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
     varp           = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
     Tup            = size(varp.u, 1);
     prior.df       = Tup - ny*lags - nx - flat*(ny+1);
@@ -363,50 +438,10 @@ if dummy == 1
     prior.minn_prior_lambda = minn_prior_lambda;
     prior.minn_prior_mu     = minn_prior_mu;
     prior.minn_prior_omega  = minn_prior_omega;
-    
-elseif dummy == 0
-    % JEFFREY OR UNIFORMATIVE PRIOR:
-    % [priors] = jeffrey(y,lags);
-    prior.name  = 'Jeffrey';
-    
+       
 elseif dummy == 2
     % MN-IW
     prior.name  = 'MultivariateNormal-InverseWishart';    
-
-elseif dummy == 4
-    mnprior.tight         = minn_prior_tau;
-    mnprior.decay         = minn_prior_decay;
-    vprior.sig            = std(y(firstobs-lags : firstobs+presample-1,:))';
-    vprior.w              = minn_prior_omega;
-    lambda                = minn_prior_lambda;
-    mu                    = minn_prior_mu;
-    pandemic.h            = pandemic_h;
-    pandemic.phi          = pandemic_phi;
-    [ydum, xdum, pbreaks] = pandemic_varprior(ny, nx, lags, mnprior, vprior, pandemic);
-    % Prior density
-    Tp = presample + lags;
-    if nx
-        xdata = xdata(1:Tp, :);
-    else
-        xdata = [];
-    end
-    %     varp            = rfvar3([ydata(1:Tp, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-    varp           = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
-    Tup            = size(varp.u, 1);
-    prior.df       = Tup - ny*lags - nx - flat*(ny+1) - pandemic_h;
-    prior.S        = varp.u' * varp.u;
-    prior.XXi      = varp.xxi;
-    prior.PhiHat   = varp.B;
-    if prior.df < ny
-        error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
-    end
-    prior.minn_prior_tau    = minn_prior_tau;
-    prior.minn_prior_decay  = minn_prior_decay;
-    prior.minn_prior_lambda = minn_prior_lambda;
-    prior.minn_prior_mu     = minn_prior_mu;
-    prior.minn_prior_omega  = minn_prior_omega;
-    prior.pandemic_h        = pandemic_h;
-    prior.pandemic_phi      = pandemic_phi;
 
 elseif dummy == 3
     % PLR PRIOR: Minnesota short-run dummies + PLR long-run dummies
@@ -440,13 +475,69 @@ elseif dummy == 3
     prior.minn_prior_mu     = minn_prior_mu;
     prior.minn_prior_omega  = minn_prior_omega;
     prior.plr               = plr;
-end
-%--------------------------------------------------------------------------
 
-%--------------------------------------------------------------------------
-% compute the posterior (the varols agin on actual+dummy)
+elseif dummy == 4
+    mnprior.tight         = minn_prior_tau;
+    mnprior.decay         = minn_prior_decay;
+    vprior.sig            = std(y(firstobs-lags : firstobs+presample-1,:))';
+    vprior.w              = minn_prior_omega;
+    lambda                = minn_prior_lambda;
+    mu                    = minn_prior_mu;
+    pandemic.h            = pandemic_h;
+    pandemic.phi          = pandemic_phi;
+    [ydum, xdum, pbreaks] = pandemic_varprior(ny, nx, lags, mnprior, vprior, pandemic);
+    % Prior density
+    Tp = presample + lags;
+    if nx
+        xdata = xdata(1:Tp, :);
+    else
+        xdata = [];
+    end
+    varp           = rfvar3([y(firstobs-lags : firstobs+presample-1, :); ydum], lags, [xdata; xdum], [Tp; Tp + pbreaks], lambda, mu);
+    Tup            = size(varp.u, 1);
+    prior.df       = Tup - ny*lags - nx - flat*(ny+1) - pandemic_h;
+    prior.S        = varp.u' * varp.u;
+    prior.XXi      = varp.xxi;
+    prior.PhiHat   = varp.B;
+    if prior.df < ny
+        error('Too few degrees of freedom in the Inverse-Wishart part of prior distribution. You should increase training sample size.')
+    end
+    prior.minn_prior_tau    = minn_prior_tau;
+    prior.minn_prior_decay  = minn_prior_decay;
+    prior.minn_prior_lambda = minn_prior_lambda;
+    prior.minn_prior_mu     = minn_prior_mu;
+    prior.minn_prior_omega  = minn_prior_omega;
+    prior.pandemic_h        = pandemic_h;
+    prior.pandemic_phi      = pandemic_phi;
+
+
+end
+
+%==========================================================================
+% [5] POSTERIOR
+%   posterior_ re-runs OLS on actual data + prior dummy observations and
+%   returns the Normal-Inverse-Wishart posterior moments (see [10]).
+%==========================================================================
 [posterior,var] = posterior_(y);
 
+% EXOGENOUS BLOCK (Guide Sec. 3.1.6 and App. A.16; ny = n, nz = q there):
+% the block-exogenous VAR is treated as TWO INDEPENDENT
+% VARs, each with its own Normal-Inverse-Wishart posterior:
+%   (a) y-block:  y_t on [y lags, const, z lags]  -> posterior (computed above)
+%   (b) z-block:  z_t on [z lags, const]          -> zposterior (computed here)
+% The factorisation holds because (i) y lags do not enter the z equations
+% and (ii) Cov(u_t, e_t) = 0, so the likelihood (and, with the flat prior,
+% the posterior) splits into a y part and a z part.
+% To reuse posterior_ for (b) we temporarily switch the flag off (so that
+% posterior_ does not append the z lags to xdata) and set ny = nz; both are
+% restored right after.
+% TODO(exo_block): the Minnesota/conjugate dummies (ydum, xdum, prior.Phi)
+% are built for the y-block only: with the exogenous block only the flat
+% prior is consistent at the moment.
+% TODO(exo_block): with the flat prior the y-block posterior.df is
+% Tu-ny*lags-nx+ny+1, i.e. it ignores the nz*lags z-lag regressors
+% (should be T-k_y+n+1 with k_y = (n+q)*lags+1, Guide App. A.16).
+% TODO(exo_block): robust_bayes_ > 0 does not define ySigma/zSigma.
 if exogenous_block == 1
     exogenous_block = 0;
     ny0 = ny;
@@ -458,32 +549,30 @@ if exogenous_block == 1
     ydata = ydata0;
 end
 
-% compute the second and fourth moments robust to error distribution misspecification  
+% compute the second and fourth moments robust to error distribution misspecification
+% (Petrova 2022; Guide App. A.8)  
 if robust_bayes_ > 0 
     
     % Kurtosis
-    %var.u
     Dpl       = duplicationmatrix(ny);
     Dplus     = pinv(Dpl);
     I_ny      = vech(eye(ny));
-    %I__ny     = reshape(eye(ny),ny^2,1); 
     Sig_      = 1/nobs * varols.u' * varols.u;
     vech_Sig_ = vech(Sig_);
 
-    % whithen the reduced form errors
+    % whiten the reduced form errors
     SigChol   = chol(Sig_,'lower');
     iSigChol  = inv(SigChol);
     white_u   = varols.u * iSigChol';     
     % compute fourth centered moments
     Khat_     = fourthmom(white_u);
     % shrink towards the normal multivariate fourth mom
-    % equation (17) at page 161
+    % Petrova (2022), equation (17) at page 161 (TODO(ref): check)
     K1_       = nobs/(nobs+K_shrinkage) * (Khat_ - I_ny * I_ny') ; 
     K2_       = K_shrinkage/(nobs+K_shrinkage) * ...
         Dplus *(eye(ny^2) + commutationmatrix(ny)) * Dplus'; 
-        %Dplus *(eye(ny^2) + commutationmatrix(ny) + I__ny*I__ny') * Dplus'; 
     Kstar_     = K1_ + K2_;
-    % equation (8) of remark 3 at page 158
+    % Petrova (2022), equation (8) of remark 3 at page 158 (TODO(ref): check)
     Left  = Dplus * kron(SigChol,SigChol) * Dpl;
     Rigth = Left';
     
@@ -498,13 +587,14 @@ if robust_bayes_ > 0
         mu_cov_chol    = chol(Sig_ - mu_cov_,'lower');
     end
 end
-%--------------------------------------------------------------------------
 
-
-
-%*********************************************************
-%* Compute the log marginal data density for the VAR model
-%*********************************************************
+%==========================================================================
+% [6] LOG MARGINAL LIKELIHOOD (log data density)
+%   dummy = 1, 3, 4: log ratio of the matrix-t integrating constants of
+%     posterior and prior (matrictint), minus the Gaussian constant;
+%   dummy = 0: posterior constant only; dummy = 2: mniw_log_dnsty.
+%   TODO(exo_block): only the y-block enters log_dnsty.
+%==========================================================================
 
 try
     posterior_int = matrictint(posterior.S, posterior.df, posterior.XXi);
@@ -513,76 +603,82 @@ catch
     posterior_int = nan;
 end
         
-if dummy == 1 % only for minnesota dummy
+if dummy == 0 % jeffrey prior
+    lik_nobs  = posterior.df;
+    log_dnsty = posterior_int - 0.5*ny*lik_nobs*log(2*pi);
+
+elseif dummy == 1 % only for minnesota dummy
     prior_int = matrictint(prior.S, prior.df, prior.XXi);
     lik_nobs  = posterior.df - prior.df;
     log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
 
-elseif dummy == 0 % jeffrey prior
-    lik_nobs  = posterior.df;
-    log_dnsty = posterior_int - 0.5*ny*lik_nobs*log(2*pi);
-
 elseif dummy == 2 % conjugate MN-IW prior
     log_dnsty = mniw_log_dnsty(prior,posterior,varols);
 
+elseif dummy == 3 % PLR: same conjugate NIW marginal as the Minnesota dummy prior
+    prior_int = matrictint(prior.S, prior.df, prior.XXi);
+    lik_nobs  = posterior.df - prior.df;
+    log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
 
 elseif dummy == 4
     prior_int = matrictint(prior.S, prior.df, prior.XXi);
     lik_nobs  = posterior.df - prior.df;
     log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);  
     
-elseif dummy == 3 % PLR: same conjugate NIW marginal as the Minnesota dummy prior
-    prior_int = matrictint(prior.S, prior.df, prior.XXi);
-    lik_nobs  = posterior.df - prior.df;
-    log_dnsty = posterior_int - prior_int - 0.5*ny*lik_nobs*log(2*pi);
-
 end
 
 
-%**************************************************
-%* Generating draws form the Posterior Distribution
-%**************************************************
+%==========================================================================
+% [7] POSTERIOR DRAWS
+%   Preallocation, then for each draw d = 1..K: [7a] draw (Sigma, Phi),
+%   [7b] IRFs, [7c] forecasts, [7d] mixed frequency, [7e] connectedness.
+%   The last dimension of every *_draws array indexes the draw.
+%==========================================================================
 
 % Preallocation of memory
 % Matrices for collecting draws from Posterior Density
 % Last dimension corresponds to a specific draw
 
-
-Phi_draws = zeros(ny*lags+nx+timetrend+nexogenous+pandemic_h, ny, K); % Autoregressive Parameters - Minnesota Pandemic
-
-
-
-
-
+% lags, const, trend, exogenous, pandemic dummies
+Phi_draws = zeros(ny*lags+nx+timetrend+nexogenous+pandemic_h, ny, K); 
 Sigma_draws   = zeros(ny,ny,K);                     % Shocks Covariance
-Sigma_lower_chol_draw = zeros(ny,ny,K);             % Shocks Covariance Cholesksi 
+Sigma_lower_chol_draw = zeros(ny,ny,K);             % Cholesky factor of Sigma 
 ir_draws      = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Cholesky IRF
-irlr_draws    = zeros(ny,hor,ny,K);                 % variable, horizon, shock and draws - Long Run IRF
-Qlr_draws     = zeros(ny,ny,K);                     % long run impact matrix
 e_draws       = zeros(size(yy,1), ny,K);                  % residuals
+% in-sample forecast errors are stored only if the array has < 1e8
+% elements (about 0.8 GB in double precision)
 if size(yy,1)*ny*fhor*K < 1e8
     flag_fe  = 1;
     fe_draws = zeros(size(yy,1), ny,fhor,K);  % forecast errors 
 else 
     flag_fe  = 0; 
 end
-yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts with shocks
-yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecast without the shocks
+yhatfut_no_shocks         = NaN(fhor, ny, K, nunits);   % forecasts without shocks
+yhatfut_with_shocks       = NaN(fhor, ny, K, nunits);   % forecasts with simulated shocks
 yhatfut_cfrcst            = NaN(fhor, ny, K, nunits);   % forecast conditional on endogenous path
+%%gda
+if cfrcst_yes == 3
+    EPS = NaN(fhor,ny,K);
+end
+%%gda
 logL                      = NaN(K,1);
+% EXOGENOUS BLOCK: all draws are stored for the full (ny+nz) system.
 if exogenous_block == 1
     Phi_draws     = zeros((ny+nz)*lags+nx, (ny+nz), K);
     Sigma_draws   = zeros((ny+nz),(ny+nz),K);
-    Sigma_lower_chol_draw = zeros((ny+nz),(ny+nz),K);             % Shocks Covariance Cholesksi 
+    Sigma_lower_chol_draw = zeros((ny+nz),(ny+nz),K);             % Cholesky factor of Sigma 
     ir_draws      = zeros((ny+nz),hor,(ny+nz),K);
-    irlr_draws    = zeros((ny+nz),hor,(ny+nz),K);
-    Qlr_draws     = zeros((ny+nz),(ny+nz),K);
     e_draws       = zeros(size(yy,1),(ny+nz),K);
     fe_draws      = zeros(size(yy,1),(ny+nz),fhor,K);
     yhatfut_no_shocks         = NaN(fhor, (ny+nz), K, nunits);
     yhatfut_with_shocks       = NaN(fhor, (ny+nz), K, nunits);
     yhatfut_cfrcst            = NaN(fhor, (ny+nz), K, nunits);
 end 
+if long_run_irf == 1
+    irlr_draws    = ir_draws;      % variable, horizon, shock and draws - Long Run IRF
+    Qlr_draws     = Sigma_draws;   % long run impact matrix
+end
+
 if signs_irf == 1
     irsign_draws = ir_draws;
     Omega_draws  = Sigma_draws;
@@ -594,7 +690,6 @@ if signs_irf == 1
 end
 if nexogenous > 0 
     irx_draws = zeros(ny,hor,nexogenous,K);  
-    % Ox_draws  = Sigma_draws;
 end
 if narrative_signs_irf == 1
     irnarrsign_draws = ir_draws;
@@ -665,12 +760,10 @@ end
 if nexogenous>0
     forecast_data.xdata = [forecast_data.xdata exogenous(T-lags+1 : T-lags+fhor,:)];
 end
-
 forecast_data.xdata = [forecast_data.xdata, zeros(fhor, pandemic_h)];
 
-
-
-
+% EXOGENOUS BLOCK: forecasts are run on the full system, so the initial
+% values stack the last lags observations of [y, z].
 if exogenous_block == 1
     forecast_data.initval     = [ydata(end-lags+1:end, :), zdata(end-lags+1:end, :)];
 else
@@ -684,6 +777,8 @@ if mixed_freq_on == 1
 end
 
 
+% Cholesky of inv(posterior.S), input to rand_inverse_wishart; fallbacks if
+% S is numerically not positive definite: LDL, then a 1e-05 diagonal ridge.
 try
     S_inv_upper_chol    = chol(inv(posterior.S));
 catch
@@ -692,20 +787,24 @@ catch
         warning('I will try with the LDL decomposition')
         iS               = inv(posterior.S);
         [Left, D, Right]        = ldl(iS);
-        S_inv_upper_chol = sqrt(D) * Left' * Right';%chol()
+        S_inv_upper_chol = sqrt(D) * Left' * Right';
     catch
         warning('I will add +1e-05 to the diagonal')
         S_inv_upper_chol    = chol(inv(posterior.S + 1e-05*eye(ny)));
     end
 end
 
-
 XXi_lower_chol      = chol(posterior.XXi)';
+% EXOGENOUS BLOCK: Cholesky factors of the z-block posterior, computed once.
+% ZZi_lower_chol: lower chol of (X_z'X_z)^{-1} of the z-block regression
+% zS_inv_upper_chol: upper chol of inv(S_z), input to rand_inverse_wishart
 if exogenous_block == 1
     ZZi_lower_chol      = chol(zposterior.XXi)';
     zS_inv_upper_chol    = chol(inv(zposterior.S));
 end
 
+% EXOGENOUS BLOCK: nk = # regressors in each y-equation
+% (ny*lags y lags + nx const + timetrend + nz*lags z lags).
 if exogenous_block == 1
     nk = (ny+nz)*lags+nx+timetrend;
 else
@@ -716,24 +815,67 @@ end
 nk = nk + pandemic_h;
 
 
-
 % Declaration of the companion matrix
 Companion_matrix = diag(ones(ny*(lags-1),1),-ny);
+% p         counts draws rejected by the stability check (not reported)
+% dd        = 1 once the current draw is accepted; reset at the end of the loop
+% nan_count unused (left over from debugging)
 p  = 0;
 dd = 0;
 nan_count = 0;
 waitbar_yes = 0;
+% progress bar only for more than 99 draws
 if K > 99
     waitbar_yes = 1;
     wb = waitbar(0, 'Generating draws from the Posterior Distribution');
 end
 
+%%gda
+% Structural scenario analysis (Antolin-Diaz et al. 2021, Algorithm 1): the draw loop below is a
+% Gibbs sampler on the parameters and the scenario path. Iteration d of the loop is one iteration
+% of the sampler and the K draws are the chain.
+%   Initialization  path = mean of the unconditional forecast                  [this block]
+%   Step 1          draw (Sigma,Phi) from the posterior conditional on the current path and
+%                   take a rotation Omega satisfying the identification restrictions
+%                   [original draw and IRF code of this loop; the conditioning on the path is
+%                   done by scn_update_posterior_ at the end of the previous iteration]
+%   Step 2          draw the path from N(mu_y,Sigma_y) subject to C*y = f (equations (13)-(14))
+%                   [gda_structural_scenario_moments, equations (3)-(16); block after the forecasts]
+%   Step 3          repeat from Step 1 with the posterior recomputed on [history; path]
+% Not implemented: importance resampling for narrative and zero restrictions (Appendix D), so
+% the chain is not certified to target the exact joint posterior.
+if cfrcst_yes == 3
+    scn_posterior0 = posterior;                  % unconditional posterior, restored after the loop
+    if robust_bayes_ > 1
+        scn_Sstar0 = Sstar_;                     % robust third moment of the history, restored after the loop
+    end
+    scn            = scenario;
+    scn.horizon    = fhor;
+    scn.n_draws    = 1;
+    scn_valid      = false(K,1);
+    scn_kl         = NaN(K,1);
+    scn_q          = NaN(K,1);
+    if pandemic_on == 1
+        panDum = [panDum; zeros(fhor,pandemic_h)];   % future pandemic dummies are zero
+    end
+    % start from the mean of the unconditional forecast
+    scn_res0   = gda_structural_scenario_moments(posterior.PhiHat, ...
+        posterior.S/max(ny+1,posterior.df-ny-1),eye(ny),forecast_data, ...
+        struct('horizon',fhor,'n_draws',0));
+    scn_future = scn_res0.y_mean;
+    scn_update_posterior_(y,scn_future);
+end
+%%gda
+
 for  d =  1 : K
     
     while dd == 0 
         %======================================================================
-        % Inferece: Drawing from the posterior distribution
-        % Step 1: draw from the Covariance
+        % [7a] Draw (Sigma, Phi) from the posterior (Guide App. A.3-A.8)
+        % Step 1: draw Sigma
+        %   robust_bayes_ > 0: vech(Sigma) from its asymptotic normal
+        %     distribution (Petrova 2022, Guide App. A.8), redrawn until PD
+        %   otherwise: Sigma ~ IW(posterior.S, posterior.df)
         if robust_bayes_ > 0 % robust to kurtosis 
             tec = 0;
             while tec == 0
@@ -741,14 +883,17 @@ for  d =  1 : K
                 Sig1  = vech_Sig_cov_lower_chol * Sig0;
                 Sig2  = vech_Sig_ + Sig1;
                 Sigma = ivech(Sig2);
-                %vech_Sig_ = vech(Sig_);
-                %vech_Sig_cov_lower_chol  = 1/nobs * (Kstar_ - vech_Sig_ * vech_Sig_');
                 [Sigma_lower_chol,flag] = chol(Sigma,'lower');
                 if flag == 0
                     tec = 1;
                 end
             end
         else  
+            % EXOGENOUS BLOCK [App. A.16, drawing the disassembled blocks]:
+            % draw the two covariance matrices independently
+            %    ySigma ~ IW(S_y, df_y) (Sigma in the Guide), zSigma ~ IW(S_z, df_z) (Sigma_e)
+            % and stack them block-diagonally (Cov(u_t,e_t) = 0 by assumption).
+            % The block Cholesky factors are needed for the coefficient draws below.
             if exogenous_block == 1
                  ySigma = rand_inverse_wishart(ny, posterior.df, S_inv_upper_chol);  
                  zSigma = rand_inverse_wishart(nz, zposterior.df, zS_inv_upper_chol);
@@ -761,7 +906,8 @@ for  d =  1 : K
                 Sigma_lower_chol = chol(Sigma)';
             end
         end 
-
+        % Step 2: draw from the AR coefficients
+        % Step 2: draw Phi | Sigma ~ MN(posterior.PhiHat, posterior.XXi, Sigma)
         if exogenous_block == 1
             % Draw Phi from its matrix-normal conditional posterior without
             % ever forming the full kron(Sigma,XXi) matrix: for Z iid N(0,1)
@@ -769,15 +915,34 @@ for  d =  1 : K
             % same distribution as reshape(kron(Sigma_lower_chol,XXi_lower_chol)*vec(Z), nk, ny),
             % via vec(A*Z*B') = kron(B,A)*vec(Z). Same draw, far cheaper for
             % large ny*nk since the (ny*nk)x(ny*nk) Kronecker matrix is never built.
+            % EXOGENOUS BLOCK [App. A.16, drawing the disassembled blocks]:
+            % conditional on its own Sigma, draw each block's
+            % coefficients from its matrix-normal posterior
+            %   (a) y-block: yPhi ~ MN(PhiHat_y, (X_y'X_y)^{-1}, ySigma),  nk x ny
+            %       rows of yPhi: [y(-1)..y(-lags); const (; trend); z(-1)..z(-lags)]
             Phi1 = randn(nk * ny, 1);
             Z    = reshape(Phi1, nk, ny);
             Phi3 = XXi_lower_chol * Z * ySigma_lower_chol';
             yPhi  = Phi3 + posterior.PhiHat;
+            %   (b) z-block: zPhi ~ MN(PhiHat_z, (X_z'X_z)^{-1}, zSigma), (nz*lags+nx+trend) x nz
+            %       rows of zPhi: [z(-1)..z(-lags); const (; trend)]
             zPhi1 = randn( (nz*lags+nx+timetrend) * nz, 1);
             Zz    = reshape(zPhi1, (nz*lags+nx+timetrend), nz);
             zPhi3 = ZZi_lower_chol * Zz * zSigma_lower_chol';
             zPhi  = zPhi3 + zposterior.PhiHat;
 
+            % EXOGENOUS BLOCK [App. A.16, assembling the stacked form]:
+            % disassemble the two draws and reassemble them
+            % into the stacked coefficient matrix of the full system
+            %                  y eqs (ny)   z eqs (nz)
+            %   y lags     [   yPhiy        zPhiy = 0   ]   <- block exogeneity restriction
+            %   z lags     [   yPhiz        zPhiz       ]
+            %   const/tr   [   yPhic        zPhic       ]
+            % Row ordering = columns of XX (all y lags first, then all z lags), i.e.
+            % NOT lag-interleaved: this is what is stored in Phi_draws and used for
+            % residuals and forecasts. The IRF section reorders it lag by lag.
+            % TODO(exo_block): the slicing of yPhi assumes no options.exogenous and no pandemic
+            % dummies (they would sit between const/trend and the z lags).
             yPhiy = yPhi(1:ny*lags,:); % coefficients of lag endogenous on endogenous
             yPhiz = yPhi(ny*lags+nx+timetrend+1:end,:); % coefficient of lag exogenous on endogenous
             yPhic = yPhi(ny*lags+1 : ny*lags+nx+timetrend, :); % constant and time trend of endogenous
@@ -796,6 +961,8 @@ for  d =  1 : K
             Phi  = Phi3 + posterior.PhiHat;
         end
         
+        % With skewness, the intercept is redrawn from its asymptotic
+        % distribution conditional on Sigma (Petrova 2022, Guide App. A.8).
         if robust_bayes_ > 1 % robust to kurtosis and skewness
             mu_rob           = posterior.PhiHat(ny*lags+1,:) + (Sstar_* ivech_Sig_cov_ * (Sig2  - vech_Sig_))';
             % as if assuming no lags (only costant) (X'X) = T
@@ -803,13 +970,20 @@ for  d =  1 : K
             Phi(ny*lags+1,:) = mu_rob + (mu_cov_chol*randn(ny, 1))';
         end
         
+        % Step 3: stability check (only if non_explosive_ = 1). The companion
+        % eigenvalues in 'test' are reused in [7d] (mixed frequency), so the
+        % eig is computed only when one of the two needs it: it costs
+        % O((ny*lags)^3) per draw.
         if exogenous_block == 0
-            Companion_matrix(1:ny,:) = Phi(1:(ny)*lags,:)';
-            test = (abs(eig(Companion_matrix)));
+            if non_explosive_ == 1 || mixed_freq_on
+                Companion_matrix(1:ny,:) = Phi(1:(ny)*lags,:)';
+                test = (abs(eig(Companion_matrix)));
+            end
             if non_explosive_ == 1
                 % Checking the eigenvalues of the companion matrix (on or inside the
                 % unit circle)
-                if any(test>1.01) %any(test>1.0000000000001)
+                % tolerance: roots up to 1.01 in modulus are accepted
+                if any(test>1.01)
                     p = p+1;
                 else
                     dd = 1;
@@ -818,6 +992,7 @@ for  d =  1 : K
                 dd = 1;
             end
         else
+            % TODO(exo_block): no stability check, every draw is accepted.
             dd = 1;
         end
     end
@@ -828,6 +1003,11 @@ for  d =  1 : K
     errors             = yy - XX * Phi;
     e_draws(:,:,d)     = errors;
     Sigma_lower_chol_draw(:,:,d) = Sigma_lower_chol;
+    % EXOGENOUS BLOCK: from here to the end of the loop the code works on the
+    % full system, so ny is temporarily set to ny+nz (restored at the end of
+    % the iteration). TODO(exo_block): fe_ is fed Phi(1:ny*lags,1:ny) in the stacked (non-
+    % interleaved) ordering, while var2ma inside fe_ expects lag-1 block first:
+    % fe_draws are not correct for lags > 1 (to be fixed).
     if exogenous_block == 1
         ny0 = ny;
         ny = ny + nz;
@@ -837,27 +1017,26 @@ for  d =  1 : K
     end
     
     %======================================================================
-    % IRF
+    % [7b] IRFs
+    % EXOGENOUS BLOCK [App. A.16, from the stacked to the companion form]:
+    % iresponse needs the companion ordering
+    % [y(-1), z(-1), y(-2), z(-2), ...]. Phi_tmp keeps the stacked ordering
+    % (restored before the forecasts); Phi0 is the lag-interleaved version.
+    % With block-diagonal Sigma and zPhiy = 0, z does not respond to y shocks.
     if exogenous_block
         % reorder regressors from y(-1), y(-2), ..., z(-1), z(-2), ...
         % to  y(-1), z(-1), y(-2), z(-2) ...
         Phi_tmp = Phi; Phi0 = zeros(size(Phi));
-        %%Sigma_tmp = Sigma; 
-        %%Sigma = [zSigma, zeros(nz,ny0); zeros(ny0,nz), ySigma];
         index = 0;
         for ell = 1 : lags
             Phi0(index+ 1 : index + ny0, :) = Phi_tmp(ny0*(ell-1)+1 : ny0*ell,:);
             Phi0(index + ny0 + 1 : index + ny0 + nz, :) = ... 
             Phi_tmp(ny0*lags + (ell-1)*nz + 1 : ny0*lags + (ell)*nz, :); 
             
-            %%Phi0(index+ 1 : index + nz, :) = Phi_tmp(ny0*lags + (ell-1)*nz + 1 : ny0*lags + (ell)*nz, :);
-            %%Phi0(index + nz + 1 : index + nz + ny0, :) = Phi_tmp(ny0*(ell-1)+1 : ny0*ell,:);
             index = index + ny; 
         end
         Phi0(ny*lags+1:end, :) = Phi(ny*lags+1:end, :);
         Phi = Phi0;
-        %%Phi(:,1:nz) = Phi0(:,ny0+1:ny0+nz);
-        %%Phi(:,1+nz:nz+ny0) = Phi0(:,1:ny0);
     end
     % Compute the impulse response functions
     % with cholesky
@@ -877,7 +1056,10 @@ for  d =  1 : K
         % unitary increase        
         irx_draws(:,:,:,d) = iresponse(Phi1,Sig1,hor,Exo1);        
     end
-    % define the identity rotation    
+    % define the identity rotation
+    % NB: each identification scheme below overwrites Omega; the Omega of the
+    % LAST active scheme is the one used in [7c] by cforecasts2
+    % (cfrcst_yes = 2) and in [7e] by connectedness (cnnctdnss_ = 2).
     Omega = eye(ny);
     
     % with long run restrictions
@@ -899,9 +1081,7 @@ for  d =  1 : K
                 irsign0 = nan(ny,hor,ny,L);
                 for ell = 1 : L
                     [irsign0(:,:,:,ell), ~] = iresponse_sign(Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs);
-                    %waitbar(ell/L, wb1);
                 end
-                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
                 irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
                 irsign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
             end
@@ -919,9 +1099,7 @@ for  d =  1 : K
                 irsign0 = nan(ny,hor,ny,L);
                 for ell = 1 : L
                     [irsign0(:,:,:,ell), ~] = iresponse_sign_narrative(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,narrative);
-                    %waitbar(ell/L, wb1);
                 end
-                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
                 irnarrsign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
                 irnarrsign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
             end
@@ -929,7 +1107,7 @@ for  d =  1 : K
 
     end
     % with zeros and sign restrictions
-    if zeros_signs_irf == 1         %= iresponse_zeros_signs( Phi,Sigma,bvar1.hor,lags,var_pos,f,sr);
+    if zeros_signs_irf == 1
         [irzerosign,Omega]          = iresponse_zeros_signs(Phi,Sigma,hor,lags,var_pos,f,sr);
         irzerosign_draws(:,:,:,d)   = irzerosign;
         Omegaz_draws(:,:,d)         = Omega;
@@ -940,9 +1118,7 @@ for  d =  1 : K
                 irsign0 = nan(ny,hor,ny,L);
                 for ell = 1 : L
                     [irsign0(:,:,:,ell), ~] = iresponse_zeros_signs(Phi,Sigma,hor,lags,var_pos,f,sr);
-                    %waitbar(ell/L, wb1);
                 end
-                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
                 irzerosign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
                 irzerosign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
             end
@@ -981,8 +1157,6 @@ for  d =  1 : K
         icholSig = inv(Sigma_lower_chol);
         Omega = icholSig*[[omega11; omega21'] , [omega12; omega22]];
         Omegap_draws(:,:,d) = Omega;
-        %max(max(abs(Omegap_draws(:,:,d)*Omegap_draws(:,:,d)'-Sigma)))
-        % max(max(abs(Omegap_draws(:,:,d)*Omegap_draws(:,:,d)'-eye(ny))))
         clear tmp_
     end
     % with heteroskedasticity 
@@ -996,19 +1170,13 @@ for  d =  1 : K
         [irhmomsign,Omega]         = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);
         irhmomsign_draws(:,:,:,d)  = irhmomsign;
         Omegam_draws(:,:,d)        = Omega;
-        % if isnan(Omega)
-        %     nan_count = nan_count + 1;
-        %     disp([nan_count nan_count/d])
-        % end
         OmegaEmpty(d)          = any(any(isnan(Omega)));
         if robust_credible_regions_            
             if OmegaEmpty(d) == 0          
                 irsign0 = nan(ny,hor,ny,L);
                 parfor ell = 1 : L
-                    [irsign0(:,:,:,ell), ~] = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);%iresponse_sign(Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs);
-                    %waitbar(ell/L, wb1);
+                    [irsign0(:,:,:,ell), ~] = iresponse_sign_hmoments(errors,Phi(1 : ny*lags, 1 : ny),Sigma,hor,signs,hmoments,f);
                 end
-                % irsign_upper_draws(:,:,:,d) = max(irsign0,[],4,''omitnan'');
                 irhmomsign_upper_draws(:,:,:,d) = max(irsign0,[],4,"omitnan");
                 irhmomsign_lower_draws(:,:,:,d) = min(irsign0,[],4,"omitnan");
             end
@@ -1022,10 +1190,11 @@ for  d =  1 : K
     end
     
     %======================================================================
-    % Forecasts
+    % [7c] Forecasts (unconditional and conditional)
+    % EXOGENOUS BLOCK: forecasts use the stacked (non-interleaved) Phi,
+    % consistent with forecast_data.initval = [y, z].
     if exogenous_block
         Phi = Phi_tmp;
-        %Sigma = Sigma_tmp;
     end
     % compute the out of sample forecast (unconditional)
     [frcst_no_shock,frcsts_with_shocks] = forecasts(forecast_data,Phi,Sigma,fhor,lags);
@@ -1045,18 +1214,71 @@ for  d =  1 : K
         [sims_with_endopath,EPS(:,:,d)] = ...
             cforecasts2(endo_path,endo_path_index,exo_index,forecast_data,Phi,Sigma,Omega);
         yhatfut_cfrcst(:,:,d) = sims_with_endopath;
-    end
-    
+        
+    elseif cfrcst_yes == 3
+        % Structural scenario, Step 2 of Algorithm 1: draw the path given (Phi,Sigma,Omega) and restrict it
+        % with C*y = f (equations (3)-(16), gda_structural_scenario_moments)
+        % rotation of the requested identification (Cholesky by default); the long-run
+        % routine returns the impact matrix instead of the rotation
+        scn_Q = Omega;
+        if long_run_irf == 1 && ~(signs_irf == 1 || narrative_signs_irf == 1 || zeros_signs_irf == 1)
+            scn_Q = Sigma_lower_chol \ Omega;
+        end
+        % proxy: Omegap_draws is the rotation (column 1 = proxy-identified shock, the other columns are
+        % an orthogonal completion). With a weak instrument it can lose orthogonality (1e-7), so the
+        % nearest orthogonal matrix (polar factor) is used
+        if proxy_irf == 1
+            [scn_U,~,scn_V] = svd(Omegap_draws(:,:,d));
+            scn_Q           = scn_U * scn_V';
+        end
+        % heteroskedasticity: iresponse_heterosked returns its rotation in Omega, so scn_Q already holds it
+        % higher moments (eigenvalue decomposition): with the fourth moment Omega is not orthogonal and the
+        % moments routine needs a rotation, so the nearest orthogonal matrix (polar factor) is used (with
+        % the third moment Omega is already orthogonal and the polar factor leaves it unchanged)
+        if hmoments_eig_irf == 1
+            [scn_U,~,scn_V] = svd(Omega);
+            scn_Q           = scn_U * scn_V';
+        end
+        % a draw without an admissible rotation or with an unattainable scenario is left
+        % as NaN and the posterior is not updated: the next draw is a new proposal
+        if ~any(isnan(scn_Q(:)))
+            try
+                % completed history: with missing data it is the Kalman-smoothed history that the
+                % mixed-frequency block above has just computed for this draw (and used to set
+                % forecast_data.initval)
+                scn_hist = y;
+                if mixed_freq_on == 1
+                    scn_hist = yfill(:,:,d);
+                end
+                scn_res    = gda_structural_scenario_moments(Phi,Sigma,scn_Q,forecast_data,scn);
+                scn_future = scn_res.y_draws(:,:,1);
+                yhatfut_cfrcst(:,:,d) = scn_future;
+                EPS(:,:,d)            = scn_res.eps_draws(:,:,1);
+                scn_kl(d)             = scn_res.plausibility.kl_divergence;
+                scn_q(d)              = scn_res.plausibility.q;
+                scn_valid(d)          = true;
+                scn_update_posterior_(scn_hist,scn_future);
+            catch ME
+                if ~ismember(ME.identifier,{'scenario:inconsistent','scenario:numerical','scenario:rotation'})
+                    rethrow(ME);
+                end
+            end
+        end
+    end    
     
     %======================================================================
-    % Mixed Frequency
+    % [7d] Mixed frequency: Kalman filter/smoother, then posterior update
     if mixed_freq_on
-        % Checking the eigenvalues of the companion matrix (on or inside the
-        % unit circle). Needed for the initial of KF
-        Companion_matrix(1:ny,:) = Phi(1:ny*lags,:)';
-        %test = (abs(eig(Companion_matrix)));
+        % If the draw has a root outside the unit circle, the Kalman filter
+        % is initialized differently (KFoptions.initialCond = 1).
+        % TODO(mixed_freq): 'test' is NOT recomputed here; it is the one from
+        % the stability check of [7a] (same draw), which is skipped with the
+        % exogenous block.
+        % initialCond is set draw by draw (it was never reset to 0 before).
         if any(test>1.0000000000001)
             KFoptions.initialCond = 1;
+        else
+            KFoptions.initialCond = 0;
         end
         % Forward Kalman Filter and Smoother
         [logL,KFout]     = kfilternan(Phi,Sigma,yoriginal,KFoptions);
@@ -1073,12 +1295,8 @@ for  d =  1 : K
     end
     
     %======================================================================
-    % Connectedness
+    % [7e] Connectedness
     if cnnctdnss_ > 0 
-%         if use_omega == 1
-%             [C] = connectedness(Phi,Sigma,nethor,Omega); 
-%         else
-%         end
         if cnnctdnss_ == 2 
             [C] = connectedness(Phi(1 : ny*lags, 1 : ny),Sigma,nethor, Sigma_lower_chol * Omega );
         elseif cnnctdnss_ == 1
@@ -1090,6 +1308,7 @@ for  d =  1 : K
         Ctheta(:,:,d)              = C.theta;
     end
     
+    % EXOGENOUS BLOCK: restore ny = # of endogenous variables.
     if exogenous_block == 1
         ny = ny0;
     end
@@ -1097,13 +1316,28 @@ for  d =  1 : K
     dd = 0; % reset 
 end
 if waitbar_yes, close(wb); end
-
-%********************************************************
-%* Storing the resutls
-%*******************************************************
+%%gda
+if cfrcst_yes == 3
+    posterior = scn_posterior0;                  % the stored posterior is the unconditional one
+    if robust_bayes_ > 1
+        Sstar_ = scn_Sstar0;                     % and so are the stored robust moments (Kstar_ is never overwritten)
+    end
+    if ~any(scn_valid)
+        error('scenario:noValidDraws','No draw satisfies the scenario: check that the restrictions are jointly attainable and the identification admissible.');
+    elseif ~all(scn_valid)
+        warning('scenario:partialDraws','%d of %d scenario draws are NaN (no admissible rotation or unattainable restrictions); summarize only the valid ones.',sum(~scn_valid),K);
+    end
+    warning('Structural scenario: Phi_draws, Sigma_draws, the IRFs and forecasts.no_shocks/with_shocks are conditional on the scenario. For the baseline (unconditional) forecast run bvar_ without options.scenario.');
+end
+%%gda
 
 %==========================================================================
-% classical inference: OLS estimator
+% [8] CLASSICAL AND PENALIZED ESTIMATES
+%   OLS (stored as BVAR.*_ols) and Ridge / Lasso / Elastic-Net (BVAR.Ridge,
+%   BVAR.Lasso, BVAR.ElasticNet), with IRFs and information criteria.
+%==========================================================================
+
+% --- OLS (classical inference) ---
 BVAR.Phi_ols    = varols.B;
 BVAR.e_ols      = varols.u;
 BVAR.fe_ols     = fe_(fhor,BVAR.e_ols,BVAR.Phi_ols(1 : ny*lags, 1 : ny));
@@ -1182,7 +1416,6 @@ end
 % test the normality of the ols VAR residuals (matlab stat toolbox needed)
 if  exist('kstest') ==2
     for gg = 1 : ny
-        %[H,Pv] = kstest(BVAR.e_ols(:,gg)/sqrt(BVAR.Sigma_ols(gg,gg)));
         [H,Pv] = kstest(BVAR.white_e_ols(:,gg));
         BVAR.HP(gg,:) = [H,Pv];
         %      H = 0 => Do not reject the null hypothesis at the 5% significance
@@ -1191,15 +1424,11 @@ if  exist('kstest') ==2
 else
     BVAR.HP = [];
 end
-%==========================================================================
-% Penalized Approaches (Regularization)
-% Parameters Estiamtes - IRFs - Connectedness
-%set_irf = signs_irf + narrative_signs_irf + zeros_signs_irf;
+% --- Penalized approaches (regularization): estimates, IRFs, connectedness ---
 penalizationstrn = {'Ridge','Lasso','ElasticNet'};
 % loop across penalization approaches
-% (rewritten to avoid eval(): 'name' is used both as the BVAR.(name) output
-% field and to pick the matching var{Ridge,Lasso,ElasticNet} struct built
-% above, via the switch below, instead of building variable names as strings.)
+% 'name' is both the BVAR.(name) output field and the selector of the
+% matching var{Ridge,Lasso,ElasticNet} struct built in [3].
 for pp = 1 : 3
     name   = penalizationstrn{pp};
     active = false;
@@ -1259,10 +1488,6 @@ for pp = 1 : 3
         % set identification: zeros and sign restrictions
         if zeros_signs_irf == 1
             for d1 = 1 : set_irf
-                % NOTE: the previous eval()-built string here was malformed
-                % (missing the '.' before 'irzerosign_draws' and a stray '.'
-                % before the index), so this branch would have errored if
-                % ever exercised. Fixed as part of removing eval().
                 [BVAR.(name).irzerosign_draws(:,:,:,d1), Omega_(:,:,d1)] = ...
                     iresponse_zeros_signs(Phi_(1 : ny*lags, 1 : ny),Sigma_,hor,lags,var_pos,f,sr);
                 waitbar(d1/set_irf, wb);
@@ -1288,25 +1513,19 @@ for pp = 1 : 3
 end
     
 %==========================================================================
-% bayesian inference:
-% the last dimension of these objects corresponds to a draw from the posterior
-
-% inference and IRFs
-BVAR.Phi_draws    = Phi_draws;          % draws from the autoregressive part
-BVAR.Sigma_draws  = Sigma_draws;        % draws from the covarance matrix
-% BVAR.alpha_draws  = Phi_draws;          % Older name: draws from the autoregressive part
-% BVAR.sigma_draws  = Sigma_draws;        % Older name: draws from the covarance matrix
-BVAR.Sigma_lower_chol_draw = Sigma_lower_chol_draw;
-BVAR.ir_draws     = ir_draws;           % draws from the IRF with cholesky
-BVAR.irlr_draws   = irlr_draws;         % draws from the IRF with Long Run
-BVAR.Qlr_draws    = Qlr_draws;          % Long Run Rotation matrix
+% [9] STORING THE BAYESIAN RESULTS
+%   The last dimension of the *_draws objects indexes the posterior draw.
+%==========================================================================
+BVAR.varnames     = varnames;
+BVAR.ndraws       = K;
 BVAR.lags         = lags;               % lags
 BVAR.N            = ny;                 % number of variables
+%--------------------------------------------------------------------------
+% parameters inference
+BVAR.Phi_draws    = Phi_draws;          % draws from the autoregressive part
+BVAR.Sigma_draws  = Sigma_draws;        % draws from the covariance matrix
+BVAR.Sigma_lower_chol_draw = Sigma_lower_chol_draw;
 BVAR.e_draws      = e_draws;            % residuals
-% BVAR.e            = e_draws;            % backward compatible with earlier versions
-if flag_fe 
-    BVAR.fe_draws     = fe_draws;           % insample forecast errors
-end
 BVAR.posterior    = posterior;
 BVAR.prior        = prior;             % priors used
 BVAR.logmlike     = log_dnsty;
@@ -1314,10 +1533,21 @@ BVAR.X            = var.X;              % regressors (including dummy if Minneso
 BVAR.y            = var.y;              % dependent  (including dummy if Minnesota)
 BVAR.XX           = XX;                 % regressors (no dummy)
 BVAR.yy           = yy;                 % dependent  (no dummy)
-
-% prediction
+if robust_bayes_ > 0
+    BVAR.Kstar_  = Kstar_;
+    if robust_bayes_ > 1
+        BVAR.Sstar_  = Sstar_;
+    end
+    BVAR.hom_shrinkage = K_shrinkage/(nobs+K_shrinkage);
+end
+%--------------------------------------------------------------------------
+% forecasts
+% in-sample
+if flag_fe 
+    BVAR.fe_draws     = fe_draws;           % insample forecast errors
+end
+% out-of-sample
 BVAR.fhor         = fhor;               % forecast horizon
-BVAR.hor          = hor;                % IRF horizon
 BVAR.forecasts.no_shocks      = squeeze(yhatfut_no_shocks);         % trajectories of forecasts without shocks
 BVAR.forecasts.with_shocks    = squeeze(yhatfut_with_shocks);       % trajectories of forecasts with shocks
 BVAR.forecasts.conditional    = [];                                 % trajectories of conditional forecasts
@@ -1327,22 +1557,48 @@ if cfrcst_yes ~= 0
     BVAR.forecasts.EPScond        = EPS;                       % shocks of forecasts
 end
 BVAR.forecast_data            = forecast_data;
-if robust_bayes_ > 0
-    BVAR.Kstar_  = Kstar_;
-    if robust_bayes_ > 1
-        BVAR.Sstar_  = Sstar_;
+% scenario analysis
+if cfrcst_yes == 3
+    BVAR.forecasts.scenario       = scn;
+    BVAR.forecasts.plausibility   = struct('kl_divergence',scn_kl,'q',scn_q);
+    BVAR.forecasts.scenario_valid = scn_valid;
+    % options the structural scenario methodology was not designed for: the run is allowed and the warnings come last
+    if robust_bayes_ > 0
+        warning('scenario:robust','Structural scenarios assume Gaussian shocks: with robust_bayes the scenario path is still drawn from a normal and the plausibility metric q is measured against the standard normal; interpret the results with care.');
     end
-    BVAR.hom_shrinkage = K_shrinkage/(nobs+K_shrinkage);
+    if heterosked_irf == 1 || heterosked
+        scn_msg = 'Structural scenarios were not designed for heteroskedasticity; interpret the results with care.';
+        if heterosked_irf == 1
+            scn_msg = [scn_msg ' The scenario shocks are identified with chol(Sigma)*Omegah, which is not the impact matrix of irheterosked_draws.'];
+        end
+        if heterosked
+            scn_msg = [scn_msg ' The heteroskedastic weights apply to the history only; the scenario path enters with unit weight (reference variance).'];
+        end
+        warning('scenario:heterosked',scn_msg);
+    end
+    if hmoments_signs_irf == 1 || hmoments_eig_irf == 1
+        scn_msg = 'Structural scenarios were not designed for higher-moment identification; interpret the results with care.';
+        if hmoments_eig_irf == 1 && moment == 4
+            scn_msg = [scn_msg ' The rotation of hmoments_eig is not orthogonal: the scenario uses the closest orthogonal matrix, so its shocks differ from those of the hmoments_eig IRFs.'];
+        end
+        warning('scenario:hmoments',scn_msg);
+    end
 end
-%
-BVAR.varnames     = varnames;
-BVAR.ndraws       = K;
-
+%--------------------------------------------------------------------------
+% IRFs
+BVAR.hor          = hor;                % IRF horizon
+BVAR.ir_draws     = ir_draws;           % draws from the IRF with cholesky
+if long_run_irf
+    BVAR.irlr_draws   = irlr_draws;         % draws from the IRF with Long Run
+    BVAR.Qlr_draws    = Qlr_draws;          % Long Run Rotation matrix
+else
+    BVAR.irlr_draws   = [];         % draws from the IRF with Long Run
+    BVAR.Qlr_draws    = [];          % Long Run Rotation matrix
+end
 if signs_irf == 1 && narrative_signs_irf == 0
     BVAR.irsign_draws = irsign_draws;
     BVAR.Omegas       = Omega_draws;
     BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
-    %fprintf('\nPosterior plausibility of identifying restrictions: %0.4g.\n',BVAR.postPlaus)
     if robust_credible_regions_
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irsign_lower_draws = irsign_lower_draws;
@@ -1357,12 +1613,10 @@ if narrative_signs_irf == 1
     BVAR.irnarrsign_draws = irnarrsign_draws;
     BVAR.Omegan           = Omegan_draws;
     BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
-    %fprintf('\nPosterior plausibility of identifying restrictions: %0.4g.\n',BVAR.postPlaus)
     if robust_credible_regions_
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irnarrsign_lower_draws = irnarrsign_lower_draws;
         BVAR.irnarrsign_upper_draws = irnarrsign_upper_draws;
-        % NOTE: previously used irzerosign_* draws here by mistake (copy-paste bug).
         BVAR.irnarrsign_robust_credible_bands = compute_rob_cred_bands_(irnarrsign_lower_draws, irnarrsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end    
 else
@@ -1373,7 +1627,6 @@ if zeros_signs_irf == 1
     BVAR.irzerosign_draws   = irzerosign_draws;
     BVAR.Omegaz             = Omegaz_draws;
     BVAR.postPlaus          = (1 - sum(OmegaEmpty)/K);
-    %fprintf('\nPosterior plausibility of identifying restrictions: %0.4g.\n',BVAR.postPlaus)
     if robust_credible_regions_
         BVAR.robust_credible_regions_ = robust_credible_regions_;
         BVAR.irzerosign_lower_draws = irzerosign_lower_draws;
@@ -1425,7 +1678,6 @@ if hmoments_signs_irf == 1
         BVAR.irhmomsign_upper_draws = irhmomsign_upper_draws;
         BVAR.irhmomsign_robust_credible_bands = compute_rob_cred_bands_(irhmomsign_lower_draws, irhmomsign_upper_draws, ny, opt_GiacomoniKitagawa);
     end
-
 else
     BVAR.irhmomsign_draws = [];
     BVAR.Omegam           = [];
@@ -1442,9 +1694,12 @@ if nexogenous > 0
 else
     BVAR.irx_draws = [];
 end
-
-% missing observations
-BVAR.data         = y;                  % raw data
+%--------------------------------------------------------------------------
+% mixed-freq/missing observations
+if ~exist('yoriginal','var')
+    yoriginal = y;   % no missing/mixed-frequency data: the raw data is just y
+end
+BVAR.data = yoriginal;                  % raw data
 if mixed_freq_on
     BVAR.yfill = yfill;
     BVAR.yfilt = yfilt;
@@ -1455,8 +1710,8 @@ if mixed_freq_on
     end
     BVAR.KFoptions        =  KFoptions;
 end
-
-% bvar connetedness
+%--------------------------------------------------------------------------
+% connectedness
 if cnnctdnss_
     BVAR.Connectedness.Index         = CnndtnssIndex;
     BVAR.Connectedness.FromAlltoUnit = CnndtnssFromAlltoUnit;
@@ -1465,18 +1720,21 @@ if cnnctdnss_
 end
 
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% end of bvar_.m
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%********************************************************
-%********************************************************
+%==========================================================================
+% [10] NESTED FUNCTION posterior_
+%==========================================================================
     function [posterior,var] = posterior_(y)
         
-        % This part is needed in the case of missing values. The posterior
-        % needs to be revaluated given a new value of the Kalman smoothed
-        % observables
+        % POSTERIOR_ Posterior moments of the VAR given data y.
+        %   posterior.PhiHat, .XXi, .S, .df   Normal-Inverse-Wishart moments
+        %   var                               rfvar3 output (with prior dummies)
+        %   Called (i) once in [5]; (ii) for the z-block of options.exogenous_block;
+        %   (iii) at each draw with mixed frequency, on the Kalman-smoothed data.
+        %   NESTED FUNCTION: it shares the workspace of bvar_. It READS idx, nx,
+        %   ny, lags, timetrend, nexogenous, exogenous, pandemic_on, panDum, ydum,
+        %   xdum, pbreaks, lambda, mu, plr, ww, heterosked, nunits, dummy, flat,
+        %   prior, exogenous_block, nz, XX2, and it OVERWRITES ydata, T and xdata
+        %   of bvar_ (hence ydata0 in [5]).
         %===========================================
         ydata = y(idx, :, :);
         %===========================================
@@ -1484,7 +1742,6 @@ end
         xdata = ones(T,nx);
         if timetrend ==1
             xdata = [xdata [1-lags:T-lags]'];
-            % xdata = [xdata [1:T]'];
         end
         if nexogenous >0
             xdata = [xdata exogenous(idx,:)];
@@ -1495,6 +1752,9 @@ end
         end
 
 
+        % EXOGENOUS BLOCK: y-block regression -> append the z lags. When called
+        % for the z-block, the flag is temporarily 0 so z is regressed on its own
+        % lags and the constant only.
         if exogenous_block == 1
             xdata = [xdata,  [nan(lags,lags*nz); XX2(:,1:lags*nz)]];
         end
@@ -1516,8 +1776,17 @@ end
             var = fast_ols_(var.y,var.X);
         end
         Tu = size(var.u, 1);
-                
-        if dummy == 1
+
+        if dummy == 0
+            %********************************************************
+            % Flat Jeffrey Prior
+            %********************************************************
+            posterior.df    = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
+            posterior.S     = var.u' * var.u;
+            posterior.XXi   = var.xxi;
+            posterior.PhiHat = var.B;
+
+        elseif dummy == 1
             %********************************************************
             % Minnesota Prior
             % prior.df/S/XXi/PhiHat are computed once before the MCMC
@@ -1530,7 +1799,7 @@ end
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
-            
+
         elseif dummy == 2
             %********************************************************
             % Conjugate Prior
@@ -1543,30 +1812,11 @@ end
             %posterior.S     = var.u' * var.u + prior.Sigma.scale  + (var.B - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
             %posterior.S     = var.u' * var.u + prior.Sigma.scale  + ...
             %    (posterior.PhiHat - prior.Phi.mean)' * Ai * (var.B - prior.Phi.mean);
-            % check 
+            % check
             posterior.S = var.u' * var.u + prior.Sigma.scale + ...
                 prior.Phi.mean' * Ai * prior.Phi.mean + ...
                 var.B' * (var.X'*var.X) * var.B ...
                 - posterior.PhiHat' * (var.X'*var.X + Ai) * posterior.PhiHat;
-            
-        elseif dummy == 0
-            %********************************************************
-            % Flat Jeffrey Prior
-            %********************************************************
-            posterior.df    = Tu - ny*lags - nx + flat*(ny+1) - nexogenous;
-            posterior.S     = var.u' * var.u;
-            posterior.XXi   = var.xxi;
-            posterior.PhiHat = var.B;
-        
-
-        elseif dummy == 4
-            %********************************************************
-            % Pandemic Minnesota Prior
-            %********************************************************
-            posterior.df     = Tu - ny*lags - nx - flat*(ny+1) - pandemic_h;
-            posterior.S      = var.u' * var.u;
-            posterior.XXi    = var.xxi;
-            posterior.PhiHat = var.B;
 
         elseif dummy == 3
             %********************************************************
@@ -1581,6 +1831,16 @@ end
             posterior.S     = var.u' * var.u;
             posterior.XXi   = var.xxi;
             posterior.PhiHat = var.B;
+
+        elseif dummy == 4
+            %********************************************************
+            % Pandemic Minnesota Prior
+            %********************************************************
+            posterior.df     = Tu - ny*lags - nx - flat*(ny+1) - pandemic_h;
+            posterior.S      = var.u' * var.u;
+            posterior.XXi    = var.xxi;
+            posterior.PhiHat = var.B;
+
         end
          
     end
@@ -1588,4 +1848,51 @@ end
 %********************************************************
 %********************************************************
 
+%%gda
+    function scn_update_posterior_(scn_hist,scn_path)
+        % Step 3 of Algorithm 1: condition the next draw of (Sigma,Phi), i.e. Step 1, on the
+        % scenario path. The posterior is recomputed on [history; path] with the existing
+        % posterior_ (prior dummies included) and the factors used by the draw loop are
+        % refreshed. posterior_ is nested and overwrites idx-dependent variables: save and
+        % restore them.
+        scn_idx = idx;  scn_T = T;  scn_ydata = ydata;  scn_xdata = xdata;
+        idx       = [idx, size(y,1) + (1:size(scn_path,1))];
+        scn_post  = posterior_([scn_hist; scn_path]);
+        if robust_bayes_ > 0
+            % ydata, xdata and T now hold [history; path]
+            scn_update_robust_(nobs + size(scn_path,1));
+        end
+        idx = scn_idx;  T = scn_T;  ydata = scn_ydata;  xdata = scn_xdata;
+        posterior         = scn_post;
+        S_inv_upper_chol  = chol(inv(posterior.S));
+        XXi_lower_chol    = chol(posterior.XXi)';
+    end
+
+    function scn_update_robust_(scn_n)
+        % robust_bayes_ > 0: Sigma is drawn from a normal built on the robust moments, so they are
+        % recomputed on the sample extended with the path (scn_n observations), like the posterior.
+        % Same formulas as the robust block of [5], on the OLS residuals without dummy observations.
+        % Dpl, Dplus and I_ny come from that block. Kstar_ is not overwritten (stored output).
+        if heterosked == 0
+            scn_rb_ols = rfvar3(ydata, lags, xdata, [T; T], 0, 0);
+        else
+            scn_rb_ols = rfvar3(ydata, lags, xdata, [T; T], 0, 0, ww);
+        end
+        scn_rb_Sig  = 1/scn_n * scn_rb_ols.u' * scn_rb_ols.u;
+        vech_Sig_   = vech(scn_rb_Sig);
+        scn_rb_chol = chol(scn_rb_Sig,'lower');
+        scn_rb_K    = scn_n/(scn_n+K_shrinkage) * (fourthmom(scn_rb_ols.u * inv(scn_rb_chol)') - I_ny * I_ny') + ...
+            K_shrinkage/(scn_n+K_shrinkage) * Dplus * (eye(ny^2) + commutationmatrix(ny)) * Dplus';
+        scn_rb_L    = Dplus * kron(scn_rb_chol,scn_rb_chol) * Dpl;
+        scn_rb_cov  = 1/scn_n * scn_rb_L * scn_rb_K * scn_rb_L';
+        vech_Sig_cov_lower_chol = chol(scn_rb_cov,'lower');
+        if robust_bayes_ > 1
+            ivech_Sig_cov_ = pinv(scn_rb_cov);
+            Sstar_         = scn_n/(scn_n+K_shrinkage) * thirdmom(scn_rb_ols.u);
+            mu_cov_chol    = chol(scn_rb_Sig - 1/scn_n * Sstar_ * ivech_Sig_cov_ * Sstar_','lower');
+        end
+    end
+%%gda
+
+% end of bvar_ (posterior_ above is nested in it)
 end

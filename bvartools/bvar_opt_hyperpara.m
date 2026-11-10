@@ -20,15 +20,46 @@ function minus_log_dnsty = bvar_opt_hyperpara(hyperpara,y,lags,options)
 
 %   Filippo Ferroni, 6/1/2017.
 
+
+HYPERPARA_LB = 1e-5;
+HYPERPARA_UB = 1e4;
+
+
+
 if nargin <4
     hyperpara = exp(hyperpara);
+
+
+    if any(~isfinite(hyperpara)) || any(~isreal(hyperpara)) || ...
+            any(hyperpara < HYPERPARA_LB) || any(hyperpara > HYPERPARA_UB)
+        minus_log_dnsty = 1e10;
+        return
+    end
+
     log_dnsty = bvar_ml(hyperpara,y,lags);
 else
     hyperpara(options.index_est)   = exp(hyperpara);
     if isempty(options.index_fixed) == 0
         hyperpara(options.index_fixed) = exp(options.hyperpara_fidex);
     end
-    log_dnsty                      = bvar_ml(hyperpara,y,lags,options);
+
+
+    if any(~isfinite(hyperpara)) || any(~isreal(hyperpara)) || ...
+            any(hyperpara < HYPERPARA_LB) || any(hyperpara > HYPERPARA_UB)
+        minus_log_dnsty = 1e10;
+        return
+    end
+
+
+
+    if isfield(options,'pandemic_priors') == 1 
+        log_dnsty = bvar_ml_pandemic(hyperpara,y,lags,options,options.pandemic_priors) ;
+    else
+        log_dnsty                      = bvar_ml(hyperpara,y,lags,options);
+    end
+
+
+
 end
 
 minus_log_dnsty = -log_dnsty;
