@@ -581,10 +581,13 @@ if robust_bayes_ > 0
     
     if robust_bayes_ > 1 
         % Skewness
-        ivech_Sig_cov_ = pinv(vech_Sig_cov_);
+        % With S = Cov(sqrt(T)mu, sqrt(T)vech(Sig)) and V = Var(sqrt(T)vech(Sig)):
+        %   mu | lags, Sigma ~ N( m(lags) + S*inv(V)*(vech(Sigma)-vech(Sig_)), (Sig_ - S*inv(V)*S')/T )
+        ivech_Sig_cov_ = pinv(vech_Sig_cov_);                          % = T*inv(V)
         Sstar_         = nobs /(nobs+K_shrinkage) * thirdmom(varols.u);
-        mu_cov_        = 1/nobs * Sstar_ * ivech_Sig_cov_ * Sstar_';
-        mu_cov_chol    = chol(Sig_ - mu_cov_,'lower');
+        mu_reg_        = 1/nobs * Sstar_ * ivech_Sig_cov_;             % = S*inv(V)
+        mu_cov_        = mu_reg_ * Sstar_';                            % = S*inv(V)*S'
+        mu_cov_chol    = chol((Sig_ - mu_cov_)/nobs,'lower');
     end
 end
 
@@ -964,10 +967,15 @@ for  d =  1 : K
         % With skewness, the intercept is redrawn from its asymptotic
         % distribution conditional on Sigma (Petrova 2022, Guide App. A.8).
         if robust_bayes_ > 1 % robust to kurtosis and skewness
-            mu_rob           = posterior.PhiHat(ny*lags+1,:) + (Sstar_* ivech_Sig_cov_ * (Sig2  - vech_Sig_))';
-            % as if assuming no lags (only costant) (X'X) = T
-            % mu_cov_chol      = chol(Sigma - mu_cov_,'lower');            
-            Phi(ny*lags+1,:) = mu_rob + (mu_cov_chol*randn(ny, 1))';
+            % centre the intercept on its mean conditional on the drawn lag (and
+            % other) coefficients, using the precision of the matrix-normal
+            % actually drawn from, so that it stays consistent with the drawn lags
+            ic_  = ny*lags+1;                              % row of the constant
+            P_   = inv(XXi_lower_chol * XXi_lower_chol');
+            io_  = [1:ic_-1, ic_+1:size(P_,1)];
+            m_c  = posterior.PhiHat(ic_,:) - (P_(ic_,io_)/P_(ic_,ic_)) * (Phi(io_,:) - posterior.PhiHat(io_,:));
+            mu_rob       = m_c + (mu_reg_ * (Sig2 - vech_Sig_))';
+            Phi(ic_,:)   = mu_rob + (mu_cov_chol*randn(ny, 1))';
         end
         
         % Step 3: stability check (only if non_explosive_ = 1). The companion
@@ -1889,7 +1897,9 @@ end
         if robust_bayes_ > 1
             ivech_Sig_cov_ = pinv(scn_rb_cov);
             Sstar_         = scn_n/(scn_n+K_shrinkage) * thirdmom(scn_rb_ols.u);
-            mu_cov_chol    = chol(scn_rb_Sig - 1/scn_n * Sstar_ * ivech_Sig_cov_ * Sstar_','lower');
+            mu_reg_        = 1/scn_n * Sstar_ * ivech_Sig_cov_;
+            mu_cov_        = mu_reg_ * Sstar_';
+            mu_cov_chol    = chol((scn_rb_Sig - mu_cov_)/scn_n,'lower');
         end
     end
 %%gda
