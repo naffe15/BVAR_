@@ -1,4 +1,5 @@
-# Empirical Macro Toolbox (EMT)
+# Empirical Macro Toolbox (EMT) 
+[![DOI](https://zenodo.org/badge/254733337.svg)](https://doi.org/10.5281/zenodo.24189877)
 
 by F. Ferroni and F. Canova
 
