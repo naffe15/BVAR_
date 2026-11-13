@@ -1,4 +1,4 @@
-cff-version: 1.2.0
+cff-version: 1.1.0
 message: "If you use this software, please cite it as below."
 title: "Empirical Macro Toolbox (EMT)"
 abstract: "A free, open-source, end-to-end empirical macro toolkit for Bayesian VAR models, local projections, panel VARs, FAVARs, factor models, and trend-cycle decomposition, written in MATLAB and compatible with GNU Octave."
